@@ -1,0 +1,2 @@
+Bu dosya placeholder - gerçek mp3 dosyası eklenebilir.
+Şimdilik ses çalmayacak ama sistem çalışacak.

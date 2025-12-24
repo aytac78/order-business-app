@@ -339,3 +339,32 @@ export const broadcastSync = (event: SyncEvent) => {
 export const closeSyncChannel = () => {
   if (syncChannel) { syncChannel.close(); syncChannel = null; }
 };
+
+// ============ WAITER CALL STORE ============
+
+interface WaiterCall {
+  id: string;
+  tableId: string;
+  tableNumber: string;
+  type: 'call' | 'bill' | 'complaint';
+  status: 'pending' | 'acknowledged';
+  createdAt: string;
+}
+
+interface WaiterCallState {
+  calls: WaiterCall[];
+  addCall: (call: WaiterCall) => void;
+  acknowledgeCall: (id: string) => void;
+  removeCall: (id: string) => void;
+  clearAll: () => void;
+}
+
+export const useWaiterCallStore = create<WaiterCallState>((set) => ({
+  calls: [],
+  addCall: (call) => set((state) => ({ calls: [...state.calls, call] })),
+  acknowledgeCall: (id) => set((state) => ({
+    calls: state.calls.map(c => c.id === id ? { ...c, status: 'acknowledged' } : c)
+  })),
+  removeCall: (id) => set((state) => ({ calls: state.calls.filter(c => c.id !== id) })),
+  clearAll: () => set({ calls: [] }),
+}));

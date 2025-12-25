@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { VenueSelector } from '@/components/venue/VenueSelector';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { useAuthStore } from '@/stores';
 import { Search, HelpCircle, LogOut, User } from 'lucide-react';
 
 export function Header() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const { currentStaff, logout } = useAuthStore();
 
@@ -15,7 +17,13 @@ export function Header() {
     manager: 'Müdür', 
     cashier: 'Kasiyer', 
     waiter: 'Garson', 
-    kitchen: 'Mutfak' 
+    kitchen: 'Mutfak',
+    reception: 'Resepsiyon'
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
   };
 
   return (
@@ -69,7 +77,7 @@ export function Header() {
               {currentStaff.name.charAt(0)}
             </button>
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="p-2 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-600 transition-colors"
               title="Çıkış Yap"
             >

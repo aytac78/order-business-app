@@ -2,148 +2,266 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore, StaffMember, StaffRole, roleConfig } from '@/stores/authStore';
+import { fetchStaffMembers, verifyPin, getRolePermissions, updateLastLogin } from '@/lib/services/auth';
 import { 
-  ChefHat, CreditCard, Calendar, Shield,
-  UtensilsCrossed, Delete, ArrowLeft, Loader2
+  Lock, LogIn, X, Delete, ArrowLeft, Clock, Users, 
+  ChefHat, UtensilsCrossed, CreditCard, ClipboardList, Crown, Briefcase
 } from 'lucide-react';
-
-interface RoleConfig {
-  id: string;
-  name: string;
-  icon: React.ElementType;
-  bgColor: string;
-  route: string;
-  description: string;
-  pins: string[];
-}
-
-const roles: RoleConfig[] = [
-  { id: 'admin', name: 'Yönetici', icon: Shield, bgColor: 'from-purple-500 to-indigo-600', route: '/admin', description: 'Tüm yönetim paneli', pins: ['1234', '0000'] },
-  { id: 'kitchen', name: 'Mutfak', icon: ChefHat, bgColor: 'from-orange-500 to-red-600', route: '/kitchen', description: 'Sipariş hazırlama', pins: ['1111', '2222'] },
-  { id: 'waiter', name: 'Garson', icon: UtensilsCrossed, bgColor: 'from-blue-500 to-cyan-600', route: '/waiter', description: 'Masa ve sipariş takibi', pins: ['3333', '4444'] },
-  { id: 'pos', name: 'Kasa', icon: CreditCard, bgColor: 'from-emerald-500 to-teal-600', route: '/pos', description: 'Ödeme işlemleri', pins: ['5555', '6666'] },
-  { id: 'reception', name: 'Resepsiyon', icon: Calendar, bgColor: 'from-pink-500 to-rose-600', route: '/reception', description: 'Rezervasyon yönetimi', pins: ['7777', '8888'] },
-];
 
 export default function LoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState<'role' | 'pin'>('role');
-  const [selectedRole, setSelectedRole] = useState<RoleConfig | null>(null);
+  const { login, isAuthenticated, currentStaff } = useAuthStore();
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    if (pin.length === 4 && selectedRole && !loading) {
-      setLoading(true);
+    // Zaten giriş yapılmışsa yönlendir
+    if (isAuthenticated && currentStaff) {
+      const config = roleConfig[currentStaff.role];
+      router.push(config.defaultRoute);
+      return;
+    }
+    
+    loadStaff();
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [isAuthenticated, currentStaff, router]);
+
+  const loadStaff = async () => {
+    try {
+      const data = await fetchStaffMembers();
+      setStaff(data);
+    } catch (error) {
+      console.error('Error loading staff:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePinInput = (digit: string) => {
+    if (pin.length < 4) {
+      const newPin = pin + digit;
+      setPin(newPin);
       setError('');
       
-      setTimeout(() => {
-        if (selectedRole.pins.includes(pin)) {
-          router.push(selectedRole.route);
-        } else {
-          setError('Yanlış PIN kodu');
-          setPin('');
-          setLoading(false);
-        }
-      }, 300);
-    }
-  }, [pin, selectedRole, loading, router]);
-
-  const handleNumber = (num: string) => {
-    if (pin.length < 4 && !loading) {
-      setPin(prev => prev + num);
+      // 4 haneli PIN tamamlandığında otomatik doğrula
+      if (newPin.length === 4) {
+        verifyAndLogin(newPin);
+      }
     }
   };
 
-  const handleDelete = () => {
-    if (!loading) {
-      setPin(prev => prev.slice(0, -1));
-      setError('');
-    }
-  };
-
-  const handleRoleSelect = (role: RoleConfig) => {
-    setSelectedRole(role);
-    setStep('pin');
-    setPin('');
+  const handleBackspace = () => {
+    setPin(pin.slice(0, -1));
     setError('');
   };
 
-  const handleBack = () => {
-    setStep('role');
-    setSelectedRole(null);
-    setPin('');
+  const verifyAndLogin = async (pinCode: string) => {
+    if (!selectedStaff) return;
+    
+    setIsVerifying(true);
     setError('');
-    setLoading(false);
+    
+    try {
+      const isValid = await verifyPin(selectedStaff.id, pinCode);
+      
+      if (isValid) {
+        const routes = await getRolePermissions(selectedStaff.role);
+        await updateLastLogin(selectedStaff.id);
+        
+        login(selectedStaff, routes);
+        
+        // Role göre yönlendir
+        const config = roleConfig[selectedStaff.role];
+        router.push(config.defaultRoute);
+      } else {
+        setError('Yanlış PIN kodu');
+        setPin('');
+      }
+    } catch (error) {
+      setError('Bir hata oluştu');
+      setPin('');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
-  if (step === 'role') {
+  const getRoleIcon = (role: StaffRole) => {
+    switch (role) {
+      case 'owner': return <Crown className="w-8 h-8" />;
+      case 'manager': return <Briefcase className="w-8 h-8" />;
+      case 'cashier': return <CreditCard className="w-8 h-8" />;
+      case 'waiter': return <UtensilsCrossed className="w-8 h-8" />;
+      case 'kitchen': return <ChefHat className="w-8 h-8" />;
+      case 'reception': return <ClipboardList className="w-8 h-8" />;
+      default: return <Users className="w-8 h-8" />;
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-        <div className="w-full max-w-2xl mx-auto">
-          <div className="text-center mb-12">
-            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6">
-              <UtensilsCrossed className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-white mb-2">ORDER Business</h1>
-            <p className="text-zinc-400">Giriş yapmak için rolünüzü seçin</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {roles.map((role) => {
-              const Icon = role.icon;
-              return (
-                <button key={role.id} onClick={() => handleRoleSelect(role)} className="group p-6 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-zinc-600 rounded-2xl transition-all">
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${role.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                    <Icon className="w-7 h-7 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-1">{role.name}</h3>
-                  <p className="text-xs text-zinc-500">{role.description}</p>
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-12 text-center">
-            <p className="text-zinc-600 text-sm">Demo Restaurant • ORDER Business v1.0</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Yükleniyor...</div>
       </div>
     );
   }
 
-  const Icon = selectedRole?.icon || Shield;
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm mx-auto">
-        <button onClick={handleBack} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-8 transition-colors">
-          <ArrowLeft className="w-5 h-5" /><span>Geri</span>
-        </button>
-        <div className="text-center mb-8">
-          <div className={`w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br ${selectedRole?.bgColor} flex items-center justify-center mb-4`}>
-            <Icon className="w-10 h-10 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col">
+      {/* Header */}
+      <header className="p-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center">
+            <span className="text-white font-bold text-xl">O</span>
           </div>
-          <h2 className="text-2xl font-bold text-white">{selectedRole?.name}</h2>
-          <p className="text-zinc-400 text-sm mt-1">{selectedRole?.description}</p>
+          <div>
+            <h1 className="text-white text-xl font-bold">ORDER Business</h1>
+            <p className="text-gray-400 text-sm">Personel Girişi</p>
+          </div>
         </div>
-        <div className="flex justify-center gap-4 mb-8">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center transition-all ${pin.length > i ? 'border-blue-500 bg-blue-500/20' : 'border-zinc-700 bg-zinc-800/50'}`}>
-              {pin.length > i && <div className="w-4 h-4 rounded-full bg-blue-500" />}
+        <div className="text-right">
+          <p className="text-white text-2xl font-bold">{currentTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
+          <p className="text-gray-400 text-sm">{currentTime.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center p-6">
+        {!selectedStaff ? (
+          // Staff Selection
+          <div className="w-full max-w-4xl">
+            <h2 className="text-white text-2xl font-bold text-center mb-8">Personel Seçin</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {staff.map((member) => {
+                const config = roleConfig[member.role];
+                return (
+                  <button
+                    key={member.id}
+                    onClick={() => setSelectedStaff(member)}
+                    className="bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700 hover:border-gray-600 rounded-2xl p-6 transition-all duration-200 hover:scale-105 hover:shadow-xl group"
+                  >
+                    <div className={`w-16 h-16 ${config.bgColor} rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
+                      <span className={config.color}>
+                        {getRoleIcon(member.role)}
+                      </span>
+                    </div>
+                    <h3 className="text-white font-bold text-lg text-center mb-1">{member.name}</h3>
+                    <p className={`text-center text-sm ${config.color}`}>{config.label}</p>
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
-        {error && <div className="text-center text-red-400 text-sm mb-4">{error}</div>}
-        {loading && <div className="flex justify-center mb-4"><Loader2 className="w-6 h-6 text-blue-500 animate-spin" /></div>}
-        <div className="grid grid-cols-3 gap-3">
-          {['1','2','3','4','5','6','7','8','9','','0','del'].map((key, idx) => (
-            <button key={idx} onClick={() => key === 'del' ? handleDelete() : key && handleNumber(key)} disabled={!key || loading}
-              className={`h-16 rounded-xl text-2xl font-bold transition-all ${!key ? 'invisible' : key === 'del' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400' : 'bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white'}`}>
-              {key === 'del' ? <Delete className="w-6 h-6 mx-auto" /> : key}
+            
+            {staff.length === 0 && (
+              <div className="text-center text-gray-400 py-12">
+                <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p>Henüz personel eklenmemiş</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          // PIN Entry
+          <div className="w-full max-w-sm">
+            <button
+              onClick={() => { setSelectedStaff(null); setPin(''); setError(''); }}
+              className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Geri
             </button>
-          ))}
-        </div>
-        <p className="text-center text-zinc-600 text-xs mt-6">Demo PIN: {selectedRole?.pins[0]}</p>
-      </div>
+
+            <div className="bg-gray-800/50 border border-gray-700 rounded-3xl p-8">
+              {/* Selected Staff */}
+              <div className="text-center mb-8">
+                <div className={`w-20 h-20 ${roleConfig[selectedStaff.role].bgColor} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+                  <span className={roleConfig[selectedStaff.role].color}>
+                    {getRoleIcon(selectedStaff.role)}
+                  </span>
+                </div>
+                <h3 className="text-white font-bold text-xl">{selectedStaff.name}</h3>
+                <p className={`text-sm ${roleConfig[selectedStaff.role].color}`}>
+                  {roleConfig[selectedStaff.role].label}
+                </p>
+              </div>
+
+              {/* PIN Display */}
+              <div className="flex justify-center gap-3 mb-6">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center transition-all ${
+                      pin.length > i
+                        ? 'border-orange-500 bg-orange-500/20'
+                        : 'border-gray-600 bg-gray-700/50'
+                    }`}
+                  >
+                    {pin.length > i && (
+                      <div className="w-4 h-4 bg-orange-500 rounded-full" />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <p className="text-red-500 text-center text-sm mb-4">{error}</p>
+              )}
+
+              {/* PIN Pad */}
+              <div className="grid grid-cols-3 gap-3">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      if (key === 'del') handleBackspace();
+                      else if (key) handlePinInput(key);
+                    }}
+                    disabled={isVerifying || key === ''}
+                    className={`h-16 rounded-xl font-bold text-xl transition-all ${
+                      key === ''
+                        ? 'invisible'
+                        : key === 'del'
+                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                        : 'bg-gray-700 text-white hover:bg-gray-600 active:scale-95'
+                    } disabled:opacity-50`}
+                  >
+                    {key === 'del' ? <Delete className="w-6 h-6 mx-auto" /> : key}
+                  </button>
+                ))}
+              </div>
+
+              {/* Loading */}
+              {isVerifying && (
+                <div className="mt-6 text-center text-gray-400">
+                  <div className="animate-spin w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full mx-auto mb-2" />
+                  Doğrulanıyor...
+                </div>
+              )}
+            </div>
+
+            {/* Hint */}
+            <p className="text-center text-gray-500 text-sm mt-6">
+              Demo PIN: {selectedStaff.role === 'owner' ? '1234' : 
+                        selectedStaff.role === 'kitchen' ? '1111' :
+                        selectedStaff.role === 'waiter' ? '2222' :
+                        selectedStaff.role === 'cashier' ? '3333' :
+                        selectedStaff.role === 'reception' ? '4444' : '5555'}
+            </p>
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="p-6 text-center text-gray-500 text-sm">
+        © 2025 ORDER Business • TiT Ecosystem
+      </footer>
     </div>
   );
 }

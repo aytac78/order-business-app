@@ -12,7 +12,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isAuthenticated, currentStaff } = useAuthStore();
+  const { login, logout, isAuthenticated, currentStaff } = useAuthStore();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
   const [pin, setPin] = useState('');
@@ -20,19 +20,16 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Zaten giriş yapılmışsa yönlendir
-    if (isAuthenticated && currentStaff) {
-      const config = roleConfig[currentStaff.role];
-      router.push(config.defaultRoute);
-      return;
-    }
-    
+    setMounted(true);
+    // Sayfa yüklendiğinde logout yap - her zaman login ekranı göster
+    logout();
     loadStaff();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
-  }, [isAuthenticated, currentStaff, router]);
+  }, []);
 
   const loadStaff = async () => {
     try {
@@ -51,7 +48,6 @@ export default function LoginPage() {
       setPin(newPin);
       setError('');
       
-      // 4 haneli PIN tamamlandığında otomatik doğrula
       if (newPin.length === 4) {
         verifyAndLogin(newPin);
       }
@@ -78,7 +74,6 @@ export default function LoginPage() {
         
         login(selectedStaff, routes);
         
-        // Role göre yönlendir
         const config = roleConfig[selectedStaff.role];
         router.push(config.defaultRoute);
       } else {
@@ -105,7 +100,7 @@ export default function LoginPage() {
     }
   };
 
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Yükleniyor...</div>
@@ -135,7 +130,6 @@ export default function LoginPage() {
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-6">
         {!selectedStaff ? (
-          // Staff Selection
           <div className="w-full max-w-4xl">
             <h2 className="text-white text-2xl font-bold text-center mb-8">Personel Seçin</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -167,7 +161,6 @@ export default function LoginPage() {
             )}
           </div>
         ) : (
-          // PIN Entry
           <div className="w-full max-w-sm">
             <button
               onClick={() => { setSelectedStaff(null); setPin(''); setError(''); }}
@@ -178,7 +171,6 @@ export default function LoginPage() {
             </button>
 
             <div className="bg-gray-800/50 border border-gray-700 rounded-3xl p-8">
-              {/* Selected Staff */}
               <div className="text-center mb-8">
                 <div className={`w-20 h-20 ${roleConfig[selectedStaff.role].bgColor} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
                   <span className={roleConfig[selectedStaff.role].color}>
@@ -191,7 +183,6 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              {/* PIN Display */}
               <div className="flex justify-center gap-3 mb-6">
                 {[0, 1, 2, 3].map((i) => (
                   <div
@@ -209,12 +200,10 @@ export default function LoginPage() {
                 ))}
               </div>
 
-              {/* Error Message */}
               {error && (
                 <p className="text-red-500 text-center text-sm mb-4">{error}</p>
               )}
 
-              {/* PIN Pad */}
               <div className="grid grid-cols-3 gap-3">
                 {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key, i) => (
                   <button
@@ -237,7 +226,6 @@ export default function LoginPage() {
                 ))}
               </div>
 
-              {/* Loading */}
               {isVerifying && (
                 <div className="mt-6 text-center text-gray-400">
                   <div className="animate-spin w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full mx-auto mb-2" />
@@ -246,7 +234,6 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Hint */}
             <p className="text-center text-gray-500 text-sm mt-6">
               Demo PIN: {selectedStaff.role === 'owner' ? '1234' : 
                         selectedStaff.role === 'kitchen' ? '1111' :
@@ -258,7 +245,6 @@ export default function LoginPage() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="p-6 text-center text-gray-500 text-sm">
         © 2025 ORDER Business • TiT Ecosystem
       </footer>

@@ -1,9 +1,9 @@
 // =============================================
 // ORDER BUSINESS - TYPE DEFINITIONS
-// Multi-Venue Support + Real-time Sync
+// Multi-Venue Support Enabled
 // =============================================
 
-// Venue Types
+// Venue (Mekan) Types
 export interface Venue {
   id: string;
   name: string;
@@ -94,6 +94,29 @@ export type Permission =
   | 'manage_coupons';
 
 // Table Management
+// Oturma Birimi Tipleri (Venue tipine göre değişir)
+export type SeatingType = 
+  | "table"      // Masa (restaurant, cafe, bar)
+  | "sunbed"     // Şezlong - tek kişilik
+  | "daybed"     // Daybed - 2 kişilik
+  | "vip_daybed" // VIP Daybed - 4-6 kişilik
+  | "cabana"     // Loca/Cabana - 6-10 kişilik özel alan
+  | "gazebo"     // Gazebo - yarı açık loca
+  | "booth"      // Bar/Nightclub booth
+  | "vip_table"; // VIP Masa
+
+export type SeatingShape = "square" | "round" | "rectangle" | "lounger" | "circular_bed" | "L_shaped";
+
+// Beach Club için ek özellikler
+export interface BeachFeatures {
+  row?: number;           // Sıra numarası (1=denize en yakın)
+  hasUmbrella?: boolean;  // Şemsiye var mı
+  hasCurtain?: boolean;   // Perde var mı (loca için)
+  minSpend?: number;      // Minimum harcama (loca için)
+  deposit?: number;       // Depozito tutarı
+  isBeachfront?: boolean; // Deniz kenarı mı
+}
+
 export interface Table {
   id: string;
   venue_id: string;
@@ -105,7 +128,9 @@ export interface Table {
   current_order_id?: string;
   position_x?: number;
   position_y?: number;
-  shape: 'square' | 'round' | 'rectangle';
+  shape: SeatingShape;
+  seating_type?: SeatingType;  // Oturma birimi tipi
+  beach_features?: BeachFeatures; // Beach club özellikleri
   is_active: boolean;
 }
 
@@ -116,7 +141,6 @@ export interface Category {
   id: string;
   venue_id: string;
   name: string;
-  name_en?: string;
   description?: string;
   image_url?: string;
   sort_order: number;
@@ -128,7 +152,6 @@ export interface Product {
   venue_id: string;
   category_id: string;
   name: string;
-  name_en?: string;
   description?: string;
   price: number;
   image_url?: string;
@@ -158,9 +181,7 @@ export interface Order {
   id: string;
   venue_id: string;
   table_id?: string;
-  table_number?: string;
   customer_id?: string;
-  customer_name?: string;
   order_number: string;
   type: OrderType;
   status: OrderStatus;
@@ -169,14 +190,11 @@ export interface Order {
   tax: number;
   service_charge: number;
   discount: number;
-  discount_type?: 'percent' | 'amount';
   total: number;
   payment_status: PaymentStatus;
   payment_method?: PaymentMethod;
   notes?: string;
   waiter_id?: string;
-  waiter_name?: string;
-  priority: 'normal' | 'rush';
   created_at: string;
   updated_at: string;
 }
@@ -184,7 +202,7 @@ export interface Order {
 export type OrderType = 'dine_in' | 'takeaway' | 'delivery' | 'qr_order';
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'refunded';
-export type PaymentMethod = 'cash' | 'card' | 'tit_pay' | 'multinet' | 'sodexo' | 'ticket' | 'mobile' | 'mixed';
+export type PaymentMethod = 'cash' | 'card' | 'tit_pay' | 'mixed';
 
 export interface OrderItem {
   id: string;
@@ -206,19 +224,6 @@ export interface SelectedOption {
   price_modifier: number;
 }
 
-// Waiter Calls
-export interface WaiterCall {
-  id: string;
-  venue_id: string;
-  table_id: string;
-  table_number: string;
-  type: 'call' | 'bill' | 'help';
-  status: 'pending' | 'acknowledged' | 'completed';
-  created_at: string;
-  acknowledged_at?: string;
-  completed_at?: string;
-}
-
 // Reservations
 export interface Reservation {
   id: string;
@@ -236,25 +241,10 @@ export interface Reservation {
   deposit_paid: boolean;
   notes?: string;
   special_requests?: string;
-  source: 'phone' | 'online' | 'walk_in' | 'app';
-  is_vip: boolean;
   created_at: string;
 }
 
 export type ReservationStatus = 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
-
-// Waitlist
-export interface WaitlistEntry {
-  id: string;
-  venue_id: string;
-  customer_name: string;
-  customer_phone: string;
-  party_size: number;
-  estimated_wait: number;
-  notes?: string;
-  status: 'waiting' | 'notified' | 'seated' | 'cancelled';
-  created_at: string;
-}
 
 // Stock Management
 export interface StockItem {
@@ -293,7 +283,6 @@ export interface Staff {
   hourly_rate?: number;
   is_active: boolean;
   pin_code?: string;
-  last_active?: string;
 }
 
 export interface Shift {
@@ -326,7 +315,6 @@ export interface Customer {
   tags?: string[];
   notes?: string;
   is_vip: boolean;
-  loyalty_points: number;
   created_at: string;
 }
 
@@ -388,10 +376,9 @@ export interface VenueAlert {
   id: string;
   venue_id: string;
   venue_name: string;
-  type: 'order' | 'reservation' | 'stock' | 'staff' | 'system' | 'waiter_call';
+  type: 'order' | 'reservation' | 'stock' | 'staff' | 'system';
   severity: 'info' | 'warning' | 'error';
   message: string;
-  data?: Record<string, any>;
   created_at: string;
   is_read: boolean;
 }
@@ -411,27 +398,8 @@ export interface Notification {
 export type NotificationType = 
   | 'new_order'
   | 'order_ready'
-  | 'order_updated'
   | 'new_reservation'
   | 'low_stock'
   | 'shift_reminder'
   | 'payment_received'
-  | 'waiter_call'
   | 'system';
-
-// Real-time Sync Events
-export type SyncEventType = 
-  | 'ORDER_CREATED'
-  | 'ORDER_UPDATED'
-  | 'ORDER_ITEM_STATUS_CHANGED'
-  | 'TABLE_STATUS_CHANGED'
-  | 'WAITER_CALL'
-  | 'RESERVATION_UPDATED'
-  | 'NOTIFICATION';
-
-export interface SyncEvent {
-  type: SyncEventType;
-  venue_id: string;
-  payload: any;
-  timestamp: string;
-}

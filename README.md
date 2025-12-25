@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ORDER Business - Birleştirilmiş Sürüm
 
-## Getting Started
+Restoran yönetim sistemi - Auth sistemi + Tüm yönetim modülleri + Tablet panelleri
 
-First, run the development server:
+## 🔐 Auth Sistemi
+
+### Demo Hesapları
+| Rol | Email | Şifre | PIN | Varsayılan Route |
+|-----|-------|-------|-----|-----------------|
+| Admin | admin@order.app | admin123 | 1234 | / (tüm erişim) |
+| Chef | chef@order.app | chef123 | 1111 | /kitchen |
+| Waiter | waiter@order.app | waiter123 | 2222 | /waiter |
+| Cashier | cashier@order.app | cashier123 | 3333 | /pos |
+| Host | host@order.app | host123 | 4444 | /reception |
+
+## 📱 Tablet Panelleri (Personel İçin)
+- `/kitchen` - Mutfak Paneli (Chef)
+- `/waiter` - Garson Paneli (Waiter)
+- `/pos` - Kasa Paneli (Cashier)
+- `/reception` - Resepsiyon Paneli (Host)
+
+## 🖥️ Yönetim Modülleri (Admin/Manager İçin)
+- `/dashboard` - Ana Dashboard
+- `/menu` - Menü Yönetimi
+- `/orders` - Sipariş Takibi
+- `/tables` - Masa Yönetimi
+- `/reservations` - Rezervasyonlar
+- `/staff` - Personel Yönetimi
+- `/stock` - Stok Yönetimi
+- `/analytics` - Analitik
+- `/reports` - Raporlar
+- `/crm` - Müşteri CRM
+- `/settings` - Ayarlar
+- ... ve 10+ daha fazla modül
+
+## 🌐 Çoklu Dil Desteği
+- Türkçe (TR)
+- English (EN)
+- Italiano (IT)
+- العربية (AR)
+- فارسی (FA)
+- Bahasa Indonesia (ID)
+
+## 🚀 Kurulum
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tarayıcıda aç: http://localhost:3001/login
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Proje Yapısı
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+order-business/
+├── app/
+│   ├── login/           # Giriş sayfası
+│   ├── page.tsx         # Ana sayfa (Dashboard redirect)
+│   ├── kitchen/         # Mutfak Tablet Paneli
+│   ├── waiter/          # Garson Tablet Paneli
+│   ├── pos/             # Kasa Tablet Paneli
+│   ├── reception/       # Resepsiyon Tablet Paneli
+│   ├── (dashboard)/     # Yönetim Modülleri (22 sayfa)
+│   └── api/             # API Routes
+├── components/
+│   ├── auth/            # Auth bileşenleri
+│   ├── layout/          # Layout bileşenleri
+│   ├── dashboard/       # Dashboard bileşenleri
+│   └── venue/           # Mekan bileşenleri
+├── lib/
+│   ├── auth/            # Auth sistemi
+│   ├── i18n/            # Çoklu dil
+│   └── services/        # Supabase servisleri
+├── stores/              # Zustand stores
+└── types/               # TypeScript types
+```
 
-## Learn More
+## 🔧 Teknolojiler
+- Next.js 14 + TypeScript
+- Tailwind CSS
+- Zustand (State Management)
+- Supabase (Backend)
+- Lucide React (Icons)
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📝 Notlar
+- Port: 3001
+- Mock auth - Production'da Supabase auth'a çevrilecek
+- Tablet panelleri touch-optimized
+- Tüm rotalar korumalı (ProtectedRoute)

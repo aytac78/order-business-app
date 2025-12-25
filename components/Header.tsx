@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useVenueStore, useNotificationStore, useUIStore } from '@/stores';
+import { useRouter } from 'next/navigation';
+import { useVenueStore, useNotificationStore, useUIStore, useAuthStore } from '@/stores';
 import { Bell, ChevronDown, Menu, Search, Building2, Check, LogOut, User, Settings } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,9 +14,11 @@ const demoVenues = [
 ];
 
 export function Header() {
+  const router = useRouter();
   const { currentVenue, setCurrentVenue, venues } = useVenueStore();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
   const { toggleSidebar, sidebarCollapsed } = useUIStore();
+  const { currentStaff, logout } = useAuthStore();
   
   const [showVenueDropdown, setShowVenueDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -28,6 +31,25 @@ export function Header() {
     setCurrentVenue(venue);
     setShowVenueDropdown(false);
   };
+
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
+    router.push('/');
+  };
+
+  const roleLabels: Record<string, string> = { 
+    owner: 'Yönetici', 
+    manager: 'Müdür', 
+    cashier: 'Kasiyer', 
+    waiter: 'Garson', 
+    kitchen: 'Mutfak',
+    reception: 'Resepsiyon'
+  };
+
+  const displayName = currentStaff?.name || 'Ahmet Yılmaz';
+  const displayRole = currentStaff ? (roleLabels[currentStaff.role] || currentStaff.role) : 'İşletme Sahibi';
+  const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <header className={`fixed top-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 z-40 transition-all ${sidebarCollapsed ? 'left-20' : 'left-64'}`}>
@@ -121,24 +143,26 @@ export function Header() {
         {/* User Menu */}
         <div className="relative">
           <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-xl">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold text-sm">AY</div>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold text-sm">
+              {initials}
+            </div>
             <ChevronDown className="w-4 h-4 text-gray-400" />
           </button>
           
           {showUserMenu && (
             <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
               <div className="p-3 border-b border-gray-100">
-                <p className="font-medium text-gray-900">Ahmet Yılmaz</p>
-                <p className="text-xs text-gray-500">İşletme Sahibi</p>
+                <p className="font-medium text-gray-900">{displayName}</p>
+                <p className="text-xs text-gray-500">{displayRole}</p>
               </div>
               <div className="p-2">
-                <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
+                <Link href="/settings" onClick={() => setShowUserMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
                   <User className="w-4 h-4" />Profilim
                 </Link>
-                <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
+                <Link href="/settings" onClick={() => setShowUserMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
                   <Settings className="w-4 h-4" />Ayarlar
                 </Link>
-                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">
+                <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">
                   <LogOut className="w-4 h-4" />Çıkış Yap
                 </button>
               </div>

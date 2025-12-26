@@ -1,486 +1,277 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore, roleConfig } from '@/stores/authStore';
 import {
-  Home, Search, Plus, Minus, ShoppingCart, X, Check, Send, Users,
-  UtensilsCrossed, Coffee, Truck, Clock, AlertCircle, Trash2, Bell,
-  ChevronLeft, StickyNote, CreditCard, RefreshCw
+  UtensilsCrossed, ShoppingCart, Package, Bike, RefreshCw,
+  Plus, Minus, Search, LogOut, X, Check
 } from 'lucide-react';
 
 interface Table {
   id: string;
   number: string;
-  section: string;
-  capacity: number;
-  status: 'available' | 'occupied' | 'reserved' | 'cleaning';
-  current_order_id?: string;
-}
-
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  description?: string;
-  image_url?: string;
-  is_available: boolean;
+  status: 'available' | 'occupied' | 'reserved';
+  guests?: number;
+  orderTotal?: number;
 }
 
 interface CartItem {
-  menuItem: MenuItem;
-  quantity: number;
-  notes?: string;
-}
-
-interface Category {
   id: string;
   name: string;
-  icon: string;
+  price: number;
+  quantity: number;
 }
 
-const VENUE_ID = process.env.NEXT_PUBLIC_DEFAULT_VENUE_ID || '';
+const demoTables: Table[] = [
+  { id: '1', number: '1', status: 'available' },
+  { id: '2', number: '2', status: 'occupied', guests: 4, orderTotal: 450 },
+  { id: '3', number: '3', status: 'available' },
+  { id: '4', number: '4', status: 'reserved' },
+  { id: '5', number: '5', status: 'occupied', guests: 2, orderTotal: 280 },
+  { id: '6', number: '6', status: 'available' },
+];
+
+const menuItems = [
+  { id: '1', name: 'Izgara Levrek', price: 320, category: 'Ana Yemek' },
+  { id: '2', name: 'Adana Kebap', price: 200, category: 'Ana Yemek' },
+  { id: '3', name: 'Caesar Salata', price: 120, category: 'Salata' },
+  { id: '4', name: 'Mercimek Çorbası', price: 65, category: 'Çorba' },
+  { id: '5', name: 'Künefe', price: 140, category: 'Tatlı' },
+  { id: '6', name: 'Ayran', price: 25, category: 'İçecek' },
+  { id: '7', name: 'Kola', price: 35, category: 'İçecek' },
+];
 
 export default function WaiterTabletPage() {
-  const [tables, setTables] = useState<Table[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const router = useRouter();
+  const { currentStaff, isAuthenticated, logout } = useAuthStore();
+  const [tables, setTables] = useState<Table[]>(demoTables);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showCart, setShowCart] = useState(false);
-  const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  const loadData = useCallback(async () => {
-    try {
-      const [tablesRes, menuRes, categoriesRes] = await Promise.all([
-        supabase.from('tables').select('*').eq('is_active', true).order('section').order('number'),
-        supabase.from('menu_items').select('*').eq('is_available', true).order('category').order('name'),
-        supabase.from('menu_categories').select('*').order('sort_order')
-      ]);
-
-      setTables(tablesRes.data || []);
-      setMenuItems(menuRes.data || []);
-      setCategories(categoriesRes.data || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const [activeTab, setActiveTab] = useState<'tables' | 'takeaway' | 'delivery'>('tables');
+  const [currentTime, setCurrentTime] = useState('');
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, [loadData]);
-
-  // Realtime
-  useEffect(() => {
-    const channel = supabase
-      .channel('waiter-updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, loadData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, loadData)
-      .subscribe();
-    return () => { channel.unsubscribe(); };
-  }, [loadData]);
-
-  const addToCart = (item: MenuItem) => {
-    const existing = cart.find(c => c.menuItem.id === item.id);
-    if (existing) {
-      setCart(cart.map(c => c.menuItem.id === item.id ? { ...c, quantity: c.quantity + 1 } : c));
-    } else {
-      setCart([...cart, { menuItem: item, quantity: 1 }]);
+    if (!isAuthenticated || !currentStaff) {
+      router.push('/');
+      return;
     }
-  };
-
-  const updateQuantity = (itemId: string, delta: number) => {
-    setCart(cart.map(c => {
-      if (c.menuItem.id === itemId) {
-        const newQty = c.quantity + delta;
-        return newQty > 0 ? { ...c, quantity: newQty } : c;
-      }
-      return c;
-    }).filter(c => c.quantity > 0));
-  };
-
-  const updateNotes = (itemId: string, notes: string) => {
-    setCart(cart.map(c => c.menuItem.id === itemId ? { ...c, notes } : c));
-  };
-
-  const removeFromCart = (itemId: string) => {
-    setCart(cart.filter(c => c.menuItem.id !== itemId));
-  };
-
-  const cartTotal = cart.reduce((sum, c) => sum + c.menuItem.price * c.quantity, 0);
-  const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
-
-  const sendOrder = async () => {
-    if (cart.length === 0) return;
-    if (orderType === 'dine_in' && !selectedTable) {
-      alert('Lütfen masa seçin');
+    
+    if (currentStaff.role !== 'waiter' && currentStaff.role !== 'owner' && currentStaff.role !== 'manager') {
+      const config = roleConfig[currentStaff.role];
+      router.push(config.defaultRoute);
       return;
     }
 
-    setIsSending(true);
-    try {
-      const orderNumber = `ORD-${Date.now().toString().slice(-6)}`;
-      const items = cart.map(c => ({
-        id: crypto.randomUUID(),
-        product_id: c.menuItem.id,
-        product_name: c.menuItem.name,
-        quantity: c.quantity,
-        unit_price: c.menuItem.price,
-        total_price: c.menuItem.price * c.quantity,
-        notes: c.notes,
-        status: 'pending'
-      }));
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('tr-TR'));
+    }, 1000);
+    setCurrentTime(new Date().toLocaleTimeString('tr-TR'));
+    
+    return () => clearInterval(timer);
+  }, [isAuthenticated, currentStaff, router]);
 
-      const { error } = await supabase.from('orders').insert({
-        venue_id: VENUE_ID,
-        table_id: selectedTable?.id,
-        order_number: orderNumber,
-        type: orderType,
-        status: 'pending',
-        items,
-        subtotal: cartTotal,
-        tax: cartTotal * 0.08,
-        service_charge: 0,
-        discount: 0,
-        total: cartTotal * 1.08,
-        payment_status: 'pending'
-      });
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
 
-      if (error) throw error;
-
-      // Update table status
-      if (selectedTable) {
-        await supabase.from('tables').update({ status: 'occupied' }).eq('id', selectedTable.id);
+  const addToCart = (item: typeof menuItems[0]) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.id === item.id);
+      if (existing) {
+        return prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
       }
-
-      setCart([]);
-      setShowCart(false);
-      setSelectedTable(null);
-      alert('Sipariş gönderildi! ' + orderNumber);
-      loadData();
-    } catch (error) {
-      console.error('Error sending order:', error);
-      alert('Sipariş gönderilemedi!');
-    } finally {
-      setIsSending(false);
-    }
+      return [...prev, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
+    });
   };
 
-  const filteredMenu = menuItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const sections = [...new Set(tables.map(t => t.section))];
-  const uniqueCategories = [...new Set(menuItems.map(m => m.category))];
-
-  const statusColors = {
-    available: 'bg-green-500',
-    occupied: 'bg-red-500',
-    reserved: 'bg-amber-500',
-    cleaning: 'bg-blue-500'
+  const removeFromCart = (itemId: string) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.id === itemId);
+      if (existing && existing.quantity > 1) {
+        return prev.map(c => c.id === itemId ? { ...c, quantity: c.quantity - 1 } : c);
+      }
+      return prev.filter(c => c.id !== itemId);
+    });
   };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  if (!currentStaff) return null;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      {/* Left: Tables or Menu */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl">
-              <Home className="w-5 h-5 text-gray-600" />
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                <UtensilsCrossed className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-bold text-gray-900">GARSON</h1>
-                <p className="text-sm text-gray-500">{currentTime.toLocaleTimeString('tr-TR')}</p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Header */}
+      <header className="bg-white px-6 py-4 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+            <UtensilsCrossed className="w-7 h-7 text-white" />
           </div>
-
-          {/* Order Type */}
-          <div className="flex bg-gray-100 rounded-xl p-1">
-            <button
-              onClick={() => setOrderType('dine_in')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${orderType === 'dine_in' ? 'bg-white shadow text-blue-600' : 'text-gray-600'}`}
-            >
-              <UtensilsCrossed className="w-4 h-4" /> Masa
-            </button>
-            <button
-              onClick={() => setOrderType('takeaway')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${orderType === 'takeaway' ? 'bg-white shadow text-purple-600' : 'text-gray-600'}`}
-            >
-              <Coffee className="w-4 h-4" /> Paket
-            </button>
-            <button
-              onClick={() => setOrderType('delivery')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${orderType === 'delivery' ? 'bg-white shadow text-green-600' : 'text-gray-600'}`}
-            >
-              <Truck className="w-4 h-4" /> Kurye
-            </button>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">GARSON</h1>
+            <p className="text-gray-500 text-sm">{currentTime}</p>
           </div>
+        </div>
 
-          <button onClick={loadData} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl">
-            <RefreshCw className={`w-5 h-5 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
+        {/* Tabs */}
+        <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+          <button
+            onClick={() => setActiveTab('tables')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'tables' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+            }`}
+          >
+            <UtensilsCrossed className="w-4 h-4" />
+            Masa
           </button>
-        </header>
+          <button
+            onClick={() => setActiveTab('takeaway')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'takeaway' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            Paket
+          </button>
+          <button
+            onClick={() => setActiveTab('delivery')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'delivery' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+            }`}
+          >
+            <Bike className="w-4 h-4" />
+            Kurye
+          </button>
+        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden flex">
-          {/* Table Selection (for dine_in) */}
-          {orderType === 'dine_in' && !selectedTable && (
-            <div className="flex-1 p-6 overflow-y-auto">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Masa Seç</h2>
-              {sections.map(section => (
-                <div key={section} className="mb-6">
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">{section}</h3>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
-                    {tables.filter(t => t.section === section).map(table => (
-                      <button
-                        key={table.id}
-                        onClick={() => table.status === 'available' && setSelectedTable(table)}
-                        disabled={table.status !== 'available'}
-                        className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all ${
-                          table.status === 'available' 
-                            ? 'bg-green-100 hover:bg-green-200 text-green-700 cursor-pointer' 
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        <span className="text-lg font-bold">{table.number}</span>
-                        <span className="text-xs">{table.capacity}K</span>
-                        <div className={`w-2 h-2 rounded-full mt-1 ${statusColors[table.status]}`} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="flex items-center gap-3">
+          <button className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200">
+            <RefreshCw className="w-5 h-5 text-gray-600" />
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl"
+          >
+            <LogOut className="w-5 h-5" />
+            Çıkış
+          </button>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="flex-1 flex">
+        {/* Left - Tables or Order Type */}
+        <div className="flex-1 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Masa Seç</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {tables.map(table => (
+              <button
+                key={table.id}
+                onClick={() => setSelectedTable(table)}
+                className={`p-4 rounded-xl border-2 transition ${
+                  selectedTable?.id === table.id 
+                    ? 'border-green-500 bg-green-50' 
+                    : table.status === 'available'
+                      ? 'border-gray-200 bg-white hover:border-green-300'
+                      : table.status === 'occupied'
+                        ? 'border-orange-300 bg-orange-50'
+                        : 'border-blue-300 bg-blue-50'
+                }`}
+              >
+                <p className="text-2xl font-bold text-gray-900">{table.number}</p>
+                <p className={`text-sm ${
+                  table.status === 'available' ? 'text-green-600' :
+                  table.status === 'occupied' ? 'text-orange-600' : 'text-blue-600'
+                }`}>
+                  {table.status === 'available' ? 'Boş' : 
+                   table.status === 'occupied' ? `${table.guests} kişi` : 'Rezerve'}
+                </p>
+                {table.orderTotal && (
+                  <p className="text-sm font-medium text-gray-900 mt-1">₺{table.orderTotal}</p>
+                )}
+              </button>
+            ))}
+          </div>
 
           {/* Menu */}
-          {(orderType !== 'dine_in' || selectedTable) && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Selected Table Info */}
-              {selectedTable && (
-                <div className="bg-blue-50 px-6 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center text-white font-bold">
-                      {selectedTable.number}
-                    </div>
-                    <div>
-                      <p className="font-medium text-blue-900">Masa {selectedTable.number}</p>
-                      <p className="text-sm text-blue-600">{selectedTable.section} • {selectedTable.capacity} Kişilik</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setSelectedTable(null)} className="text-blue-600 hover:text-blue-800">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
-              {/* Search */}
-              <div className="px-6 py-4 border-b bg-white">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Ürün ara..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Categories */}
-              <div className="px-6 py-3 bg-white border-b flex gap-2 overflow-x-auto">
-                <button
-                  onClick={() => setSelectedCategory('all')}
-                  className={`px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
-                    selectedCategory === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  Tümü
-                </button>
-                {uniqueCategories.map(cat => (
+          {selectedTable && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Menü</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {menuItems.map(item => (
                   <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
-                      selectedCategory === cat ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
-                    }`}
+                    key={item.id}
+                    onClick={() => addToCart(item)}
+                    className="p-3 bg-white rounded-xl border border-gray-200 hover:border-green-300 text-left transition"
                   >
-                    {cat}
+                    <p className="font-medium text-gray-900">{item.name}</p>
+                    <p className="text-sm text-gray-500">{item.category}</p>
+                    <p className="text-green-600 font-bold mt-1">₺{item.price}</p>
                   </button>
                 ))}
               </div>
-
-              {/* Menu Items */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {filteredMenu.map(item => {
-                    const inCart = cart.find(c => c.menuItem.id === item.id);
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => addToCart(item)}
-                        className={`bg-white rounded-xl p-4 text-left hover:shadow-lg transition-all border-2 ${
-                          inCart ? 'border-blue-500' : 'border-transparent'
-                        }`}
-                      >
-                        {item.image_url && (
-                          <div className="aspect-video bg-gray-100 rounded-lg mb-3 overflow-hidden">
-                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                        <h3 className="font-medium text-gray-900">{item.name}</h3>
-                        <p className="text-sm text-gray-500 mb-2">{item.category}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-blue-600">₺{item.price}</span>
-                          {inCart && (
-                            <span className="w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center">
-                              {inCart.quantity}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Right: Cart */}
-      <div className={`w-96 bg-white border-l flex flex-col transition-all ${showCart || cart.length > 0 ? '' : 'hidden lg:flex'}`}>
-        <div className="p-4 border-b flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5 text-gray-600" />
-            <span className="font-bold text-gray-900">Sipariş</span>
-            {cartCount > 0 && (
-              <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">{cartCount}</span>
-            )}
+        {/* Right - Cart */}
+        <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Sipariş</h3>
+              {selectedTable && (
+                <span className="text-sm text-gray-500">Masa {selectedTable.number}</span>
+              )}
+            </div>
           </div>
-          {cart.length > 0 && (
-            <button onClick={() => setCart([])} className="text-red-500 text-sm hover:text-red-600">
-              Temizle
-            </button>
-          )}
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          {cart.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30" />
-              <p>Sepet boş</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map(item => (
-                <div key={item.menuItem.id} className="bg-gray-50 rounded-xl p-3">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{item.menuItem.name}</h4>
-                      <p className="text-sm text-gray-500">₺{item.menuItem.price} x {item.quantity}</p>
-                    </div>
-                    <button onClick={() => removeFromCart(item.menuItem.id)} className="text-red-400 hover:text-red-500">
-                      <Trash2 className="w-4 h-4" />
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {cart.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <ShoppingCart className="w-12 h-12 mx-auto mb-2" />
+                <p>Sepet boş</p>
+              </div>
+            ) : (
+              cart.map(item => (
+                <div key={item.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{item.name}</p>
+                    <p className="text-sm text-gray-500">₺{item.price}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => removeFromCart(item.id)}
+                      className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="w-8 text-center font-medium">{item.quantity}</span>
+                    <button
+                      onClick={() => addToCart({ id: item.id, name: item.name, price: item.price, category: '' })}
+                      className="w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center"
+                    >
+                      <Plus className="w-4 h-4" />
                     </button>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => updateQuantity(item.menuItem.id, -1)}
-                        className="w-8 h-8 bg-white border rounded-lg flex items-center justify-center hover:bg-gray-100"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="w-8 text-center font-bold">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.menuItem.id, 1)}
-                        className="w-8 h-8 bg-white border rounded-lg flex items-center justify-center hover:bg-gray-100"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <span className="font-bold text-gray-900">₺{(item.menuItem.price * item.quantity).toFixed(2)}</span>
-                  </div>
-
-                  <input
-                    type="text"
-                    value={item.notes || ''}
-                    onChange={(e) => updateNotes(item.menuItem.id, e.target.value)}
-                    placeholder="Not ekle..."
-                    className="mt-2 w-full px-3 py-2 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
                 </div>
-              ))}
+              ))
+            )}
+          </div>
+
+          {cart.length > 0 && (
+            <div className="p-4 border-t border-gray-200 space-y-3">
+              <div className="flex items-center justify-between text-lg font-bold">
+                <span>Toplam</span>
+                <span className="text-green-600">₺{cartTotal}</span>
+              </div>
+              <button className="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold">
+                Siparişi Gönder
+              </button>
             </div>
           )}
         </div>
-
-        {/* Cart Footer */}
-        <div className="p-4 border-t bg-gray-50">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-600">Ara Toplam</span>
-            <span className="font-bold text-gray-900">₺{cartTotal.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-600">KDV (%8)</span>
-            <span className="text-gray-600">₺{(cartTotal * 0.08).toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between mb-4 text-lg">
-            <span className="font-bold text-gray-900">Toplam</span>
-            <span className="font-bold text-blue-600">₺{(cartTotal * 1.08).toFixed(2)}</span>
-          </div>
-
-          <button
-            onClick={sendOrder}
-            disabled={cart.length === 0 || isSending || (orderType === 'dine_in' && !selectedTable)}
-            className="w-full py-4 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
-          >
-            {isSending ? (
-              <RefreshCw className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <Send className="w-5 h-5" />
-                Siparişi Gönder
-              </>
-            )}
-          </button>
-        </div>
       </div>
-
-      {/* Mobile Cart Button */}
-      <button
-        onClick={() => setShowCart(!showCart)}
-        className="lg:hidden fixed bottom-6 right-6 w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"
-      >
-        <ShoppingCart className="w-6 h-6" />
-        {cartCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full text-xs flex items-center justify-center">
-            {cartCount}
-          </span>
-        )}
-      </button>
     </div>
   );
 }

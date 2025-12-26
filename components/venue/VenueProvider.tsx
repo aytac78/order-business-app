@@ -6,7 +6,7 @@ import { venueService, Venue } from '@/lib/services';
 
 export function VenueProvider({ children }: { children: React.ReactNode }) {
   const { setVenues, setCurrentVenue, currentVenue, venues } = useVenueStore();
-  const { user, isAuthenticated } = useAuthStore();
+  const { currentStaff, isAuthenticated } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

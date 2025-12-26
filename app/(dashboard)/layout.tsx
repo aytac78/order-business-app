@@ -25,7 +25,7 @@ export default function DashboardLayout({
   }, []);
 
   return (
-    <ProtectedRoute allowedRoles={['admin', 'manager', 'kitchen', 'waiter', 'pos', 'reception']}>
+    <ProtectedRoute allowedRoles={['owner', 'manager', 'kitchen', 'waiter', 'cashier', 'reception']}>
       <div className="min-h-screen bg-gray-50">
         {/* Mobile Header */}
         <MobileHeader />

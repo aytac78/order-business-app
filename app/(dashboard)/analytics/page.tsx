@@ -229,7 +229,7 @@ export default function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="day" />
                   <YAxis />
-                  <Tooltip formatter={(value: number) => `₺${value.toLocaleString()}`} />
+                  <Tooltip formatter={(value: any) => `₺${value.toLocaleString()}`} />
                   <Bar dataKey="revenue" name="Ciro" fill="#22c55e" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

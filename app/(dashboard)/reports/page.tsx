@@ -241,7 +241,7 @@ export default function ReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value: number) => `₺${value.toLocaleString()}`} />
+                  <Tooltip formatter={(value: any) => `₺${value.toLocaleString()}`} />
                   <Legend />
                   <Line type="monotone" dataKey="revenue" name="Ciro" stroke="#f97316" strokeWidth={2} />
                 </LineChart>
@@ -304,7 +304,7 @@ export default function ReportsPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     >
                       {reportData.ordersByType.map((_, idx) => (
                         <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
@@ -331,7 +331,7 @@ export default function ReportsPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     >
                       {reportData.ordersByStatus.map((_, idx) => (
                         <Cell key={idx} fill={COLORS[idx % COLORS.length]} />

@@ -272,11 +272,11 @@ export default function TablesPage() {
           const hasOrder = tableOrders.length > 0;
           const hasReadyOrder = tableOrders.some(o => o.status === 'ready');
           const totalAmount = tableOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-          const ShapeIcon = shapeIcons[table.shape] || Square;
+          const ShapeIcon = shapeIcons[table.shape as keyof typeof shapeIcons] || Square;
           
           // Gerçek durum (siparişe göre)
           const realStatus = hasOrder ? 'occupied' : table.status;
-          const config = statusConfig[realStatus] || statusConfig.available;
+          const config = statusConfig[realStatus as keyof typeof statusConfig] || statusConfig.available;
 
           return (
             <div
@@ -432,7 +432,7 @@ function TableModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Şekil</label>
             <div className="flex gap-2">
               {(['square', 'round', 'rectangle'] as const).map(shape => {
-                const Icon = shapeIcons[shape];
+                const Icon = shapeIcons[shape as keyof typeof shapeIcons];
                 return (
                   <button
                     key={shape}

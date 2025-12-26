@@ -638,7 +638,7 @@ function StockPageContent() {
 
 export default function StockPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <ProtectedRoute allowedRoles={['owner', 'manager']}>
       <StockPageContent />
     </ProtectedRoute>
   );

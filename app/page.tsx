@@ -2,252 +2,225 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { useAuthStore, StaffMember, StaffRole, roleConfig } from '@/stores/authStore';
-import { fetchStaffMembers, verifyPin, getRolePermissions, updateLastLogin } from '@/lib/services/auth';
-import { 
-  Lock, LogIn, X, Delete, ArrowLeft, Clock, Users, 
-  ChefHat, UtensilsCrossed, CreditCard, ClipboardList, Crown, Briefcase
-} from 'lucide-react';
+import { useAuthStore, StaffRole, roleConfig } from '@/stores/authStore';
+import { Lock, User, ArrowLeft, AlertCircle } from 'lucide-react';
+
+interface Staff {
+  id: string;
+  name: string;
+  role: string;
+  venue_id?: string;
+  pin_code?: string;
+}
+
+// Demo staff data
+const demoStaff: Staff[] = [
+  { id: '1', name: 'Aytaç Gör', role: 'owner', pin_code: '1234' },
+  { id: '2', name: 'Mehmet Şef', role: 'kitchen', pin_code: '1111' },
+  { id: '3', name: 'Ayşe Garson', role: 'waiter', pin_code: '2222' },
+  { id: '4', name: 'Fatma Kasa', role: 'cashier', pin_code: '3333' },
+  { id: '5', name: 'Ali Resepsiyon', role: 'reception', pin_code: '4444' },
+  { id: '6', name: 'Zeynep Müdür', role: 'manager', pin_code: '5555' },
+];
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, logout, isAuthenticated, currentStaff } = useAuthStore();
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const { login, logout } = useAuthStore();
+  
+  const [staff, setStaff] = useState<Staff[]>(demoStaff);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // Sayfa yüklendiğinde logout yap - her zaman login ekranı göster
-    logout();
-    loadStaff();
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    logout(); // Her zaman logout yap
+  }, [logout]);
 
-  const loadStaff = async () => {
-    try {
-      const data = await fetchStaffMembers();
-      setStaff(data);
-    } catch (error) {
-      console.error('Error loading staff:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePinInput = (digit: string) => {
-    if (pin.length < 4) {
-      const newPin = pin + digit;
-      setPin(newPin);
-      setError('');
-      
-      if (newPin.length === 4) {
-        verifyAndLogin(newPin);
-      }
-    }
-  };
-
-  const handleBackspace = () => {
-    setPin(pin.slice(0, -1));
+  const handleStaffSelect = (s: Staff) => {
+    setSelectedStaff(s);
+    setPin('');
     setError('');
   };
 
-  const verifyAndLogin = async (pinCode: string) => {
+  const handlePinSubmit = async (pinCode: string) => {
     if (!selectedStaff) return;
     
-    setIsVerifying(true);
+    setIsLoading(true);
     setError('');
-    
+
     try {
-      const isValid = await verifyPin(selectedStaff.id, pinCode);
-      
-      if (isValid) {
-        const routes = await getRolePermissions(selectedStaff.role);
-        await updateLastLogin(selectedStaff.id);
+      // PIN doğrula
+      if (pinCode === selectedStaff.pin_code) {
+        const role = selectedStaff.role as StaffRole;
+        const config = roleConfig[role];
         
-        login(selectedStaff, routes);
+        login({
+          id: selectedStaff.id,
+          name: selectedStaff.name,
+          role: role,
+          venue_id: selectedStaff.venue_id,
+        });
         
-        const config = roleConfig[selectedStaff.role];
         router.push(config.defaultRoute);
       } else {
         setError('Yanlış PIN kodu');
         setPin('');
       }
-    } catch (error) {
+    } catch (err) {
       setError('Bir hata oluştu');
       setPin('');
     } finally {
-      setIsVerifying(false);
+      setIsLoading(false);
     }
   };
 
-  const getRoleIcon = (role: StaffRole) => {
-    switch (role) {
-      case 'owner': return <Crown className="w-8 h-8" />;
-      case 'manager': return <Briefcase className="w-8 h-8" />;
-      case 'cashier': return <CreditCard className="w-8 h-8" />;
-      case 'waiter': return <UtensilsCrossed className="w-8 h-8" />;
-      case 'kitchen': return <ChefHat className="w-8 h-8" />;
-      case 'reception': return <ClipboardList className="w-8 h-8" />;
-      default: return <Users className="w-8 h-8" />;
+  const handleNumber = (num: string) => {
+    if (pin.length < 4) {
+      const newPin = pin + num;
+      setPin(newPin);
+      if (newPin.length === 4) {
+        setTimeout(() => handlePinSubmit(newPin), 300);
+      }
     }
   };
 
-  if (!mounted || isLoading) {
+  const handleDelete = () => {
+    setPin(pin.slice(0, -1));
+    setError('');
+  };
+
+  const handleBack = () => {
+    setSelectedStaff(null);
+    setPin('');
+    setError('');
+  };
+
+  if (!mounted) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
         <div className="text-white text-xl">Yükleniyor...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col">
-      {/* Header */}
-      <header className="p-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center">
-            <span className="text-white font-bold text-xl">O</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🍽️</span>
           </div>
-          <div>
-            <h1 className="text-white text-xl font-bold">ORDER Business</h1>
-            <p className="text-gray-400 text-sm">Personel Girişi</p>
-          </div>
+          <h1 className="text-2xl font-bold text-white">ORDER Business</h1>
+          <p className="text-gray-400 mt-1">Personel Girişi</p>
         </div>
-        <div className="text-right">
-          <p className="text-white text-2xl font-bold">{currentTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
-          <p className="text-gray-400 text-sm">{currentTime.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-6">
         {!selectedStaff ? (
-          <div className="w-full max-w-4xl">
-            <h2 className="text-white text-2xl font-bold text-center mb-8">Personel Seçin</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {staff.map((member) => {
-                const config = roleConfig[member.role];
+          /* Staff Selection */
+          <div className="bg-gray-800 rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Personel Seçin</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {staff.map((s) => {
+                const role = s.role as StaffRole;
+                const config = roleConfig[role];
                 return (
                   <button
-                    key={member.id}
-                    onClick={() => setSelectedStaff(member)}
-                    className="bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700 hover:border-gray-600 rounded-2xl p-6 transition-all duration-200 hover:scale-105 hover:shadow-xl group"
+                    key={s.id}
+                    onClick={() => handleStaffSelect(s)}
+                    className="p-4 bg-gray-700 hover:bg-gray-600 rounded-xl text-left transition-all"
                   >
-                    <div className={`w-16 h-16 ${config.bgColor} rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
-                      <span className={config.color}>
-                        {getRoleIcon(member.role)}
-                      </span>
+                    <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center mb-2`}>
+                      <span className="text-xl">{config.icon}</span>
                     </div>
-                    <h3 className="text-white font-bold text-lg text-center mb-1">{member.name}</h3>
-                    <p className={`text-center text-sm ${config.color}`}>{config.label}</p>
+                    <p className="font-medium text-white text-sm">{s.name}</p>
+                    <p className={`text-xs ${config.color}`}>{config.label}</p>
                   </button>
                 );
               })}
             </div>
             
-            {staff.length === 0 && (
-              <div className="text-center text-gray-400 py-12">
-                <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Henüz personel eklenmemiş</p>
-              </div>
-            )}
+            {/* Demo PIN bilgisi */}
+            <div className="mt-6 p-4 bg-gray-700/50 rounded-xl">
+              <p className="text-xs text-gray-400 text-center">
+                Demo PIN kodları: Yönetici: 1234 | Mutfak: 1111 | Garson: 2222 | Kasa: 3333
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="w-full max-w-sm">
+          /* PIN Entry */
+          <div className="bg-gray-800 rounded-2xl p-6">
             <button
-              onClick={() => { setSelectedStaff(null); setPin(''); setError(''); }}
-              className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors"
+              onClick={handleBack}
+              className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
-              Geri
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm">Geri</span>
             </button>
 
-            <div className="bg-gray-800/50 border border-gray-700 rounded-3xl p-8">
-              <div className="text-center mb-8">
-                <div className={`w-20 h-20 ${roleConfig[selectedStaff.role].bgColor} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
-                  <span className={roleConfig[selectedStaff.role].color}>
-                    {getRoleIcon(selectedStaff.role)}
-                  </span>
-                </div>
-                <h3 className="text-white font-bold text-xl">{selectedStaff.name}</h3>
-                <p className={`text-sm ${roleConfig[selectedStaff.role].color}`}>
-                  {roleConfig[selectedStaff.role].label}
-                </p>
-              </div>
-
-              <div className="flex justify-center gap-3 mb-6">
-                {[0, 1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center transition-all ${
-                      pin.length > i
-                        ? 'border-orange-500 bg-orange-500/20'
-                        : 'border-gray-600 bg-gray-700/50'
-                    }`}
-                  >
-                    {pin.length > i && (
-                      <div className="w-4 h-4 bg-orange-500 rounded-full" />
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {error && (
-                <p className="text-red-500 text-center text-sm mb-4">{error}</p>
-              )}
-
-              <div className="grid grid-cols-3 gap-3">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      if (key === 'del') handleBackspace();
-                      else if (key) handlePinInput(key);
-                    }}
-                    disabled={isVerifying || key === ''}
-                    className={`h-16 rounded-xl font-bold text-xl transition-all ${
-                      key === ''
-                        ? 'invisible'
-                        : key === 'del'
-                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                        : 'bg-gray-700 text-white hover:bg-gray-600 active:scale-95'
-                    } disabled:opacity-50`}
-                  >
-                    {key === 'del' ? <Delete className="w-6 h-6 mx-auto" /> : key}
-                  </button>
-                ))}
-              </div>
-
-              {isVerifying && (
-                <div className="mt-6 text-center text-gray-400">
-                  <div className="animate-spin w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full mx-auto mb-2" />
-                  Doğrulanıyor...
-                </div>
-              )}
+            <div className="text-center mb-6">
+              {(() => {
+                const role = selectedStaff.role as StaffRole;
+                const config = roleConfig[role];
+                return (
+                  <>
+                    <div className={`w-16 h-16 ${config.bgColor} rounded-xl flex items-center justify-center mx-auto mb-3`}>
+                      <span className="text-2xl">{config.icon}</span>
+                    </div>
+                    <p className="font-semibold text-white">{selectedStaff.name}</p>
+                    <p className={`text-sm ${config.color}`}>{config.label}</p>
+                  </>
+                );
+              })()}
             </div>
 
-            <p className="text-center text-gray-500 text-sm mt-6">
-              Demo PIN: {selectedStaff.role === 'owner' ? '1234' : 
-                        selectedStaff.role === 'kitchen' ? '1111' :
-                        selectedStaff.role === 'waiter' ? '2222' :
-                        selectedStaff.role === 'cashier' ? '3333' :
-                        selectedStaff.role === 'reception' ? '4444' : '5555'}
-            </p>
+            {/* PIN Dots */}
+            <div className="flex justify-center gap-3 mb-6">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full transition-all ${
+                    pin.length > i ? 'bg-orange-500' : 'bg-gray-600'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="flex items-center justify-center gap-2 text-red-400 mb-4">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+
+            {/* Number Pad */}
+            <div className="grid grid-cols-3 gap-2">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    if (key === 'del') handleDelete();
+                    else if (key) handleNumber(key);
+                  }}
+                  disabled={isLoading || key === ''}
+                  className={`h-14 rounded-xl font-bold text-xl transition-all ${
+                    key === ''
+                      ? 'invisible'
+                      : key === 'del'
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                  } disabled:opacity-50`}
+                >
+                  {key === 'del' ? '⌫' : key}
+                </button>
+              ))}
+            </div>
           </div>
         )}
-      </main>
-
-      <footer className="p-6 text-center text-gray-500 text-sm">
-        © 2025 ORDER Business • TiT Ecosystem
-      </footer>
+      </div>
     </div>
   );
 }

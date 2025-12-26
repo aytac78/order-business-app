@@ -1,99 +1,101 @@
-// Auth Types and Constants
-// /lib/auth/types.ts
+import { ChefHat, CreditCard, Calendar, LayoutDashboard, Users, Crown } from 'lucide-react';
 
-export type UserRole = 'admin' | 'manager' | 'chef' | 'waiter' | 'cashier' | 'host';
+export type UserRole = 'owner' | 'manager' | 'kitchen' | 'waiter' | 'cashier' | 'reception';
 
 export interface User {
   id: string;
-  email: string;
   name: string;
+  email?: string;
   role: UserRole;
-  venueId: string;
-  venueName: string;
-  avatarUrl?: string;
-  pin?: string; // For quick login
+  venueId?: string;
+  avatar?: string;
 }
 
 export interface AuthState {
   user: User | null;
-  isLoading: boolean;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
-// Role configurations
 export const ROLE_CONFIG: Record<UserRole, {
   label: string;
   labelTr: string;
-  defaultRoute: string;
-  allowedRoutes: string[];
+  icon: typeof ChefHat;
   color: string;
-  icon: string;
+  bgColor: string;
+  permissions: string[];
+  allowedRoutes: string[];
+  defaultRoute: string;
 }> = {
-  admin: {
-    label: 'Administrator',
+  owner: {
+    label: 'Owner',
     labelTr: 'Yönetici',
-    defaultRoute: '/admin',
-    allowedRoutes: ['/', '/kitchen', '/waiter', '/pos', '/reception', '/settings', '/reports', '/menu', '/staff'],
-    color: 'from-purple-500 to-pink-600',
-    icon: '👔',
+    icon: Crown,
+    color: 'from-purple-500 to-indigo-600',
+    bgColor: 'bg-purple-100',
+    permissions: ['*'],
+    allowedRoutes: ['*'],
+    defaultRoute: '/dashboard',
   },
   manager: {
     label: 'Manager',
     labelTr: 'Müdür',
-    defaultRoute: '/admin',
-    allowedRoutes: ['/', '/kitchen', '/waiter', '/pos', '/reception', '/reports'],
-    color: 'from-blue-500 to-indigo-600',
-    icon: '📊',
+    icon: LayoutDashboard,
+    color: 'from-blue-500 to-cyan-600',
+    bgColor: 'bg-blue-100',
+    permissions: ['dashboard', 'orders', 'menu', 'staff', 'reports'],
+    allowedRoutes: ['/dashboard', '/orders', '/menu', '/staff', '/reports', '/settings', '/kitchen', '/waiter', '/pos', '/reception'],
+    defaultRoute: '/dashboard',
   },
-  chef: {
-    label: 'Chef',
-    labelTr: 'Aşçı',
-    defaultRoute: '/kitchen',
-    allowedRoutes: ['/kitchen'],
+  kitchen: {
+    label: 'Kitchen',
+    labelTr: 'Mutfak',
+    icon: ChefHat,
     color: 'from-orange-500 to-red-600',
-    icon: '🍳',
+    bgColor: 'bg-orange-100',
+    permissions: ['kitchen', 'orders.view'],
+    allowedRoutes: ['/kitchen', '/kitchen-tablet'],
+    defaultRoute: '/kitchen-tablet',
   },
   waiter: {
     label: 'Waiter',
     labelTr: 'Garson',
-    defaultRoute: '/waiter',
-    allowedRoutes: ['/waiter'],
-    color: 'from-blue-500 to-cyan-600',
-    icon: '🧑‍🍳',
+    icon: Users,
+    color: 'from-green-500 to-emerald-600',
+    bgColor: 'bg-green-100',
+    permissions: ['orders', 'tables'],
+    allowedRoutes: ['/waiter', '/waiter-tablet', '/orders', '/tables'],
+    defaultRoute: '/waiter-tablet',
   },
   cashier: {
     label: 'Cashier',
     labelTr: 'Kasiyer',
-    defaultRoute: '/pos',
-    allowedRoutes: ['/pos'],
+    icon: CreditCard,
     color: 'from-emerald-500 to-teal-600',
-    icon: '💳',
+    bgColor: 'bg-emerald-100',
+    permissions: ['pos', 'orders', 'payments'],
+    allowedRoutes: ['/pos', '/pos-tablet', '/orders'],
+    defaultRoute: '/pos-tablet',
   },
-  host: {
-    label: 'Host',
-    labelTr: 'Karşılama',
-    defaultRoute: '/reception',
-    allowedRoutes: ['/reception'],
-    color: 'from-purple-500 to-pink-600',
-    icon: '📅',
+  reception: {
+    label: 'Reception',
+    labelTr: 'Resepsiyon',
+    icon: Calendar,
+    color: 'from-pink-500 to-rose-600',
+    bgColor: 'bg-pink-100',
+    permissions: ['reservations', 'tables'],
+    allowedRoutes: ['/reception', '/reception-tablet', '/reservations', '/tables'],
+    defaultRoute: '/reception-tablet',
   },
 };
 
-// Check if user can access a route
 export function canAccessRoute(role: UserRole, route: string): boolean {
   const config = ROLE_CONFIG[role];
   if (!config) return false;
-  
-  // Admin can access everything
-  if (role === 'admin') return true;
-  
-  // Check if route is in allowed routes
-  return config.allowedRoutes.some(allowed => 
-    route === allowed || route.startsWith(allowed + '/')
-  );
+  if (config.allowedRoutes.includes('*')) return true;
+  return config.allowedRoutes.some(r => route.startsWith(r));
 }
 
-// Get default route for role
 export function getDefaultRoute(role: UserRole): string {
   return ROLE_CONFIG[role]?.defaultRoute || '/';
 }

@@ -349,3 +349,4 @@ export const usePinStore = create<PinState>()(
     }
   )
 );
+export { useAuthStore, roleConfig } from './authStore';

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+// import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import {
-  Home, CreditCard, Banknote, Wallet, QrCode, Smartphone, Gift,
+  CreditCard, Banknote, Wallet, QrCode, Smartphone, Gift,
   Receipt, Percent, Split, Printer, X, Check, Calculator, Clock,
   Users, RefreshCw, ChevronRight, Minus, Plus, Search
 } from 'lucide-react';
@@ -172,9 +172,9 @@ export default function POSTabletPage() {
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Link href="/dashboard" className="p-2 bg-gray-700 hover:bg-gray-600 rounded-xl">
-                <Home className="w-5 h-5" />
-              </Link>
+              <button onClick={() => { localStorage.removeItem('order-auth-storage'); window.location.href = '/' }} className="p-2 bg-red-600 hover:bg-red-700 rounded-xl">
+                Çıkış
+              </button>
               <div>
                 <h1 className="font-bold text-lg">KASA</h1>
                 <p className="text-xs text-gray-400">{currentTime.toLocaleTimeString('tr-TR')}</p>

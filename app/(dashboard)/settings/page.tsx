@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/authStore';
 import { useVenueStore } from '@/stores';
 import {
   Settings,
@@ -25,7 +27,8 @@ import {
   Mail,
   MapPin,
   Phone,
-  Image
+  Image,
+  LogOut
 } from 'lucide-react';
 
 interface VenueSettings {
@@ -140,6 +143,7 @@ export default function SettingsPage() {
     { id: 'security', name: 'Güvenlik & PIN', icon: Shield },
     { id: 'integrations', name: 'Entegrasyonlar', icon: Globe },
     { id: 'appearance', name: 'Görünüm', icon: Palette },
+    { id: 'logout', name: 'Çıkış Yap', icon: LogOut },
   ];
 
   const pinLabels: Record<keyof PinSettings, string> = {
@@ -732,6 +736,31 @@ export default function SettingsPage() {
                 Kaydet
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Section */}
+      {activeTab === 'logout' && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <div className="text-center space-y-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <LogOut className="w-10 h-10 text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Çıkış Yap</h2>
+              <p className="text-gray-500 mt-2">Oturumunuzu sonlandırmak istediğinizden emin misiniz?</p>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.removeItem('order-auth-storage');
+                window.location.href = '/';
+              }}
+              className="w-full max-w-xs mx-auto py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-5 h-5" />
+              Çıkış Yap
+            </button>
           </div>
         </div>
       )}

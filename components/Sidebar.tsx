@@ -25,6 +25,7 @@ import {
   ClipboardList,
   Grid3X3,
   ChevronLeft,
+  PartyPopper,
   Sparkles,
   Menu,
   X
@@ -53,6 +54,7 @@ const menuItems = [
     section: 'Yönetim',
     items: [
       { name: 'Menü', href: '/menu', icon: UtensilsCrossed },
+      { name: 'Etkinlikler', href: '/events', icon: PartyPopper },
       { name: 'Rezervasyonlar', href: '/reservations', icon: CalendarCheck },
       { name: 'Kasa/POS', href: '/pos', icon: CreditCard },
       { name: 'QR Menü', href: '/qr-menu', icon: QrCode },

@@ -1,61 +1,52 @@
 'use client';
 
-// Protected Route Component
-// /components/auth/ProtectedRoute.tsx
-
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { useAuth } from '@/lib/auth/AuthContext';
-import { canAccessRoute, getDefaultRoute, UserRole } from '@/lib/auth/types';
+import { useAuthStore, StaffRole, roleConfig } from '@/stores/authStore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: UserRole[];
+  allowedRoles?: StaffRole[];
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { currentStaff, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    if (isLoading) return;
-
     // Not authenticated - redirect to login
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !currentStaff) {
       router.push('/');
       return;
     }
 
-    // Check if user can access this route
-    if (!canAccessRoute(user.role, pathname)) {
-      // Redirect to their default route
-      const defaultRoute = getDefaultRoute(user.role);
-      router.push(defaultRoute);
-      return;
+    // Check if user role is allowed
+    if (allowedRoles && allowedRoles.length > 0) {
+      if (!allowedRoles.includes(currentStaff.role)) {
+        // Redirect to their default route
+        const config = roleConfig[currentStaff.role];
+        router.push(config.defaultRoute);
+        return;
+      }
     }
-  }, [isLoading, isAuthenticated, user, pathname, router]);
+  }, [isAuthenticated, currentStaff, pathname, router, allowedRoles]);
 
-  // Show loading state
-  if (isLoading) {
+  // Not authenticated
+  if (!isAuthenticated || !currentStaff) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Yükleniyor...</p>
+          <Loader2 className="w-10 h-10 text-orange-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Yönlendiriliyor...</p>
         </div>
       </div>
     );
   }
 
-  // Not authenticated
-  if (!isAuthenticated || !user) {
-    return null;
-  }
-
-  // Not authorized for this route
-  if (!canAccessRoute(user.role, pathname)) {
+  // Check role access
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(currentStaff.role)) {
     return null;
   }
 

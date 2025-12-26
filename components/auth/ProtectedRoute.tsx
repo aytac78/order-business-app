@@ -24,7 +24,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
     // Not authenticated - redirect to login
     if (!isAuthenticated || !user) {
-      router.push('/login');
+      router.push('/');
       return;
     }
 

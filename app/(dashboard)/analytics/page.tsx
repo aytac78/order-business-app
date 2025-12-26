@@ -44,7 +44,7 @@ export default function AnalyticsPage() {
 
       // Debug: Sipariş venue_id'lerini kontrol et
       console.log('Tüm siparişler:', allOrders.length);
-      console.log('Sipariş venue_ids:', [...new Set(allOrders.map(o => o.venue_id))]);
+      console.log('Sipariş venue_ids:', Array.from(new Set(allOrders.map(o => o.venue_id))));
       console.log('Venues:', venues.map(v => ({ id: v.id, name: v.name })));
 
       // Son 7 gün vs önceki 7 gün

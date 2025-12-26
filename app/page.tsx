@@ -15,12 +15,12 @@ interface Staff {
 
 // Demo staff data
 const demoStaff: Staff[] = [
-  { id: '1', name: 'Aytaç Gör', role: 'owner', pin_code: '1234' },
-  { id: '2', name: 'Mehmet Şef', role: 'kitchen', pin_code: '1111' },
-  { id: '3', name: 'Ayşe Garson', role: 'waiter', pin_code: '2222' },
-  { id: '4', name: 'Fatma Kasa', role: 'cashier', pin_code: '3333' },
-  { id: '5', name: 'Ali Resepsiyon', role: 'reception', pin_code: '4444' },
-  { id: '6', name: 'Zeynep Müdür', role: 'manager', pin_code: '5555' },
+  { id: '1', name: 'Aytaç Gör', role: 'owner', pin_code: '1234', venue_id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8' },
+  { id: '2', name: 'Mehmet Şef', role: 'kitchen', pin_code: '1111', venue_id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8' },
+  { id: '3', name: 'Ayşe Garson', role: 'waiter', pin_code: '2222', venue_id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8' },
+  { id: '4', name: 'Fatma Kasa', role: 'cashier', pin_code: '3333', venue_id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8' },
+  { id: '5', name: 'Ali Resepsiyon', role: 'reception', pin_code: '4444', venue_id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8' },
+  { id: '6', name: 'Zeynep Müdür', role: 'manager', pin_code: '5555', venue_id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8' },
 ];
 
 export default function LoginPage() {

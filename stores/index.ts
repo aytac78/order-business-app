@@ -4,7 +4,7 @@ import { Venue, VenueSummary, UserVenue, VenueAlert } from '@/types';
 
 // Default venue - Nihal's Break Point
 const defaultVenue: Venue = {
-  id: '1',
+  id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8',
   name: "Nihal's Break Point",
   slug: 'nihals-break-point',
   type: 'restaurant',
@@ -256,7 +256,7 @@ interface TableState {
 }
 
 const initialTables: Table[] = [
-  { id: '1', number: '1', capacity: 2, section: 'İç Mekan', status: 'occupied', shape: 'square', position: { x: 0, y: 0 }, currentOrder: { id: 'ORD-101', total: 450, itemCount: 5, duration: 45, waiter: 'Ahmet' } },
+  { id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8', number: '1', capacity: 2, section: 'İç Mekan', status: 'occupied', shape: 'square', position: { x: 0, y: 0 }, currentOrder: { id: 'ORD-101', total: 450, itemCount: 5, duration: 45, waiter: 'Ahmet' } },
   { id: '2', number: '2', capacity: 2, section: 'İç Mekan', status: 'available', shape: 'square', position: { x: 1, y: 0 } },
   { id: '3', number: '3', capacity: 4, section: 'İç Mekan', status: 'occupied', shape: 'rectangle', position: { x: 2, y: 0 }, currentOrder: { id: 'ORD-102', total: 890, itemCount: 8, duration: 30, waiter: 'Mehmet' } },
   { id: '4', number: '4', capacity: 4, section: 'İç Mekan', status: 'reserved', shape: 'rectangle', position: { x: 0, y: 1 }, reservation: { name: 'Yılmaz', time: '20:00', guests: 4 } },

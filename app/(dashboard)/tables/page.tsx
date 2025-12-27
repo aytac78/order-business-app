@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useVenueStore } from '@/stores';
 import { supabase } from '@/lib/supabase';
 import {
@@ -24,14 +25,7 @@ import {
   ShoppingBag,
   UserCircle,
   Timer,
-  Printer,
-  Banknote,
-  QrCode,
-  FileText,
-  Building2,
-  Check,
-  ChevronRight,
-  Wallet
+  Printer
 } from 'lucide-react';
 
 interface OrderItem {
@@ -71,16 +65,6 @@ interface TableData {
   current_guests?: number;
   customer_name?: string;
   seated_at?: string;
-}
-
-interface InvoiceInfo {
-  type: 'individual' | 'corporate';
-  companyName?: string;
-  taxOffice?: string;
-  taxNumber?: string;
-  tcNumber?: string;
-  address?: string;
-  email?: string;
 }
 
 const statusConfig: Record<string, { label: string; color: string; cardBg: string }> = {
@@ -552,14 +536,30 @@ function TableDetailModal({
   const [showSeatForm, setShowSeatForm] = useState(false);
   const [guestCount, setGuestCount] = useState(2);
   const [customerName, setCustomerName] = useState('');
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const router = useRouter();
 
   const hasOrders = orders.length > 0;
   const isOccupied = table.status === 'occupied' || (table.current_guests && table.current_guests > 0);
   const totalAmount = orders.reduce((sum, o) => sum + (o.total || 0), 0);
   const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
   const tax = totalAmount - subtotal;
+
+  // Items'ı parse et (string ise JSON.parse yap)
+  const parseItems = (items: any) => {
+    if (!items) return [];
+    if (typeof items === 'string') {
+      try {
+        return JSON.parse(items);
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(items) ? items : [];
+  };
+
+  // Tüm sipariş itemlarını birleştir
+  const allItems = orders.flatMap(o => parseItems(o.items));
 
   const ordersByStatus = {
     pending: orders.filter(o => o.status === 'pending'),
@@ -607,12 +607,25 @@ function TableDetailModal({
       }).eq('id', order.id);
     }
     onClearTable();
-    setShowPaymentModal(false);
     onClose();
   };
 
-  // Tüm sipariş itemlarını birleştir
-  const allItems = orders.flatMap(o => o.items || []);
+  // POS sayfasına yönlendir
+  const handleGoToPOS = () => {
+    // Masa bilgisini localStorage'a kaydet (POS'ta kullanmak için)
+    localStorage.setItem('pos_selected_table', JSON.stringify({
+      tableNumber: table.number,
+      tableId: table.id,
+      customerName: table.customer_name,
+      orders: orders.map(o => ({
+        id: o.id,
+        order_number: o.order_number,
+        total: o.total,
+        items: parseItems(o.items)
+      }))
+    }));
+    router.push('/pos');
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -873,7 +886,7 @@ function TableDetailModal({
                 Hesap Yazdır
               </button>
               <button 
-                onClick={() => setShowPaymentModal(true)}
+                onClick={handleGoToPOS}
                 className="px-5 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 font-semibold flex items-center gap-2 transition-colors shadow-md"
               >
                 <CreditCard className="w-5 h-5" />
@@ -883,21 +896,6 @@ function TableDetailModal({
           </div>
         )}
       </div>
-
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <PaymentModal
-          tableNumber={table.number}
-          totalAmount={totalAmount}
-          subtotal={subtotal}
-          tax={tax}
-          items={allItems}
-          venueName={venueName}
-          customerName={table.customer_name}
-          onClose={() => setShowPaymentModal(false)}
-          onPaymentComplete={handlePaymentComplete}
-        />
-      )}
 
       {/* Print Preview Modal */}
       {showPrintPreview && (
@@ -913,430 +911,6 @@ function TableDetailModal({
           onClose={() => setShowPrintPreview(false)}
         />
       )}
-    </div>
-  );
-}
-
-// Payment Modal Component
-function PaymentModal({
-  tableNumber,
-  totalAmount,
-  subtotal,
-  tax,
-  items,
-  venueName,
-  customerName,
-  onClose,
-  onPaymentComplete
-}: {
-  tableNumber: string;
-  totalAmount: number;
-  subtotal: number;
-  tax: number;
-  items: any[];
-  venueName: string;
-  customerName?: string;
-  onClose: () => void;
-  onPaymentComplete: () => void;
-}) {
-  const [step, setStep] = useState<'method' | 'document' | 'invoice' | 'complete'>('method');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'titpay' | null>(null);
-  const [documentType, setDocumentType] = useState<'receipt' | 'invoice' | null>(null);
-  const [cashReceived, setCashReceived] = useState('');
-  const [invoiceInfo, setInvoiceInfo] = useState<InvoiceInfo>({
-    type: 'corporate',
-    companyName: '',
-    taxOffice: '',
-    taxNumber: '',
-    tcNumber: '',
-    address: '',
-    email: ''
-  });
-
-  const change = parseFloat(cashReceived) - totalAmount;
-
-  const handlePaymentMethodSelect = (method: 'cash' | 'card' | 'titpay') => {
-    setPaymentMethod(method);
-    setStep('document');
-  };
-
-  const handleDocumentSelect = (type: 'receipt' | 'invoice') => {
-    setDocumentType(type);
-    if (type === 'invoice') {
-      setStep('invoice');
-    } else {
-      setStep('complete');
-    }
-  };
-
-  const handleInvoiceSubmit = () => {
-    // Validate invoice info
-    if (invoiceInfo.type === 'corporate') {
-      if (!invoiceInfo.companyName || !invoiceInfo.taxOffice || !invoiceInfo.taxNumber) {
-        alert('Lütfen şirket bilgilerini eksiksiz doldurun');
-        return;
-      }
-      if (invoiceInfo.taxNumber.length !== 10) {
-        alert('Vergi numarası 10 haneli olmalıdır');
-        return;
-      }
-    } else {
-      if (!invoiceInfo.tcNumber) {
-        alert('Lütfen TC Kimlik No girin');
-        return;
-      }
-      if (invoiceInfo.tcNumber.length !== 11) {
-        alert('TC Kimlik No 11 haneli olmalıdır');
-        return;
-      }
-    }
-    setStep('complete');
-  };
-
-  const handleComplete = () => {
-    onPaymentComplete();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-        {/* Header */}
-        <div className="p-5 border-b-2 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Ödeme Al</h2>
-            <p className="text-sm text-gray-600">Masa {tableNumber} • ₺{totalAmount.toLocaleString()}</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-            <X className="w-6 h-6 text-gray-600" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">
-          {/* Step 1: Payment Method */}
-          {step === 'method' && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-gray-800 text-lg text-center mb-6">Ödeme Yöntemi Seçin</h3>
-              
-              <button
-                onClick={() => handlePaymentMethodSelect('cash')}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all flex items-center gap-4"
-              >
-                <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
-                  <Banknote className="w-7 h-7 text-green-600" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900">Nakit</p>
-                  <p className="text-sm text-gray-500">Nakit ödeme al</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => handlePaymentMethodSelect('card')}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4"
-              >
-                <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <CreditCard className="w-7 h-7 text-blue-600" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900">Kredi / Banka Kartı</p>
-                  <p className="text-sm text-gray-500">POS ile ödeme</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => handlePaymentMethodSelect('titpay')}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all flex items-center gap-4"
-              >
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                  <QrCode className="w-7 h-7 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900">TiT Pay</p>
-                  <p className="text-sm text-gray-500">QR kod ile ödeme</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
-
-              {/* Total */}
-              <div className="mt-6 p-4 bg-gray-100 rounded-xl">
-                <div className="flex justify-between text-sm text-gray-600 mb-1">
-                  <span>Ara Toplam</span>
-                  <span>₺{subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>KDV</span>
-                  <span>₺{tax.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-300">
-                  <span>Toplam</span>
-                  <span>₺{totalAmount.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Document Type */}
-          {step === 'document' && (
-            <div className="space-y-4">
-              <button
-                onClick={() => setStep('method')}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4"
-              >
-                ← Geri
-              </button>
-              
-              <h3 className="font-bold text-gray-800 text-lg text-center mb-6">Belge Türü Seçin</h3>
-
-              {/* Cash input if cash payment */}
-              {paymentMethod === 'cash' && (
-                <div className="mb-6 p-4 bg-green-50 rounded-xl border-2 border-green-200">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Alınan Tutar</label>
-                  <input
-                    type="number"
-                    value={cashReceived}
-                    onChange={(e) => setCashReceived(e.target.value)}
-                    placeholder="0"
-                    className="w-full text-3xl font-bold text-center py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
-                  />
-                  {parseFloat(cashReceived) >= totalAmount && (
-                    <div className="mt-3 p-3 bg-green-100 rounded-lg text-center">
-                      <p className="text-sm text-green-700">Para Üstü</p>
-                      <p className="text-2xl font-bold text-green-800">₺{change.toFixed(2)}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TiT Pay QR */}
-              {paymentMethod === 'titpay' && (
-                <div className="mb-6 p-6 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl text-center border-2 border-purple-200">
-                  <div className="w-40 h-40 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center shadow-md">
-                    <QrCode className="w-32 h-32 text-purple-600" />
-                  </div>
-                  <p className="font-semibold text-purple-800">TiT Pay ile Ödeme</p>
-                  <p className="text-sm text-purple-600">QR kodu müşteriye gösterin</p>
-                </div>
-              )}
-              
-              <button
-                onClick={() => handleDocumentSelect('receipt')}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all flex items-center gap-4"
-              >
-                <div className="w-14 h-14 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <Receipt className="w-7 h-7 text-orange-600" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900">Fiş</p>
-                  <p className="text-sm text-gray-500">Standart satış fişi</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => handleDocumentSelect('invoice')}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4"
-              >
-                <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <FileText className="w-7 h-7 text-blue-600" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900">Fatura</p>
-                  <p className="text-sm text-gray-500">Kurumsal veya bireysel fatura</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-          )}
-
-          {/* Step 3: Invoice Info */}
-          {step === 'invoice' && (
-            <div className="space-y-4">
-              <button
-                onClick={() => setStep('document')}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4"
-              >
-                ← Geri
-              </button>
-              
-              <h3 className="font-bold text-gray-800 text-lg text-center mb-4">Fatura Bilgileri</h3>
-
-              {/* Invoice Type Toggle */}
-              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
-                <button
-                  onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'corporate' })}
-                  className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${
-                    invoiceInfo.type === 'corporate' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 inline mr-2" />
-                  Kurumsal
-                </button>
-                <button
-                  onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'individual' })}
-                  className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${
-                    invoiceInfo.type === 'individual' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  <UserCircle className="w-4 h-4 inline mr-2" />
-                  Bireysel
-                </button>
-              </div>
-
-              {invoiceInfo.type === 'corporate' ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Şirket / Firma Adı *</label>
-                    <input
-                      type="text"
-                      value={invoiceInfo.companyName}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, companyName: e.target.value })}
-                      placeholder="ABC Teknoloji A.Ş."
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Vergi Dairesi *</label>
-                      <input
-                        type="text"
-                        value={invoiceInfo.taxOffice}
-                        onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxOffice: e.target.value })}
-                        placeholder="Kadıköy"
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Vergi No *</label>
-                      <input
-                        type="text"
-                        value={invoiceInfo.taxNumber}
-                        onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                        placeholder="1234567890"
-                        maxLength={10}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{invoiceInfo.taxNumber?.length || 0}/10 haneli</p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Adres</label>
-                    <textarea
-                      value={invoiceInfo.address}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, address: e.target.value })}
-                      placeholder="Şirket adresi"
-                      rows={2}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta (E-Fatura için)</label>
-                    <input
-                      type="email"
-                      value={invoiceInfo.email}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, email: e.target.value })}
-                      placeholder="muhasebe@sirket.com"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">TC Kimlik No *</label>
-                    <input
-                      type="text"
-                      value={invoiceInfo.tcNumber}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, tcNumber: e.target.value.replace(/\D/g, '').slice(0, 11) })}
-                      placeholder="12345678901"
-                      maxLength={11}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{invoiceInfo.tcNumber?.length || 0}/11 haneli</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Ad Soyad</label>
-                    <input
-                      type="text"
-                      value={invoiceInfo.companyName}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, companyName: e.target.value })}
-                      placeholder="Ali Yılmaz"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta</label>
-                    <input
-                      type="email"
-                      value={invoiceInfo.email}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, email: e.target.value })}
-                      placeholder="ali@email.com"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleInvoiceSubmit}
-                className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors mt-4"
-              >
-                Devam Et
-              </button>
-            </div>
-          )}
-
-          {/* Step 4: Complete */}
-          {step === 'complete' && (
-            <div className="text-center py-6">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-10 h-10 text-green-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Ödeme Hazır</h3>
-              <p className="text-gray-600 mb-6">
-                {paymentMethod === 'cash' && 'Nakit ödeme alındı'}
-                {paymentMethod === 'card' && 'Kart ile ödeme alınacak'}
-                {paymentMethod === 'titpay' && 'TiT Pay ödemesi onaylandı'}
-              </p>
-
-              <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left">
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Ödeme Yöntemi</span>
-                  <span className="font-semibold">
-                    {paymentMethod === 'cash' && 'Nakit'}
-                    {paymentMethod === 'card' && 'Kredi/Banka Kartı'}
-                    {paymentMethod === 'titpay' && 'TiT Pay'}
-                  </span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Belge Türü</span>
-                  <span className="font-semibold">{documentType === 'receipt' ? 'Fiş' : 'Fatura'}</span>
-                </div>
-                {documentType === 'invoice' && invoiceInfo.type === 'corporate' && (
-                  <div className="flex justify-between mb-2">
-                    <span className="text-gray-600">Şirket</span>
-                    <span className="font-semibold">{invoiceInfo.companyName}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 mt-2">
-                  <span>Toplam</span>
-                  <span className="text-green-600">₺{totalAmount.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleComplete}
-                className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
-              >
-                <Check className="w-5 h-5" />
-                Ödemeyi Tamamla
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

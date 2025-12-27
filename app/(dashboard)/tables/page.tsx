@@ -34,16 +34,13 @@ import {
   Percent
 } from 'lucide-react';
 
+// Supabase'deki gerçek item yapısı
 interface OrderItem {
-  id?: string;
-  product_name?: string;
-  name?: string;
+  id: string;
+  name: string;
+  price: number;
   quantity: number;
-  unit_price?: number;
-  price?: number;
-  total_price?: number;
-  status?: string;
-  notes?: string;
+  status: string;
 }
 
 interface ActiveOrder {
@@ -60,7 +57,7 @@ interface ActiveOrder {
   customer_name?: string;
   guest_count?: number;
   notes?: string;
-  paid_amount?: number;
+  paid_amount: number; // Supabase'den geliyor
 }
 
 interface TableData {
@@ -107,18 +104,18 @@ const shapeIcons: Record<string, any> = {
   rectangle: RectangleHorizontal,
 };
 
-// Items'ı parse et - her türlü formatı destekle
+// Items'ı parse et - Supabase JSONB formatı
 const parseItems = (items: any): OrderItem[] => {
   if (!items) return [];
   
   // Zaten array ise
   if (Array.isArray(items)) {
     return items.map(item => ({
-      ...item,
-      product_name: item.product_name || item.name || 'Ürün',
-      quantity: item.quantity || 1,
-      unit_price: item.unit_price || item.price || 0,
-      total_price: item.total_price || (item.quantity * (item.unit_price || item.price || 0))
+      id: item.id || '',
+      name: item.name || 'Ürün',
+      price: Number(item.price) || 0,
+      quantity: Number(item.quantity) || 1,
+      status: item.status || 'pending'
     }));
   }
   
@@ -126,50 +123,13 @@ const parseItems = (items: any): OrderItem[] => {
   if (typeof items === 'string') {
     try {
       const parsed = JSON.parse(items);
-      return parseItems(parsed); // Recursive call
+      return parseItems(parsed);
     } catch {
       return [];
     }
   }
   
-  // Object ise (tek item)
-  if (typeof items === 'object') {
-    return [{
-      ...items,
-      product_name: items.product_name || items.name || 'Ürün',
-      quantity: items.quantity || 1,
-      unit_price: items.unit_price || items.price || 0,
-      total_price: items.total_price || (items.quantity * (items.unit_price || items.price || 0))
-    }];
-  }
-  
   return [];
-};
-
-// localStorage'dan ödenen miktarları al
-const getPaidAmounts = (): Record<string, number> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    return JSON.parse(localStorage.getItem('order_paid_amounts') || '{}');
-  } catch {
-    return {};
-  }
-};
-
-// localStorage'a ödenen miktarı kaydet
-const savePaidAmount = (orderId: string, amount: number) => {
-  if (typeof window === 'undefined') return;
-  const paidAmounts = getPaidAmounts();
-  paidAmounts[orderId] = (paidAmounts[orderId] || 0) + amount;
-  localStorage.setItem('order_paid_amounts', JSON.stringify(paidAmounts));
-};
-
-// localStorage'dan ödenen miktarı sil
-const clearPaidAmount = (orderId: string) => {
-  if (typeof window === 'undefined') return;
-  const paidAmounts = getPaidAmounts();
-  delete paidAmounts[orderId];
-  localStorage.setItem('order_paid_amounts', JSON.stringify(paidAmounts));
 };
 
 export default function TablesPage() {
@@ -231,7 +191,14 @@ export default function TablesPage() {
         .eq('venue_id', currentVenue.id)
         .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served'])
         .not('table_number', 'is', null);
-      setActiveOrders(ordersData || []);
+      
+      // paid_amount'u number olarak garantile
+      const orders = (ordersData || []).map(o => ({
+        ...o,
+        paid_amount: Number(o.paid_amount) || 0
+      }));
+      
+      setActiveOrders(orders);
     } catch (err) {
       console.error('Orders exception:', err);
     }
@@ -442,11 +409,10 @@ export default function TablesPage() {
           const hasOrder = tableOrders.length > 0;
           const hasReadyOrder = tableOrders.some(o => o.status === 'ready');
           
-          // Kalan tutarı hesapla (ödenen miktarları çıkar)
-          const paidAmounts = getPaidAmounts();
+          // Kalan tutarı hesapla (paid_amount Supabase'den)
           const totalAmount = tableOrders.reduce((sum, o) => {
-            const paid = paidAmounts[o.id] || 0;
-            return sum + Math.max(0, (o.total || 0) - paid);
+            const remaining = (o.total || 0) - (o.paid_amount || 0);
+            return sum + Math.max(0, remaining);
           }, 0);
           
           const ShapeIcon = shapeIcons[table.shape] || Square;
@@ -591,7 +557,7 @@ export default function TablesPage() {
           getSeatedTime={getSeatedTime}
           venueId={currentVenue.id}
           venueName={currentVenue.name}
-          onOrderCreated={fetchOrders}
+          onOrderUpdated={fetchOrders}
         />
       )}
     </div>
@@ -610,7 +576,7 @@ function TableDetailModal({
   getSeatedTime, 
   venueId,
   venueName,
-  onOrderCreated 
+  onOrderUpdated 
 }: { 
   table: TableData; 
   orders: ActiveOrder[]; 
@@ -622,23 +588,20 @@ function TableDetailModal({
   getSeatedTime: (seatedAt: string | undefined) => string; 
   venueId: string;
   venueName: string;
-  onOrderCreated: () => void; 
+  onOrderUpdated: () => void; 
 }) {
   const [showSeatForm, setShowSeatForm] = useState(false);
   const [guestCount, setGuestCount] = useState(2);
   const [customerName, setCustomerName] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [, forceUpdate] = useState(0); // Force re-render after payment
 
   const hasOrders = orders.length > 0;
-  // Sipariş varsa VEYA müşteri oturmuşsa dolu say
   const isOccupied = hasOrders || table.status === 'occupied' || (table.current_guests && table.current_guests > 0);
   
-  // Kalan tutarı hesapla
-  const paidAmounts = getPaidAmounts();
+  // Tutarları hesapla (paid_amount Supabase'den)
   const originalTotal = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const totalPaid = orders.reduce((sum, o) => sum + (paidAmounts[o.id] || 0), 0);
+  const totalPaid = orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
   const totalAmount = Math.max(0, originalTotal - totalPaid);
   const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
   const tax = originalTotal - subtotal;
@@ -668,42 +631,50 @@ function TableDetailModal({
       type: 'dine_in', 
       status: 'preparing', 
       items: [
-        { product_name: 'Izgara Levrek', quantity: 2, unit_price: 320, total_price: 640 }, 
-        { product_name: 'Caesar Salata', quantity: 1, unit_price: 120, total_price: 120 }, 
-        { product_name: 'Limonata', quantity: 2, unit_price: 45, total_price: 90 }
+        { id: crypto.randomUUID(), name: 'Izgara Levrek', price: 320, quantity: 2, status: 'pending' }, 
+        { id: crypto.randomUUID(), name: 'Caesar Salata', price: 120, quantity: 1, status: 'pending' }, 
+        { id: crypto.randomUUID(), name: 'Limonata', price: 45, quantity: 2, status: 'pending' }
       ], 
       subtotal: 850, 
       tax: 68, 
       service_charge: 85, 
       discount: 0, 
       total: 1003, 
+      paid_amount: 0,
       payment_status: 'pending' 
     });
-    if (!error) onOrderCreated();
+    if (!error) onOrderUpdated();
     else alert('Sipariş oluşturulurken hata: ' + error.message);
   };
 
   const handlePaymentComplete = async (paidAmount: number, isFullPayment: boolean) => {
     if (isFullPayment) {
-      // Tam ödeme - siparişleri kapat ve localStorage'ı temizle
+      // Tam ödeme - siparişleri kapat
       for (const order of orders) {
         await supabase.from('orders').update({ 
           status: 'completed', 
-          payment_status: 'paid' 
+          payment_status: 'paid',
+          paid_amount: order.total
         }).eq('id', order.id);
-        clearPaidAmount(order.id);
       }
       onClearTable();
       setShowPaymentModal(false);
       onClose();
     } else {
-      // Kısmi ödeme - localStorage'a kaydet
-      // Ödemeyi ilk siparişe uygula
+      // Kısmi ödeme - paid_amount'u güncelle
+      // İlk siparişe ekle
       if (orders.length > 0) {
-        savePaidAmount(orders[0].id, paidAmount);
+        const firstOrder = orders[0];
+        const newPaidAmount = (firstOrder.paid_amount || 0) + paidAmount;
+        
+        await supabase.from('orders').update({ 
+          paid_amount: newPaidAmount,
+          payment_status: newPaidAmount >= firstOrder.total ? 'paid' : 'partial'
+        }).eq('id', firstOrder.id);
       }
+      
       setShowPaymentModal(false);
-      forceUpdate(n => n + 1); // Re-render to show updated amount
+      onOrderUpdated(); // Refresh orders
       alert(`₺${paidAmount.toLocaleString()} ödeme alındı.\nKalan: ₺${(totalAmount - paidAmount).toLocaleString()}`);
     }
   };
@@ -828,7 +799,7 @@ function TableDetailModal({
                     const statusConf = orderStatusConfig[order.status] || orderStatusConfig.pending;
                     const StatusIcon = statusConf.icon;
                     const orderItems = parseItems(order.items);
-                    const orderPaid = paidAmounts[order.id] || 0;
+                    const orderPaid = order.paid_amount || 0;
                     const orderRemaining = Math.max(0, (order.total || 0) - orderPaid);
                     
                     return (
@@ -842,15 +813,15 @@ function TableDetailModal({
                         </div>
                         <div className="p-4 bg-white">
                           <div className="space-y-2">
-                            {orderItems.length > 0 ? orderItems.map((item: OrderItem, idx: number) => (
+                            {orderItems.length > 0 ? orderItems.map((item, idx) => (
                               <div key={idx} className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-2">
                                   <span className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-bold text-gray-700">
                                     {item.quantity}x
                                   </span>
-                                  <span className="font-medium text-gray-800">{item.product_name || item.name || 'Ürün'}</span>
+                                  <span className="font-medium text-gray-800">{item.name}</span>
                                 </div>
-                                <span className="font-semibold text-gray-700">₺{(item.total_price || (item.quantity * (item.unit_price || item.price || 0))).toLocaleString()}</span>
+                                <span className="font-semibold text-gray-700">₺{(item.quantity * item.price).toLocaleString()}</span>
                               </div>
                             )) : (
                               <p className="text-sm text-gray-500 italic">Ürün detayı yok</p>
@@ -1019,11 +990,8 @@ function TableDetailModal({
           totalAmount={totalAmount}
           originalTotal={originalTotal}
           totalPaid={totalPaid}
-          subtotal={subtotal}
-          tax={tax}
           items={allItems}
           venueName={venueName}
-          customerName={table.customer_name}
           guestCount={table.current_guests || 1}
           onClose={() => setShowPaymentModal(false)}
           onPaymentComplete={handlePaymentComplete}
@@ -1037,12 +1005,9 @@ function TableDetailModal({
           totalAmount={totalAmount}
           originalTotal={originalTotal}
           totalPaid={totalPaid}
-          subtotal={subtotal}
-          tax={tax}
           items={allItems}
           venueName={venueName}
           customerName={table.customer_name}
-          seatedAt={table.seated_at}
           onClose={() => setShowPrintPreview(false)}
         />
       )}
@@ -1056,11 +1021,8 @@ function PaymentModal({
   totalAmount,
   originalTotal,
   totalPaid,
-  subtotal,
-  tax,
   items,
   venueName,
-  customerName,
   guestCount,
   onClose,
   onPaymentComplete
@@ -1069,11 +1031,8 @@ function PaymentModal({
   totalAmount: number;
   originalTotal: number;
   totalPaid: number;
-  subtotal: number;
-  tax: number;
   items: OrderItem[];
   venueName: string;
-  customerName?: string;
   guestCount: number;
   onClose: () => void;
   onPaymentComplete: (paidAmount: number, isFullPayment: boolean) => void;
@@ -1098,49 +1057,11 @@ function PaymentModal({
     email: ''
   });
 
-  // Hesaplamalar
   const discountAmount = discountType === 'percent' ? (totalAmount * discount / 100) : discount;
   const finalTotal = Math.max(0, totalAmount - discountAmount);
   const change = parseFloat(cashReceived) - finalTotal;
   const splitAmount = Math.ceil(finalTotal / splitCount);
   const partialValue = parseFloat(partialAmount) || 0;
-
-  const handlePaymentMethodSelect = (method: 'cash' | 'card' | 'titpay') => {
-    setPaymentMethod(method);
-    setStep('document');
-  };
-
-  const handleDocumentSelect = (type: 'receipt' | 'invoice') => {
-    setDocumentType(type);
-    if (type === 'invoice') {
-      setStep('invoice');
-    } else {
-      setStep('complete');
-    }
-  };
-
-  const handleInvoiceSubmit = () => {
-    if (invoiceInfo.type === 'corporate') {
-      if (!invoiceInfo.companyName || !invoiceInfo.taxOffice || !invoiceInfo.taxNumber) {
-        alert('Lütfen şirket bilgilerini eksiksiz doldurun');
-        return;
-      }
-      if (invoiceInfo.taxNumber.length !== 10) {
-        alert('Vergi numarası 10 haneli olmalıdır');
-        return;
-      }
-    } else {
-      if (!invoiceInfo.tcNumber) {
-        alert('Lütfen TC Kimlik No girin');
-        return;
-      }
-      if (invoiceInfo.tcNumber.length !== 11) {
-        alert('TC Kimlik No 11 haneli olmalıdır');
-        return;
-      }
-    }
-    setStep('complete');
-  };
 
   const getPayAmount = () => {
     if (paymentMode === 'partial') return partialValue;
@@ -1148,21 +1069,10 @@ function PaymentModal({
     return finalTotal;
   };
 
-  const isFullPayment = () => {
-    const payAmount = getPayAmount();
-    return payAmount >= finalTotal;
-  };
-
-  const canPay = () => {
-    if (paymentMode === 'partial') return partialValue > 0 && partialValue <= finalTotal;
-    if (paymentMode === 'split') return splitCount >= 2;
-    if (paymentMethod === 'cash') return parseFloat(cashReceived) >= finalTotal;
-    return true;
-  };
+  const isFullPayment = () => getPayAmount() >= finalTotal;
 
   const handleFinalPayment = () => {
-    const payAmount = getPayAmount();
-    onPaymentComplete(payAmount, isFullPayment());
+    onPaymentComplete(getPayAmount(), isFullPayment());
   };
 
   return (
@@ -1184,88 +1094,36 @@ function PaymentModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
-          {/* Step 1: Payment Method */}
           {step === 'method' && (
             <div className="space-y-4">
               <h3 className="font-bold text-gray-800 text-lg text-center mb-4">Ödeme Yöntemi</h3>
               
               {/* Payment Mode Tabs */}
               <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-4">
-                <button
-                  onClick={() => setPaymentMode('full')}
-                  className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-                    paymentMode === 'full' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  Tam Ödeme
-                </button>
-                <button
-                  onClick={() => setPaymentMode('partial')}
-                  className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-                    paymentMode === 'partial' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  Kısmi
-                </button>
-                <button
-                  onClick={() => setPaymentMode('split')}
-                  className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-                    paymentMode === 'split' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  Böl
-                </button>
+                <button onClick={() => setPaymentMode('full')} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${paymentMode === 'full' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>Tam Ödeme</button>
+                <button onClick={() => setPaymentMode('partial')} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${paymentMode === 'partial' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>Kısmi</button>
+                <button onClick={() => setPaymentMode('split')} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${paymentMode === 'split' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>Böl</button>
               </div>
 
-              {/* Partial Amount Input */}
               {paymentMode === 'partial' && (
                 <div className="mb-4 p-4 bg-orange-50 rounded-xl border-2 border-orange-200">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Ödenecek Tutar</label>
-                  <input
-                    type="number"
-                    value={partialAmount}
-                    onChange={(e) => setPartialAmount(e.target.value)}
-                    placeholder="0"
-                    max={finalTotal}
-                    className="w-full text-2xl font-bold text-center py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:border-orange-500 outline-none"
-                  />
+                  <input type="number" value={partialAmount} onChange={(e) => setPartialAmount(e.target.value)} placeholder="0" className="w-full text-2xl font-bold text-center py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900" />
                   <div className="flex gap-2 mt-3">
                     {[25, 50, 75, 100].map(p => (
-                      <button
-                        key={p}
-                        onClick={() => setPartialAmount(Math.round(finalTotal * p / 100).toString())}
-                        className="flex-1 py-2 bg-orange-100 hover:bg-orange-200 rounded-lg text-sm font-semibold text-orange-700"
-                      >
-                        %{p}
-                      </button>
+                      <button key={p} onClick={() => setPartialAmount(Math.round(finalTotal * p / 100).toString())} className="flex-1 py-2 bg-orange-100 hover:bg-orange-200 rounded-lg text-sm font-semibold text-orange-700">%{p}</button>
                     ))}
                   </div>
-                  {partialValue > 0 && (
-                    <p className="text-sm text-orange-600 mt-2 text-center">
-                      Kalan: ₺{(finalTotal - partialValue).toLocaleString()}
-                    </p>
-                  )}
                 </div>
               )}
 
-              {/* Split Options */}
               {paymentMode === 'split' && (
                 <div className="mb-4 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
                   <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">Kişi Sayısı</label>
                   <div className="flex items-center justify-center gap-4">
-                    <button
-                      onClick={() => setSplitCount(Math.max(2, splitCount - 1))}
-                      className="w-12 h-12 bg-white border-2 border-gray-300 rounded-xl font-bold text-xl hover:bg-gray-50"
-                    >
-                      −
-                    </button>
-                    <span className="text-4xl font-bold w-16 text-center text-gray-900">{splitCount}</span>
-                    <button
-                      onClick={() => setSplitCount(Math.min(20, splitCount + 1))}
-                      className="w-12 h-12 bg-white border-2 border-gray-300 rounded-xl font-bold text-xl hover:bg-gray-50"
-                    >
-                      +
-                    </button>
+                    <button onClick={() => setSplitCount(Math.max(2, splitCount - 1))} className="w-12 h-12 bg-white border-2 border-gray-300 rounded-xl font-bold text-xl">−</button>
+                    <span className="text-4xl font-bold w-16 text-center">{splitCount}</span>
+                    <button onClick={() => setSplitCount(Math.min(20, splitCount + 1))} className="w-12 h-12 bg-white border-2 border-gray-300 rounded-xl font-bold text-xl">+</button>
                   </div>
                   <div className="mt-3 p-3 bg-blue-100 rounded-lg text-center">
                     <p className="text-sm text-blue-600">Kişi Başı</p>
@@ -1274,166 +1132,63 @@ function PaymentModal({
                 </div>
               )}
 
-              {/* Discount */}
               {!showDiscountInput ? (
-                <button
-                  onClick={() => setShowDiscountInput(true)}
-                  className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-orange-400 hover:text-orange-500 flex items-center justify-center gap-2"
-                >
-                  <Percent className="w-4 h-4" />
-                  İndirim Uygula
+                <button onClick={() => setShowDiscountInput(true)} className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-orange-400 flex items-center justify-center gap-2">
+                  <Percent className="w-4 h-4" />İndirim Uygula
                 </button>
               ) : (
                 <div className="p-4 bg-green-50 rounded-xl border-2 border-green-200">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-700">İndirim</span>
-                    <button onClick={() => { setShowDiscountInput(false); setDiscount(0); }} className="text-red-500 text-sm">
-                      Kaldır
-                    </button>
+                    <span className="font-semibold">İndirim</span>
+                    <button onClick={() => { setShowDiscountInput(false); setDiscount(0); }} className="text-red-500 text-sm">Kaldır</button>
                   </div>
                   <div className="flex gap-2 mb-2">
-                    <button
-                      onClick={() => setDiscountType('percent')}
-                      className={`flex-1 py-2 rounded-lg font-semibold text-sm ${discountType === 'percent' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
-                    >
-                      Yüzde (%)
-                    </button>
-                    <button
-                      onClick={() => setDiscountType('amount')}
-                      className={`flex-1 py-2 rounded-lg font-semibold text-sm ${discountType === 'amount' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
-                    >
-                      Tutar (₺)
-                    </button>
+                    <button onClick={() => setDiscountType('percent')} className={`flex-1 py-2 rounded-lg font-semibold text-sm ${discountType === 'percent' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}>%</button>
+                    <button onClick={() => setDiscountType('amount')} className={`flex-1 py-2 rounded-lg font-semibold text-sm ${discountType === 'amount' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}>₺</button>
                   </div>
-                  <input
-                    type="number"
-                    value={discount || ''}
-                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    className="w-full text-xl font-bold text-center py-2 border-2 border-gray-300 rounded-xl bg-white text-gray-900"
-                  />
-                  {discount > 0 && (
-                    <p className="text-sm text-green-600 mt-2 text-center">
-                      İndirim: -₺{discountAmount.toLocaleString()}
-                    </p>
-                  )}
+                  <input type="number" value={discount || ''} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} className="w-full text-xl font-bold text-center py-2 border-2 border-gray-300 rounded-xl bg-white" />
                 </div>
               )}
 
-              {/* Payment Methods */}
               <div className="space-y-2 mt-4">
-                <button
-                  onClick={() => handlePaymentMethodSelect('cash')}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all flex items-center gap-4"
-                >
-                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                    <Banknote className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-bold text-gray-900">Nakit</p>
-                    <p className="text-sm text-gray-500">Nakit ödeme al</p>
-                  </div>
+                <button onClick={() => { setPaymentMethod('cash'); setStep('document'); }} className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center"><Banknote className="w-6 h-6 text-green-600" /></div>
+                  <div className="flex-1 text-left"><p className="font-bold">Nakit</p></div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </button>
-
-                <button
-                  onClick={() => handlePaymentMethodSelect('card')}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4"
-                >
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-bold text-gray-900">Kredi / Banka Kartı</p>
-                    <p className="text-sm text-gray-500">POS ile ödeme</p>
-                  </div>
+                <button onClick={() => { setPaymentMethod('card'); setStep('document'); }} className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center"><CreditCard className="w-6 h-6 text-blue-600" /></div>
+                  <div className="flex-1 text-left"><p className="font-bold">Kredi Kartı</p></div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </button>
-
-                <button
-                  onClick={() => handlePaymentMethodSelect('titpay')}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all flex items-center gap-4"
-                >
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                    <QrCode className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-bold text-gray-900">TiT Pay</p>
-                    <p className="text-sm text-gray-500">QR kod ile ödeme</p>
-                  </div>
+                <button onClick={() => { setPaymentMethod('titpay'); setStep('document'); }} className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center"><QrCode className="w-6 h-6 text-white" /></div>
+                  <div className="flex-1 text-left"><p className="font-bold">TiT Pay</p></div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </button>
               </div>
 
-              {/* Total */}
               <div className="mt-4 p-4 bg-gray-100 rounded-xl">
-                {totalPaid > 0 && (
-                  <div className="flex justify-between text-sm text-gray-600 mb-1">
-                    <span>Orijinal Tutar</span>
-                    <span>₺{originalTotal.toLocaleString()}</span>
-                  </div>
-                )}
-                {totalPaid > 0 && (
-                  <div className="flex justify-between text-sm text-green-600 mb-1">
-                    <span>Önceki Ödemeler</span>
-                    <span>-₺{totalPaid.toLocaleString()}</span>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600 mb-1">
-                    <span>İndirim</span>
-                    <span>-₺{discountAmount.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-300">
-                  <span>Ödenecek</span>
-                  <span>₺{getPayAmount().toLocaleString()}</span>
-                </div>
-                {paymentMode === 'partial' && partialValue > 0 && partialValue < finalTotal && (
-                  <div className="flex justify-between text-sm text-orange-600 mt-1">
-                    <span>Kalan</span>
-                    <span>₺{(finalTotal - partialValue).toLocaleString()}</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-xl font-bold"><span>Ödenecek</span><span>₺{getPayAmount().toLocaleString()}</span></div>
               </div>
             </div>
           )}
 
-          {/* Step 2: Document Type */}
           {step === 'document' && (
             <div className="space-y-4">
-              <button
-                onClick={() => setStep('method')}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4"
-              >
-                ← Geri
-              </button>
-              
-              <h3 className="font-bold text-gray-800 text-lg text-center mb-4">Belge Türü</h3>
+              <button onClick={() => setStep('method')} className="text-sm text-gray-500 hover:text-gray-700">← Geri</button>
+              <h3 className="font-bold text-gray-800 text-lg text-center">Belge Türü</h3>
 
-              {/* Cash input */}
               {paymentMethod === 'cash' && paymentMode === 'full' && (
                 <div className="mb-4 p-4 bg-green-50 rounded-xl border-2 border-green-200">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Alınan Tutar</label>
-                  <input
-                    type="number"
-                    value={cashReceived}
-                    onChange={(e) => setCashReceived(e.target.value)}
-                    placeholder="0"
-                    className="w-full text-2xl font-bold text-center py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:border-green-500 outline-none"
-                  />
+                  <input type="number" value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} className="w-full text-2xl font-bold text-center py-3 border-2 border-gray-300 rounded-xl bg-white" />
                   <div className="flex gap-2 mt-3">
-                    {[50, 100, 200, 500, 1000].map(amount => (
-                      <button
-                        key={amount}
-                        onClick={() => setCashReceived(amount.toString())}
-                        className="flex-1 py-2 bg-green-100 hover:bg-green-200 rounded-lg text-sm font-semibold text-green-700"
-                      >
-                        {amount}
-                      </button>
+                    {[50, 100, 200, 500, 1000].map(a => (
+                      <button key={a} onClick={() => setCashReceived(a.toString())} className="flex-1 py-2 bg-green-100 hover:bg-green-200 rounded-lg text-sm font-semibold">{a}</button>
                     ))}
                   </div>
-                  {parseFloat(cashReceived) >= finalTotal && (
+                  {change >= 0 && parseFloat(cashReceived) > 0 && (
                     <div className="mt-3 p-3 bg-green-100 rounded-lg text-center">
                       <p className="text-sm text-green-600">Para Üstü</p>
                       <p className="text-2xl font-bold text-green-700">₺{change.toFixed(2)}</p>
@@ -1442,196 +1197,80 @@ function PaymentModal({
                 </div>
               )}
 
-              {/* TiT Pay QR */}
               {paymentMethod === 'titpay' && (
-                <div className="mb-4 p-6 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl text-center border-2 border-purple-200">
+                <div className="mb-4 p-6 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl text-center">
                   <div className="w-32 h-32 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center shadow-md">
                     <QrCode className="w-24 h-24 text-purple-600" />
                   </div>
                   <p className="font-semibold text-purple-800">TiT Pay ile Ödeme</p>
-                  <p className="text-sm text-purple-600">QR kodu müşteriye gösterin</p>
                 </div>
               )}
               
-              <button
-                onClick={() => handleDocumentSelect('receipt')}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all flex items-center gap-4"
-              >
-                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <Receipt className="w-6 h-6 text-orange-600" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900">Fiş</p>
-                  <p className="text-sm text-gray-500">Standart satış fişi</p>
-                </div>
+              <button onClick={() => { setDocumentType('receipt'); setStep('complete'); }} className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 flex items-center gap-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center"><Receipt className="w-6 h-6 text-orange-600" /></div>
+                <div className="flex-1 text-left"><p className="font-bold">Fiş</p></div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </button>
 
-              <button
-                onClick={() => handleDocumentSelect('invoice')}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4"
-              >
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900">Fatura</p>
-                  <p className="text-sm text-gray-500">Kurumsal veya bireysel fatura</p>
-                </div>
+              <button onClick={() => { setDocumentType('invoice'); setStep('invoice'); }} className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center"><FileText className="w-6 h-6 text-blue-600" /></div>
+                <div className="flex-1 text-left"><p className="font-bold">Fatura</p></div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </button>
             </div>
           )}
 
-          {/* Step 3: Invoice Info */}
           {step === 'invoice' && (
             <div className="space-y-4">
-              <button
-                onClick={() => setStep('document')}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4"
-              >
-                ← Geri
-              </button>
-              
-              <h3 className="font-bold text-gray-800 text-lg text-center mb-4">Fatura Bilgileri</h3>
+              <button onClick={() => setStep('document')} className="text-sm text-gray-500 hover:text-gray-700">← Geri</button>
+              <h3 className="font-bold text-gray-800 text-lg text-center">Fatura Bilgileri</h3>
 
-              {/* Invoice Type Toggle */}
-              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
-                <button
-                  onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'corporate' })}
-                  className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
-                    invoiceInfo.type === 'corporate' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" />
-                  Kurumsal
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                <button onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'corporate' })} className={`flex-1 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 ${invoiceInfo.type === 'corporate' ? 'bg-white shadow' : 'text-gray-500'}`}>
+                  <Building2 className="w-4 h-4" />Kurumsal
                 </button>
-                <button
-                  onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'individual' })}
-                  className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
-                    invoiceInfo.type === 'individual' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  <UserCircle className="w-4 h-4" />
-                  Bireysel
+                <button onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'individual' })} className={`flex-1 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 ${invoiceInfo.type === 'individual' ? 'bg-white shadow' : 'text-gray-500'}`}>
+                  <UserCircle className="w-4 h-4" />Bireysel
                 </button>
               </div>
 
               {invoiceInfo.type === 'corporate' ? (
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Şirket / Firma Adı *</label>
-                    <input
-                      type="text"
-                      value={invoiceInfo.companyName}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, companyName: e.target.value })}
-                      placeholder="ABC Teknoloji A.Ş."
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                    />
-                  </div>
+                  <input type="text" value={invoiceInfo.companyName} onChange={(e) => setInvoiceInfo({ ...invoiceInfo, companyName: e.target.value })} placeholder="Şirket Adı *" className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white" />
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Vergi Dairesi *</label>
-                      <input
-                        type="text"
-                        value={invoiceInfo.taxOffice}
-                        onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxOffice: e.target.value })}
-                        placeholder="Kadıköy"
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Vergi No *</label>
-                      <input
-                        type="text"
-                        value={invoiceInfo.taxNumber}
-                        onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                        placeholder="1234567890"
-                        maxLength={10}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{invoiceInfo.taxNumber?.length || 0}/10</p>
-                    </div>
+                    <input type="text" value={invoiceInfo.taxOffice} onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxOffice: e.target.value })} placeholder="Vergi Dairesi *" className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white" />
+                    <input type="text" value={invoiceInfo.taxNumber} onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="Vergi No (10) *" className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white" />
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">TC Kimlik No *</label>
-                    <input
-                      type="text"
-                      value={invoiceInfo.tcNumber}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, tcNumber: e.target.value.replace(/\D/g, '').slice(0, 11) })}
-                      placeholder="12345678901"
-                      maxLength={11}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{invoiceInfo.tcNumber?.length || 0}/11</p>
-                  </div>
-                </div>
+                <input type="text" value={invoiceInfo.tcNumber} onChange={(e) => setInvoiceInfo({ ...invoiceInfo, tcNumber: e.target.value.replace(/\D/g, '').slice(0, 11) })} placeholder="TC Kimlik No (11) *" className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white" />
               )}
 
-              <button
-                onClick={handleInvoiceSubmit}
-                className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors mt-4"
-              >
-                Devam Et
-              </button>
+              <button onClick={() => setStep('complete')} className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold">Devam Et</button>
             </div>
           )}
 
-          {/* Step 4: Complete */}
           {step === 'complete' && (
             <div className="text-center py-6">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-10 h-10 text-green-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Ödeme Hazır</h3>
+              <h3 className="text-xl font-bold mb-2">Ödeme Hazır</h3>
               <p className="text-gray-600 mb-6">
-                {paymentMethod === 'cash' && 'Nakit ödeme alındı'}
-                {paymentMethod === 'card' && 'Kart ile ödeme alınacak'}
-                {paymentMethod === 'titpay' && 'TiT Pay ödemesi onaylandı'}
+                {paymentMethod === 'cash' && 'Nakit ödeme'} 
+                {paymentMethod === 'card' && 'Kart ile ödeme'} 
+                {paymentMethod === 'titpay' && 'TiT Pay ödemesi'}
               </p>
 
               <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left">
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Ödeme Yöntemi</span>
-                  <span className="font-semibold">
-                    {paymentMethod === 'cash' && 'Nakit'}
-                    {paymentMethod === 'card' && 'Kredi/Banka Kartı'}
-                    {paymentMethod === 'titpay' && 'TiT Pay'}
-                  </span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Belge Türü</span>
-                  <span className="font-semibold">{documentType === 'receipt' ? 'Fiş' : 'Fatura'}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Ödeme Tipi</span>
-                  <span className="font-semibold">
-                    {paymentMode === 'full' && 'Tam Ödeme'}
-                    {paymentMode === 'partial' && 'Kısmi Ödeme'}
-                    {paymentMode === 'split' && `Bölünmüş (${splitCount} kişi)`}
-                  </span>
-                </div>
-                <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 mt-2">
-                  <span>Alınacak Tutar</span>
-                  <span className="text-green-600">₺{getPayAmount().toLocaleString()}</span>
-                </div>
-                {!isFullPayment() && (
-                  <div className="flex justify-between text-sm text-orange-600 mt-1">
-                    <span>Kalan Tutar</span>
-                    <span>₺{(finalTotal - getPayAmount()).toLocaleString()}</span>
-                  </div>
-                )}
+                <div className="flex justify-between mb-2"><span className="text-gray-600">Belge</span><span className="font-semibold">{documentType === 'receipt' ? 'Fiş' : 'Fatura'}</span></div>
+                <div className="flex justify-between mb-2"><span className="text-gray-600">Tip</span><span className="font-semibold">{paymentMode === 'full' ? 'Tam' : paymentMode === 'partial' ? 'Kısmi' : 'Bölünmüş'}</span></div>
+                <div className="flex justify-between text-lg font-bold pt-2 border-t mt-2"><span>Alınacak</span><span className="text-green-600">₺{getPayAmount().toLocaleString()}</span></div>
+                {!isFullPayment() && <div className="flex justify-between text-sm text-orange-600 mt-1"><span>Kalan</span><span>₺{(finalTotal - getPayAmount()).toLocaleString()}</span></div>}
               </div>
 
-              <button
-                onClick={handleFinalPayment}
-                className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
-              >
-                <Check className="w-5 h-5" />
-                {isFullPayment() ? 'Ödemeyi Tamamla' : 'Kısmi Ödemeyi Al'}
+              <button onClick={handleFinalPayment} className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2">
+                <Check className="w-5 h-5" />{isFullPayment() ? 'Ödemeyi Tamamla' : 'Kısmi Ödemeyi Al'}
               </button>
             </div>
           )}
@@ -1641,129 +1280,72 @@ function PaymentModal({
   );
 }
 
-// Print Preview Modal Component
+// Print Preview Modal
 function PrintPreviewModal({
   tableNumber,
   totalAmount,
   originalTotal,
   totalPaid,
-  subtotal,
-  tax,
   items,
   venueName,
   customerName,
-  seatedAt,
   onClose
 }: {
   tableNumber: string;
   totalAmount: number;
   originalTotal: number;
   totalPaid: number;
-  subtotal: number;
-  tax: number;
   items: OrderItem[];
   venueName: string;
   customerName?: string;
-  seatedAt?: string;
   onClose: () => void;
 }) {
   const printRef = useRef<HTMLDivElement>(null);
+  const now = new Date();
 
   const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Hesap - Masa ${tableNumber}</title>
-          <style>
-            body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
-            .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .header h1 { font-size: 18px; margin: 0 0 5px 0; }
-            .header p { margin: 2px 0; font-size: 12px; }
-            .items { border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; }
-            .totals { margin-top: 10px; }
-            .total-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 12px; }
-            .grand-total { font-size: 16px; font-weight: bold; border-top: 2px solid #000; padding-top: 5px; margin-top: 5px; }
-            .footer { text-align: center; margin-top: 20px; font-size: 11px; }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+    const content = printRef.current;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>Hesap</title><style>body{font-family:'Courier New',monospace;padding:20px;max-width:300px;margin:0 auto;}</style></head><body>${content.innerHTML}</body></html>`);
+    win.document.close();
+    win.print();
   };
-
-  const now = new Date();
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-        {/* Header */}
         <div className="p-5 border-b-2 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Hesap Önizleme</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-            <X className="w-6 h-6 text-gray-600" />
-          </button>
+          <h2 className="text-xl font-bold">Hesap Önizleme</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg"><X className="w-6 h-6" /></button>
         </div>
 
-        {/* Print Preview Content */}
         <div className="flex-1 overflow-y-auto p-5">
           <div ref={printRef} className="bg-white p-4 border-2 border-dashed border-gray-300 rounded-xl font-mono text-sm">
-            {/* Receipt Header */}
             <div className="text-center border-b-2 border-dashed border-gray-400 pb-3 mb-3">
               <h1 className="text-lg font-bold">{venueName}</h1>
-              <p className="text-xs text-gray-600">Masa: {tableNumber}</p>
-              {customerName && <p className="text-xs text-gray-600">Müşteri: {customerName}</p>}
-              <p className="text-xs text-gray-600">{now.toLocaleDateString('tr-TR')} {now.toLocaleTimeString('tr-TR')}</p>
+              <p className="text-xs">Masa: {tableNumber}</p>
+              {customerName && <p className="text-xs">Müşteri: {customerName}</p>}
+              <p className="text-xs">{now.toLocaleDateString('tr-TR')} {now.toLocaleTimeString('tr-TR')}</p>
             </div>
 
-            {/* Items */}
             <div className="border-b-2 border-dashed border-gray-400 pb-3 mb-3">
-              {items.length > 0 ? (
-                items.map((item, idx) => {
-                  const itemName = item.product_name || item.name || 'Ürün';
-                  const itemTotal = item.total_price || (item.quantity * (item.unit_price || item.price || 0));
-                  return (
-                    <div key={idx} className="flex justify-between py-1">
-                      <span className="flex-1">{item.quantity}x {itemName}</span>
-                      <span className="font-semibold">₺{itemTotal.toLocaleString()}</span>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-center text-gray-500">Ürün bulunamadı</p>
+              {items.length > 0 ? items.map((item, idx) => (
+                <div key={idx} className="flex justify-between py-1">
+                  <span>{item.quantity}x {item.name}</span>
+                  <span className="font-semibold">₺{(item.quantity * item.price).toLocaleString()}</span>
+                </div>
+              )) : (
+                <p className="text-center text-gray-500">Ürün yok</p>
               )}
             </div>
 
-            {/* Totals */}
             <div className="space-y-1">
-              <div className="flex justify-between">
-                <span>Ara Toplam:</span>
-                <span>₺{subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>KDV:</span>
-                <span>₺{tax.toLocaleString()}</span>
-              </div>
               {totalPaid > 0 && (
                 <>
-                  <div className="flex justify-between border-t border-gray-300 pt-1">
-                    <span>Toplam:</span>
-                    <span>₺{originalTotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-green-600">
-                    <span>Ödenen:</span>
-                    <span>-₺{totalPaid.toLocaleString()}</span>
-                  </div>
+                  <div className="flex justify-between"><span>Toplam:</span><span>₺{originalTotal.toLocaleString()}</span></div>
+                  <div className="flex justify-between text-green-600"><span>Ödenen:</span><span>-₺{totalPaid.toLocaleString()}</span></div>
                 </>
               )}
               <div className="flex justify-between text-lg font-bold border-t-2 border-gray-400 pt-2 mt-2">
@@ -1772,28 +1354,17 @@ function PrintPreviewModal({
               </div>
             </div>
 
-            {/* Footer */}
             <div className="text-center mt-4 pt-3 border-t-2 border-dashed border-gray-400 text-xs text-gray-500">
-              <p>Bizi tercih ettiğiniz için teşekkürler!</p>
+              <p>Teşekkürler!</p>
               <p>www.orderapp.com</p>
             </div>
           </div>
         </div>
 
-        {/* Actions */}
         <div className="p-5 border-t-2 flex gap-3">
-          <button 
-            onClick={onClose}
-            className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            Kapat
-          </button>
-          <button 
-            onClick={handlePrint}
-            className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
-          >
-            <Printer className="w-5 h-5" />
-            Yazdır
+          <button onClick={onClose} className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-semibold">Kapat</button>
+          <button onClick={handlePrint} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2">
+            <Printer className="w-5 h-5" />Yazdır
           </button>
         </div>
       </div>
@@ -1801,16 +1372,8 @@ function PrintPreviewModal({
   );
 }
 
-// Table Add/Edit Modal Component
-function TableModal({ 
-  table, 
-  onSave, 
-  onClose 
-}: { 
-  table: TableData | null; 
-  onSave: (data: any) => void; 
-  onClose: () => void; 
-}) {
+// Table Modal
+function TableModal({ table, onSave, onClose }: { table: TableData | null; onSave: (data: any) => void; onClose: () => void; }) {
   const [formData, setFormData] = useState({ 
     number: table?.number || '', 
     capacity: table?.capacity || 4, 
@@ -1825,61 +1388,36 @@ function TableModal({
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         <div className="p-5 border-b-2 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">{table ? 'Masa Düzenle' : 'Yeni Masa'}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-gray-600" />
-          </button>
+          <h2 className="text-xl font-bold">{table ? 'Masa Düzenle' : 'Yeni Masa'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
         
         <div className="p-5 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Masa No</label>
-              <input 
-                type="text" 
-                value={formData.number} 
-                onChange={(e) => setFormData({ ...formData, number: e.target.value })} 
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium outline-none transition-colors" 
-                placeholder="1, 2, VIP1..." 
-              />
+              <label className="block text-sm font-semibold mb-2">Masa No</label>
+              <input type="text" value={formData.number} onChange={(e) => setFormData({ ...formData, number: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white" placeholder="1, VIP1..." />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Kapasite</label>
-              <input 
-                type="number" 
-                value={formData.capacity} 
-                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })} 
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium outline-none transition-colors" 
-                min={1} 
-              />
+              <label className="block text-sm font-semibold mb-2">Kapasite</label>
+              <input type="number" value={formData.capacity} onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })} className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white" min={1} />
             </div>
           </div>
           
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Bölüm</label>
-            <select 
-              value={formData.section} 
-              onChange={(e) => setFormData({ ...formData, section: e.target.value })} 
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium outline-none transition-colors"
-            >
+            <label className="block text-sm font-semibold mb-2">Bölüm</label>
+            <select value={formData.section} onChange={(e) => setFormData({ ...formData, section: e.target.value })} className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white">
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Şekil</label>
+            <label className="block text-sm font-semibold mb-2">Şekil</label>
             <div className="flex gap-3">
               {(['square', 'round', 'rectangle'] as const).map(shape => {
                 const Icon = shapeIcons[shape];
                 return (
-                  <button 
-                    key={shape} 
-                    type="button" 
-                    onClick={() => setFormData({ ...formData, shape })} 
-                    className={`flex-1 p-4 rounded-xl border-2 transition-all ${
-                      formData.shape === shape ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                  >
+                  <button key={shape} type="button" onClick={() => setFormData({ ...formData, shape })} className={`flex-1 p-4 rounded-xl border-2 ${formData.shape === shape ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}>
                     <Icon className={`w-7 h-7 mx-auto ${formData.shape === shape ? 'text-orange-600' : 'text-gray-600'}`} />
                   </button>
                 );
@@ -1889,18 +1427,8 @@ function TableModal({
         </div>
         
         <div className="p-5 border-t-2 flex gap-3">
-          <button 
-            onClick={onClose} 
-            className="flex-1 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-semibold transition-colors text-gray-700"
-          >
-            İptal
-          </button>
-          <button 
-            onClick={() => onSave(formData)} 
-            className="flex-1 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 font-semibold transition-colors shadow-md"
-          >
-            Kaydet
-          </button>
+          <button onClick={onClose} className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-semibold">İptal</button>
+          <button onClick={() => onSave(formData)} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-semibold">Kaydet</button>
         </div>
       </div>
     </div>

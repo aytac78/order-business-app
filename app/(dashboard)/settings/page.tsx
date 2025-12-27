@@ -13,13 +13,12 @@ import {
   Users,
   CreditCard,
   CalendarCheck,
+  Package,
   Save,
   CheckCircle,
   AlertCircle,
   Building2,
-  Palette,
   Bell,
-  Globe,
   ToggleLeft,
   ToggleRight,
   Info
@@ -32,7 +31,7 @@ const PANELS = [
     name: 'Dashboard', 
     description: 'Genel bakış ve istatistikler',
     icon: LayoutDashboard,
-    required: true // Her zaman aktif
+    required: true
   },
   { 
     id: 'tables', 
@@ -77,6 +76,13 @@ const PANELS = [
     required: true
   },
   { 
+    id: 'stock', 
+    name: 'Stok Yönetimi', 
+    description: 'Stok takibi ve envanter yönetimi',
+    icon: Package,
+    recommended: ['restaurant', 'cafe', 'bar', 'beach_club']
+  },
+  { 
     id: 'reservations', 
     name: 'Rezervasyonlar', 
     description: 'Rezervasyon yönetimi',
@@ -97,19 +103,19 @@ const VENUE_PRESETS: Record<string, { name: string; panels: string[] }> = {
   },
   restaurant: {
     name: '🍽️ Restaurant',
-    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'pos', 'reservations']
+    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'pos', 'stock', 'reservations']
   },
   cafe: {
     name: '🥐 Kafe',
-    panels: ['dashboard', 'tables', 'orders', 'kitchen', 'pos']
+    panels: ['dashboard', 'tables', 'orders', 'kitchen', 'pos', 'stock']
   },
   bar: {
     name: '🍺 Bar / Pub',
-    panels: ['dashboard', 'tables', 'orders', 'pos']
+    panels: ['dashboard', 'tables', 'orders', 'pos', 'stock']
   },
   beach_club: {
     name: '🏖️ Beach Club / Fine Dining',
-    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'reception', 'pos', 'reservations']
+    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'reception', 'pos', 'stock', 'reservations']
   },
   custom: {
     name: '⚙️ Özel Ayarlar',
@@ -125,6 +131,7 @@ interface PanelSettings {
   kitchen: boolean;
   reception: boolean;
   pos: boolean;
+  stock: boolean;
   reservations: boolean;
 }
 
@@ -136,6 +143,7 @@ const defaultPanels: PanelSettings = {
   kitchen: true,
   reception: true,
   pos: true,
+  stock: true,
   reservations: true
 };
 
@@ -147,14 +155,14 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Load settings from localStorage or Supabase
+  // Load settings from localStorage
   useEffect(() => {
     if (currentVenue?.id) {
       const saved = localStorage.getItem(`venue_panels_${currentVenue.id}`);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setPanels(parsed.panels || defaultPanels);
+          setPanels({ ...defaultPanels, ...parsed.panels });
           setSelectedPreset(parsed.preset || 'custom');
         } catch {
           // ignore
@@ -173,13 +181,14 @@ export default function SettingsPage() {
     if (!preset) return;
 
     const newPanels: PanelSettings = {
-      dashboard: true, // Always on
+      dashboard: true,
       tables: preset.panels.includes('tables'),
-      orders: true, // Always on
+      orders: true,
       waiter: preset.panels.includes('waiter'),
       kitchen: preset.panels.includes('kitchen'),
       reception: preset.panels.includes('reception'),
-      pos: true, // Always on
+      pos: true,
+      stock: preset.panels.includes('stock'),
       reservations: preset.panels.includes('reservations')
     };
 
@@ -189,7 +198,7 @@ export default function SettingsPage() {
   // Toggle single panel
   const togglePanel = (panelId: string) => {
     const panel = PANELS.find(p => p.id === panelId);
-    if (panel?.required) return; // Can't disable required panels
+    if (panel?.required) return;
 
     setPanels(prev => ({
       ...prev,
@@ -210,10 +219,9 @@ export default function SettingsPage() {
       preset: selectedPreset
     }));
 
-    // Broadcast to other tabs/components
+    // Broadcast to Sidebar
     window.dispatchEvent(new CustomEvent('panelSettingsChanged', { detail: panels }));
 
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     
     setIsSaving(false);
@@ -226,7 +234,7 @@ export default function SettingsPage() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <p className="text-gray-500">Lütfen bir mekan seçin</p>
+          <p className="text-gray-400">Lütfen bir mekan seçin</p>
         </div>
       </div>
     );
@@ -237,8 +245,8 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Ayarlar</h1>
-          <p className="text-gray-500">{currentVenue.name} • Sistem ayarları</p>
+          <h1 className="text-2xl font-bold text-white">Ayarlar</h1>
+          <p className="text-gray-400">{currentVenue.name} • Sistem ayarları</p>
         </div>
         <button
           onClick={saveSettings}
@@ -264,7 +272,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 pb-2">
+      <div className="flex gap-2 border-b border-gray-700 pb-2">
         {[
           { id: 'panels', label: 'Panel Yönetimi', icon: Grid3X3 },
           { id: 'general', label: 'Genel', icon: Building2 },
@@ -275,8 +283,8 @@ export default function SettingsPage() {
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === tab.id
-                ? 'bg-orange-100 text-orange-700'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-orange-500/20 text-orange-400'
+                : 'text-gray-400 hover:bg-gray-800'
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -289,11 +297,11 @@ export default function SettingsPage() {
       {activeTab === 'panels' && (
         <div className="space-y-6">
           {/* Info Box */}
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-400 mt-0.5" />
             <div>
-              <p className="font-semibold text-blue-800">Panel Yönetimi</p>
-              <p className="text-sm text-blue-600">
+              <p className="font-semibold text-blue-300">Panel Yönetimi</p>
+              <p className="text-sm text-blue-400">
                 İşletme tipinize göre gereksiz panelleri kapatarak arayüzü sadeleştirebilirsiniz. 
                 Kapatılan paneller sidebar'dan kaldırılır.
               </p>
@@ -301,8 +309,8 @@ export default function SettingsPage() {
           </div>
 
           {/* Preset Selection */}
-          <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
               <Building2 className="w-5 h-5" />
               Hızlı Ayar (İşletme Tipi)
             </h3>
@@ -313,13 +321,13 @@ export default function SettingsPage() {
                   onClick={() => applyPreset(key)}
                   className={`p-4 rounded-xl border-2 text-left transition-all ${
                     selectedPreset === key
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-orange-500 bg-orange-500/10'
+                      : 'border-gray-700 hover:border-gray-600 bg-gray-900'
                   }`}
                 >
-                  <p className="font-semibold text-gray-800">{preset.name}</p>
+                  <p className="font-semibold text-white">{preset.name}</p>
                   {key !== 'custom' && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-400 mt-1">
                       {preset.panels.length} panel aktif
                     </p>
                   )}
@@ -329,8 +337,8 @@ export default function SettingsPage() {
           </div>
 
           {/* Panel Toggles */}
-          <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
               <Settings className="w-5 h-5" />
               Panel Ayarları
             </h3>
@@ -343,25 +351,27 @@ export default function SettingsPage() {
                   <div
                     key={panel.id}
                     className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                      isEnabled ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+                      isEnabled 
+                        ? 'border-green-500/30 bg-green-500/10' 
+                        : 'border-gray-700 bg-gray-900'
                     }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        isEnabled ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                        isEnabled ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'
                       }`}>
                         <Icon className="w-6 h-6" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold text-gray-800">{panel.name}</p>
+                          <p className="font-semibold text-white">{panel.name}</p>
                           {panel.required && (
-                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                            <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
                               Zorunlu
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500">{panel.description}</p>
+                        <p className="text-sm text-gray-400">{panel.description}</p>
                       </div>
                     </div>
                     
@@ -369,13 +379,13 @@ export default function SettingsPage() {
                       onClick={() => togglePanel(panel.id)}
                       disabled={panel.required}
                       className={`p-2 rounded-lg transition-colors ${
-                        panel.required ? 'cursor-not-allowed opacity-50' : 'hover:bg-white'
+                        panel.required ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-700'
                       }`}
                     >
                       {isEnabled ? (
                         <ToggleRight className="w-10 h-10 text-green-500" />
                       ) : (
-                        <ToggleLeft className="w-10 h-10 text-gray-400" />
+                        <ToggleLeft className="w-10 h-10 text-gray-500" />
                       )}
                     </button>
                   </div>
@@ -385,9 +395,9 @@ export default function SettingsPage() {
           </div>
 
           {/* Active Panels Summary */}
-          <div className="bg-gray-100 rounded-xl p-4">
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">Aktif Paneller:</span>{' '}
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <p className="text-sm text-gray-400">
+              <span className="font-semibold text-white">Aktif Paneller:</span>{' '}
               {PANELS.filter(p => panels[p.id as keyof PanelSettings]).map(p => p.name).join(', ')}
             </p>
           </div>
@@ -396,17 +406,17 @@ export default function SettingsPage() {
 
       {/* General Tab */}
       {activeTab === 'general' && (
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
-          <h3 className="font-bold text-gray-800 mb-4">Genel Ayarlar</h3>
-          <p className="text-gray-500">Yakında eklenecek...</p>
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+          <h3 className="font-bold text-white mb-4">Genel Ayarlar</h3>
+          <p className="text-gray-400">Yakında eklenecek...</p>
         </div>
       )}
 
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
-          <h3 className="font-bold text-gray-800 mb-4">Bildirim Ayarları</h3>
-          <p className="text-gray-500">Yakında eklenecek...</p>
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+          <h3 className="font-bold text-white mb-4">Bildirim Ayarları</h3>
+          <p className="text-gray-400">Yakında eklenecek...</p>
         </div>
       )}
     </div>

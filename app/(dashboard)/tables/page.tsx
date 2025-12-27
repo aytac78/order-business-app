@@ -572,7 +572,8 @@ function TableDetailModal({
   const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   const hasOrders = orders.length > 0;
-  const isOccupied = table.status === 'occupied' || (table.current_guests && table.current_guests > 0);
+  // Sipariş varsa VEYA müşteri oturmuşsa dolu say
+  const isOccupied = hasOrders || table.status === 'occupied' || (table.current_guests && table.current_guests > 0);
   const totalAmount = orders.reduce((sum, o) => sum + (o.total || 0), 0);
   const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
   const tax = totalAmount - subtotal;

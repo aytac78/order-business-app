@@ -1,379 +1,414 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useVenueStore, useNotificationStore } from '@/stores';
-import { useThemeStore } from '@/stores/themeStore';
+import { useVenueStore } from '@/stores';
+import { supabase } from '@/lib/supabase';
 import {
   Settings,
-  Moon,
-  Sun,
-  Monitor,
-  Bell,
-  BellOff,
-  Volume2,
-  VolumeX,
-  Globe,
-  Palette,
-  Shield,
-  Database,
-  Printer,
-  CreditCard,
-  Store,
+  LayoutDashboard,
+  Grid3X3,
+  ClipboardList,
+  UtensilsCrossed,
+  ChefHat,
   Users,
-  Clock,
-  Check,
-  ChevronRight,
+  CreditCard,
+  CalendarCheck,
   Save,
-  AlertCircle
+  CheckCircle,
+  AlertCircle,
+  Building2,
+  Palette,
+  Bell,
+  Globe,
+  ToggleLeft,
+  ToggleRight,
+  Info
 } from 'lucide-react';
 
-type Theme = 'light' | 'dark' | 'system';
+// Panel tanımları
+const PANELS = [
+  { 
+    id: 'dashboard', 
+    name: 'Dashboard', 
+    description: 'Genel bakış ve istatistikler',
+    icon: LayoutDashboard,
+    required: true // Her zaman aktif
+  },
+  { 
+    id: 'tables', 
+    name: 'Masalar', 
+    description: 'Masa yönetimi ve oturma düzeni',
+    icon: Grid3X3,
+    recommended: ['restaurant', 'cafe', 'bar', 'beach_club']
+  },
+  { 
+    id: 'orders', 
+    name: 'Siparişler', 
+    description: 'Sipariş listesi ve takibi',
+    icon: ClipboardList,
+    required: true
+  },
+  { 
+    id: 'waiter', 
+    name: 'Garson Paneli', 
+    description: 'Garsonlar için sipariş alma ekranı',
+    icon: UtensilsCrossed,
+    recommended: ['restaurant', 'beach_club']
+  },
+  { 
+    id: 'kitchen', 
+    name: 'Mutfak', 
+    description: 'Mutfak siparişleri ve hazırlık takibi',
+    icon: ChefHat,
+    recommended: ['restaurant', 'cafe', 'beach_club']
+  },
+  { 
+    id: 'reception', 
+    name: 'Resepsiyon', 
+    description: 'Rezervasyonlar ve müşteri karşılama',
+    icon: Users,
+    recommended: ['restaurant', 'beach_club', 'hotel_restaurant']
+  },
+  { 
+    id: 'pos', 
+    name: 'Kasa / POS', 
+    description: 'Ödeme alma ve hesap kapatma',
+    icon: CreditCard,
+    required: true
+  },
+  { 
+    id: 'reservations', 
+    name: 'Rezervasyonlar', 
+    description: 'Rezervasyon yönetimi',
+    icon: CalendarCheck,
+    recommended: ['restaurant', 'beach_club', 'hotel_restaurant']
+  },
+];
+
+// İşletme tipi presetleri
+const VENUE_PRESETS: Record<string, { name: string; panels: string[] }> = {
+  coffee_shop: {
+    name: '☕ Kahve Dükkanı / Takeaway',
+    panels: ['dashboard', 'orders', 'pos']
+  },
+  fast_food: {
+    name: '🍔 Fast Food / Quick Service',
+    panels: ['dashboard', 'orders', 'kitchen', 'pos']
+  },
+  restaurant: {
+    name: '🍽️ Restaurant',
+    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'pos', 'reservations']
+  },
+  cafe: {
+    name: '🥐 Kafe',
+    panels: ['dashboard', 'tables', 'orders', 'kitchen', 'pos']
+  },
+  bar: {
+    name: '🍺 Bar / Pub',
+    panels: ['dashboard', 'tables', 'orders', 'pos']
+  },
+  beach_club: {
+    name: '🏖️ Beach Club / Fine Dining',
+    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'reception', 'pos', 'reservations']
+  },
+  custom: {
+    name: '⚙️ Özel Ayarlar',
+    panels: []
+  }
+};
+
+interface PanelSettings {
+  dashboard: boolean;
+  tables: boolean;
+  orders: boolean;
+  waiter: boolean;
+  kitchen: boolean;
+  reception: boolean;
+  pos: boolean;
+  reservations: boolean;
+}
+
+const defaultPanels: PanelSettings = {
+  dashboard: true,
+  tables: true,
+  orders: true,
+  waiter: true,
+  kitchen: true,
+  reception: true,
+  pos: true,
+  reservations: true
+};
 
 export default function SettingsPage() {
   const { currentVenue } = useVenueStore();
-  const { soundEnabled, toggleSound } = useNotificationStore();
-  const { theme, setTheme } = useThemeStore();
-  const [mounted, setMounted] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<'panels' | 'general' | 'notifications'>('panels');
+  const [panels, setPanels] = useState<PanelSettings>(defaultPanels);
+  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Local settings state
-  const [settings, setSettings] = useState({
-    language: 'tr',
-    currency: 'TRY',
-    taxRate: 8,
-    autoAcceptOrders: false,
-    notificationsEnabled: true,
-    printReceipts: true,
-    requirePin: true,
-  });
-
+  // Load settings from localStorage or Supabase
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (currentVenue?.id) {
+      const saved = localStorage.getItem(`venue_panels_${currentVenue.id}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setPanels(parsed.panels || defaultPanels);
+          setSelectedPreset(parsed.preset || 'custom');
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [currentVenue?.id]);
 
-  const handleSave = () => {
-    // Save settings to localStorage or Supabase
-    localStorage.setItem('order-settings', JSON.stringify(settings));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  // Apply preset
+  const applyPreset = (presetKey: string) => {
+    setSelectedPreset(presetKey);
+    
+    if (presetKey === 'custom') return;
+    
+    const preset = VENUE_PRESETS[presetKey];
+    if (!preset) return;
+
+    const newPanels: PanelSettings = {
+      dashboard: true, // Always on
+      tables: preset.panels.includes('tables'),
+      orders: true, // Always on
+      waiter: preset.panels.includes('waiter'),
+      kitchen: preset.panels.includes('kitchen'),
+      reception: preset.panels.includes('reception'),
+      pos: true, // Always on
+      reservations: preset.panels.includes('reservations')
+    };
+
+    setPanels(newPanels);
   };
 
-  const themeOptions: { value: Theme; label: string; icon: any; desc: string }[] = [
-    { value: 'dark', label: 'Koyu', icon: Moon, desc: 'Göz yorgunluğunu azaltır' },
-    { value: 'light', label: 'Açık', icon: Sun, desc: 'Aydınlık ortamlar için' },
-    { value: 'system', label: 'Sistem', icon: Monitor, desc: 'Cihaz ayarını takip et' },
-  ];
+  // Toggle single panel
+  const togglePanel = (panelId: string) => {
+    const panel = PANELS.find(p => p.id === panelId);
+    if (panel?.required) return; // Can't disable required panels
 
-  if (!mounted) {
-    return <div className="animate-pulse bg-gray-100 dark:bg-gray-800 rounded-2xl h-96" />;
+    setPanels(prev => ({
+      ...prev,
+      [panelId]: !prev[panelId as keyof PanelSettings]
+    }));
+    setSelectedPreset('custom');
+  };
+
+  // Save settings
+  const saveSettings = async () => {
+    if (!currentVenue?.id) return;
+    
+    setIsSaving(true);
+    
+    // Save to localStorage
+    localStorage.setItem(`venue_panels_${currentVenue.id}`, JSON.stringify({
+      panels,
+      preset: selectedPreset
+    }));
+
+    // Broadcast to other tabs/components
+    window.dispatchEvent(new CustomEvent('panelSettingsChanged', { detail: panels }));
+
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  if (!currentVenue) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <p className="text-gray-500">Lütfen bir mekan seçin</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ayarlar</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            {currentVenue?.name || 'Sistem'} ayarlarını yönetin
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Ayarlar</h1>
+          <p className="text-gray-500">{currentVenue.name} • Sistem ayarları</p>
         </div>
         <button
-          onClick={handleSave}
-          className={`px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all ${
-            saved 
+          onClick={saveSettings}
+          disabled={isSaving}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+            saveSuccess 
               ? 'bg-green-500 text-white' 
               : 'bg-orange-500 hover:bg-orange-600 text-white'
           }`}
         >
-          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? 'Kaydedildi' : 'Kaydet'}
+          {saveSuccess ? (
+            <>
+              <CheckCircle className="w-5 h-5" />
+              Kaydedildi!
+            </>
+          ) : (
+            <>
+              <Save className={`w-5 h-5 ${isSaving ? 'animate-spin' : ''}`} />
+              {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
+            </>
+          )}
         </button>
       </div>
 
-      {/* Theme Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-              <Palette className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-200 pb-2">
+        {[
+          { id: 'panels', label: 'Panel Yönetimi', icon: Grid3X3 },
+          { id: 'general', label: 'Genel', icon: Building2 },
+          { id: 'notifications', label: 'Bildirimler', icon: Bell },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === tab.id
+                ? 'bg-orange-100 text-orange-700'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Panel Management Tab */}
+      {activeTab === 'panels' && (
+        <div className="space-y-6">
+          {/* Info Box */}
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5" />
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Görünüm</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Tema ve renk ayarları</p>
+              <p className="font-semibold text-blue-800">Panel Yönetimi</p>
+              <p className="text-sm text-blue-600">
+                İşletme tipinize göre gereksiz panelleri kapatarak arayüzü sadeleştirebilirsiniz. 
+                Kapatılan paneller sidebar'dan kaldırılır.
+              </p>
             </div>
           </div>
-        </div>
-        
-        <div className="p-4">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Tema Seçimi</p>
-          <div className="grid grid-cols-3 gap-3">
-            {themeOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setTheme(option.value)}
-                className={`p-4 rounded-xl border-2 transition-all text-left ${
-                  theme === option.value
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}
-              >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
-                  theme === option.value 
-                    ? 'bg-orange-500 text-white' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                }`}>
-                  <option.icon className="w-5 h-5" />
-                </div>
-                <p className={`font-medium ${
-                  theme === option.value ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'
-                }`}>
-                  {option.label}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{option.desc}</p>
-                {theme === option.value && (
-                  <div className="mt-2 flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                    <Check className="w-4 h-4" />
-                    <span className="text-xs font-medium">Aktif</span>
+
+          {/* Preset Selection */}
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              Hızlı Ayar (İşletme Tipi)
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {Object.entries(VENUE_PRESETS).map(([key, preset]) => (
+                <button
+                  key={key}
+                  onClick={() => applyPreset(key)}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    selectedPreset === key
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <p className="font-semibold text-gray-800">{preset.name}</p>
+                  {key !== 'custom' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {preset.panels.length} panel aktif
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Panel Toggles */}
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Panel Ayarları
+            </h3>
+            <div className="space-y-3">
+              {PANELS.map(panel => {
+                const isEnabled = panels[panel.id as keyof PanelSettings];
+                const Icon = panel.icon;
+
+                return (
+                  <div
+                    key={panel.id}
+                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                      isEnabled ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        isEnabled ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                      }`}>
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-800">{panel.name}</p>
+                          {panel.required && (
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                              Zorunlu
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500">{panel.description}</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => togglePanel(panel.id)}
+                      disabled={panel.required}
+                      className={`p-2 rounded-lg transition-colors ${
+                        panel.required ? 'cursor-not-allowed opacity-50' : 'hover:bg-white'
+                      }`}
+                    >
+                      {isEnabled ? (
+                        <ToggleRight className="w-10 h-10 text-green-500" />
+                      ) : (
+                        <ToggleLeft className="w-10 h-10 text-gray-400" />
+                      )}
+                    </button>
                   </div>
-                )}
-              </button>
-            ))}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Active Panels Summary */}
+          <div className="bg-gray-100 rounded-xl p-4">
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold">Aktif Paneller:</span>{' '}
+              {PANELS.filter(p => panels[p.id as keyof PanelSettings]).map(p => p.name).join(', ')}
+            </p>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Notifications Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-              <Bell className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Bildirimler</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Ses ve bildirim ayarları</p>
-            </div>
-          </div>
+      {/* General Tab */}
+      {activeTab === 'general' && (
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
+          <h3 className="font-bold text-gray-800 mb-4">Genel Ayarlar</h3>
+          <p className="text-gray-500">Yakında eklenecek...</p>
         </div>
-        
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {soundEnabled ? (
-                <Volume2 className="w-5 h-5 text-gray-400" />
-              ) : (
-                <VolumeX className="w-5 h-5 text-gray-400" />
-              )}
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Bildirim Sesleri</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Yeni sipariş ve uyarı sesleri</p>
-              </div>
-            </div>
-            <button
-              onClick={toggleSound}
-              className={`w-14 h-8 rounded-full transition-colors relative ${
-                soundEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full bg-white shadow absolute top-1 transition-all ${
-                soundEnabled ? 'right-1' : 'left-1'
-              }`} />
-            </button>
-          </div>
+      )}
 
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {settings.notificationsEnabled ? (
-                <Bell className="w-5 h-5 text-gray-400" />
-              ) : (
-                <BellOff className="w-5 h-5 text-gray-400" />
-              )}
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Push Bildirimleri</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Masaüstü bildirimleri al</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setSettings(s => ({ ...s, notificationsEnabled: !s.notificationsEnabled }))}
-              className={`w-14 h-8 rounded-full transition-colors relative ${
-                settings.notificationsEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full bg-white shadow absolute top-1 transition-all ${
-                settings.notificationsEnabled ? 'right-1' : 'left-1'
-              }`} />
-            </button>
-          </div>
+      {/* Notifications Tab */}
+      {activeTab === 'notifications' && (
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
+          <h3 className="font-bold text-gray-800 mb-4">Bildirim Ayarları</h3>
+          <p className="text-gray-500">Yakında eklenecek...</p>
         </div>
-      </div>
-
-      {/* Business Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900 flex items-center justify-center">
-              <Store className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">İşletme Ayarları</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Sipariş ve ödeme ayarları</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Otomatik Sipariş Onayı</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Siparişleri otomatik kabul et</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setSettings(s => ({ ...s, autoAcceptOrders: !s.autoAcceptOrders }))}
-              className={`w-14 h-8 rounded-full transition-colors relative ${
-                settings.autoAcceptOrders ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full bg-white shadow absolute top-1 transition-all ${
-                settings.autoAcceptOrders ? 'right-1' : 'left-1'
-              }`} />
-            </button>
-          </div>
-
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Printer className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Otomatik Fiş Yazdırma</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Sipariş alındığında fiş yazdır</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setSettings(s => ({ ...s, printReceipts: !s.printReceipts }))}
-              className={`w-14 h-8 rounded-full transition-colors relative ${
-                settings.printReceipts ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full bg-white shadow absolute top-1 transition-all ${
-                settings.printReceipts ? 'right-1' : 'left-1'
-              }`} />
-            </button>
-          </div>
-
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">PIN ile Giriş Zorunlu</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">İşlemler için PIN iste</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setSettings(s => ({ ...s, requirePin: !s.requirePin }))}
-              className={`w-14 h-8 rounded-full transition-colors relative ${
-                settings.requirePin ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full bg-white shadow absolute top-1 transition-all ${
-                settings.requirePin ? 'right-1' : 'left-1'
-              }`} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Regional Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-              <Globe className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Bölgesel Ayarlar</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Dil, para birimi ve vergi</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="p-4 space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Dil</label>
-            <select
-              value={settings.language}
-              onChange={(e) => setSettings(s => ({ ...s, language: e.target.value }))}
-              className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="tr">🇹🇷 Türkçe</option>
-              <option value="en">🇬🇧 English</option>
-              <option value="de">🇩🇪 Deutsch</option>
-              <option value="ar">🇸🇦 العربية</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Para Birimi</label>
-            <select
-              value={settings.currency}
-              onChange={(e) => setSettings(s => ({ ...s, currency: e.target.value }))}
-              className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="TRY">₺ Türk Lirası (TRY)</option>
-              <option value="USD">$ US Dollar (USD)</option>
-              <option value="EUR">€ Euro (EUR)</option>
-              <option value="GBP">£ British Pound (GBP)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">KDV Oranı (%)</label>
-            <input
-              type="number"
-              value={settings.taxRate}
-              onChange={(e) => setSettings(s => ({ ...s, taxRate: parseInt(e.target.value) || 0 }))}
-              min="0"
-              max="50"
-              className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Links */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white">Hızlı Erişim</h2>
-        </div>
-        
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
-          {[
-            { icon: Users, label: 'Personel Yönetimi', href: '/staff', color: 'text-blue-500' },
-            { icon: CreditCard, label: 'Ödeme Yöntemleri', href: '/pos', color: 'text-green-500' },
-            { icon: Database, label: 'Yedekleme & Veri', href: '#', color: 'text-purple-500' },
-          ].map((item, idx) => (
-            <a
-              key={idx}
-              href={item.href}
-              className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className={`w-5 h-5 ${item.color}`} />
-                <span className="font-medium text-gray-900 dark:text-white">{item.label}</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* Version Info */}
-      <div className="text-center text-sm text-gray-400 dark:text-gray-500 py-4">
-        <p>ORDER Business v1.0.0</p>
-        <p className="mt-1">© 2025 TiT Technologies</p>
-      </div>
+      )}
     </div>
   );
 }

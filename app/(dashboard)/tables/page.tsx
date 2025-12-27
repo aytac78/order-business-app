@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useVenueStore } from '@/stores';
 import { supabase } from '@/lib/supabase';
 import {
@@ -25,7 +24,17 @@ import {
   ShoppingBag,
   UserCircle,
   Timer,
-  Printer
+  Printer,
+  Banknote,
+  QrCode,
+  FileText,
+  Building2,
+  Check,
+  ChevronRight,
+  Percent,
+  Split,
+  Minus,
+  Plus as PlusIcon
 } from 'lucide-react';
 
 interface OrderItem {
@@ -67,6 +76,16 @@ interface TableData {
   seated_at?: string;
 }
 
+interface InvoiceInfo {
+  type: 'individual' | 'corporate';
+  companyName: string;
+  taxOffice: string;
+  taxNumber: string;
+  tcNumber: string;
+  address: string;
+  email: string;
+}
+
 const statusConfig: Record<string, { label: string; color: string; cardBg: string }> = {
   available: { label: 'Boş', color: 'bg-green-100 border-green-400 text-green-800', cardBg: 'bg-green-50' },
   occupied: { label: 'Dolu', color: 'bg-red-100 border-red-400 text-red-800', cardBg: 'bg-red-50' },
@@ -86,6 +105,19 @@ const shapeIcons: Record<string, any> = {
   square: Square,
   round: CircleDot,
   rectangle: RectangleHorizontal,
+};
+
+// Items'ı parse et (string ise JSON.parse yap)
+const parseItems = (items: any): OrderItem[] => {
+  if (!items) return [];
+  if (typeof items === 'string') {
+    try {
+      return JSON.parse(items);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(items) ? items : [];
 };
 
 export default function TablesPage() {
@@ -536,27 +568,14 @@ function TableDetailModal({
   const [showSeatForm, setShowSeatForm] = useState(false);
   const [guestCount, setGuestCount] = useState(2);
   const [customerName, setCustomerName] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const router = useRouter();
 
   const hasOrders = orders.length > 0;
   const isOccupied = table.status === 'occupied' || (table.current_guests && table.current_guests > 0);
   const totalAmount = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
+  const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
   const tax = totalAmount - subtotal;
-
-  // Items'ı parse et (string ise JSON.parse yap)
-  const parseItems = (items: any) => {
-    if (!items) return [];
-    if (typeof items === 'string') {
-      try {
-        return JSON.parse(items);
-      } catch {
-        return [];
-      }
-    }
-    return Array.isArray(items) ? items : [];
-  };
 
   // Tüm sipariş itemlarını birleştir
   const allItems = orders.flatMap(o => parseItems(o.items));
@@ -607,24 +626,8 @@ function TableDetailModal({
       }).eq('id', order.id);
     }
     onClearTable();
+    setShowPaymentModal(false);
     onClose();
-  };
-
-  // POS sayfasına yönlendir
-  const handleGoToPOS = () => {
-    // Masa bilgisini localStorage'a kaydet (POS'ta kullanmak için)
-    localStorage.setItem('pos_selected_table', JSON.stringify({
-      tableNumber: table.number,
-      tableId: table.id,
-      customerName: table.customer_name,
-      orders: orders.map(o => ({
-        id: o.id,
-        order_number: o.order_number,
-        total: o.total,
-        items: parseItems(o.items)
-      }))
-    }));
-    router.push('/pos');
   };
 
   return (
@@ -728,6 +731,7 @@ function TableDetailModal({
                   {orders.map(order => {
                     const statusConf = orderStatusConfig[order.status] || orderStatusConfig.pending;
                     const StatusIcon = statusConf.icon;
+                    const orderItems = parseItems(order.items);
                     return (
                       <div key={order.id} className="border-2 rounded-xl overflow-hidden shadow-sm">
                         <div className={`px-4 py-3 flex items-center justify-between ${statusConf.color} border-b-2`}>
@@ -739,7 +743,7 @@ function TableDetailModal({
                         </div>
                         <div className="p-4 bg-white">
                           <div className="space-y-2">
-                            {(order.items || []).map((item: any, idx: number) => (
+                            {orderItems.map((item: any, idx: number) => (
                               <div key={idx} className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-2">
                                   <span className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-bold text-gray-700">
@@ -886,7 +890,7 @@ function TableDetailModal({
                 Hesap Yazdır
               </button>
               <button 
-                onClick={handleGoToPOS}
+                onClick={() => setShowPaymentModal(true)}
                 className="px-5 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 font-semibold flex items-center gap-2 transition-colors shadow-md"
               >
                 <CreditCard className="w-5 h-5" />
@@ -896,6 +900,22 @@ function TableDetailModal({
           </div>
         )}
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <PaymentModal
+          tableNumber={table.number}
+          totalAmount={totalAmount}
+          subtotal={subtotal}
+          tax={tax}
+          items={allItems}
+          venueName={venueName}
+          customerName={table.customer_name}
+          guestCount={table.current_guests || 1}
+          onClose={() => setShowPaymentModal(false)}
+          onPaymentComplete={handlePaymentComplete}
+        />
+      )}
 
       {/* Print Preview Modal */}
       {showPrintPreview && (
@@ -911,6 +931,610 @@ function TableDetailModal({
           onClose={() => setShowPrintPreview(false)}
         />
       )}
+    </div>
+  );
+}
+
+// Payment Modal Component - POS özellikleriyle
+function PaymentModal({
+  tableNumber,
+  totalAmount,
+  subtotal,
+  tax,
+  items,
+  venueName,
+  customerName,
+  guestCount,
+  onClose,
+  onPaymentComplete
+}: {
+  tableNumber: string;
+  totalAmount: number;
+  subtotal: number;
+  tax: number;
+  items: any[];
+  venueName: string;
+  customerName?: string;
+  guestCount: number;
+  onClose: () => void;
+  onPaymentComplete: () => void;
+}) {
+  const [step, setStep] = useState<'method' | 'document' | 'invoice' | 'complete'>('method');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'titpay' | null>(null);
+  const [paymentMode, setPaymentMode] = useState<'full' | 'partial' | 'split'>('full');
+  const [documentType, setDocumentType] = useState<'receipt' | 'invoice' | null>(null);
+  const [cashReceived, setCashReceived] = useState('');
+  const [partialAmount, setPartialAmount] = useState('');
+  const [splitCount, setSplitCount] = useState(guestCount || 2);
+  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState<'percent' | 'amount'>('percent');
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [invoiceInfo, setInvoiceInfo] = useState<InvoiceInfo>({
+    type: 'corporate',
+    companyName: '',
+    taxOffice: '',
+    taxNumber: '',
+    tcNumber: '',
+    address: '',
+    email: ''
+  });
+
+  // Hesaplamalar
+  const discountAmount = discountType === 'percent' ? (totalAmount * discount / 100) : discount;
+  const finalTotal = totalAmount - discountAmount;
+  const change = parseFloat(cashReceived) - finalTotal;
+  const splitAmount = Math.ceil(finalTotal / splitCount);
+  const partialValue = parseFloat(partialAmount) || 0;
+
+  const handlePaymentMethodSelect = (method: 'cash' | 'card' | 'titpay') => {
+    setPaymentMethod(method);
+    setStep('document');
+  };
+
+  const handleDocumentSelect = (type: 'receipt' | 'invoice') => {
+    setDocumentType(type);
+    if (type === 'invoice') {
+      setStep('invoice');
+    } else {
+      setStep('complete');
+    }
+  };
+
+  const handleInvoiceSubmit = () => {
+    if (invoiceInfo.type === 'corporate') {
+      if (!invoiceInfo.companyName || !invoiceInfo.taxOffice || !invoiceInfo.taxNumber) {
+        alert('Lütfen şirket bilgilerini eksiksiz doldurun');
+        return;
+      }
+      if (invoiceInfo.taxNumber.length !== 10) {
+        alert('Vergi numarası 10 haneli olmalıdır');
+        return;
+      }
+    } else {
+      if (!invoiceInfo.tcNumber) {
+        alert('Lütfen TC Kimlik No girin');
+        return;
+      }
+      if (invoiceInfo.tcNumber.length !== 11) {
+        alert('TC Kimlik No 11 haneli olmalıdır');
+        return;
+      }
+    }
+    setStep('complete');
+  };
+
+  const getPayAmount = () => {
+    if (paymentMode === 'partial') return partialValue;
+    if (paymentMode === 'split') return splitAmount;
+    return finalTotal;
+  };
+
+  const canPay = () => {
+    if (paymentMode === 'partial') return partialValue > 0 && partialValue <= finalTotal;
+    if (paymentMode === 'split') return splitCount >= 2;
+    if (paymentMethod === 'cash') return parseFloat(cashReceived) >= finalTotal;
+    return true;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="p-5 border-b-2 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Ödeme Al</h2>
+            <p className="text-sm text-gray-600">Masa {tableNumber} • ₺{finalTotal.toLocaleString()}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+            <X className="w-6 h-6 text-gray-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {/* Step 1: Payment Method */}
+          {step === 'method' && (
+            <div className="space-y-4">
+              <h3 className="font-bold text-gray-800 text-lg text-center mb-4">Ödeme Yöntemi</h3>
+              
+              {/* Payment Mode Tabs */}
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-4">
+                <button
+                  onClick={() => setPaymentMode('full')}
+                  className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+                    paymentMode === 'full' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                  }`}
+                >
+                  Tam Ödeme
+                </button>
+                <button
+                  onClick={() => setPaymentMode('partial')}
+                  className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+                    paymentMode === 'partial' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                  }`}
+                >
+                  Kısmi
+                </button>
+                <button
+                  onClick={() => setPaymentMode('split')}
+                  className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+                    paymentMode === 'split' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                  }`}
+                >
+                  Böl
+                </button>
+              </div>
+
+              {/* Partial Amount Input */}
+              {paymentMode === 'partial' && (
+                <div className="mb-4 p-4 bg-orange-50 rounded-xl border-2 border-orange-200">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Ödenecek Tutar</label>
+                  <input
+                    type="number"
+                    value={partialAmount}
+                    onChange={(e) => setPartialAmount(e.target.value)}
+                    placeholder="0"
+                    max={finalTotal}
+                    className="w-full text-2xl font-bold text-center py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:border-orange-500 outline-none"
+                  />
+                  <div className="flex gap-2 mt-3">
+                    {[25, 50, 75, 100].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setPartialAmount(Math.round(finalTotal * p / 100).toString())}
+                        className="flex-1 py-2 bg-orange-100 hover:bg-orange-200 rounded-lg text-sm font-semibold text-orange-700"
+                      >
+                        %{p}
+                      </button>
+                    ))}
+                  </div>
+                  {partialValue > 0 && (
+                    <p className="text-sm text-orange-600 mt-2 text-center">
+                      Kalan: ₺{(finalTotal - partialValue).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Split Options */}
+              {paymentMode === 'split' && (
+                <div className="mb-4 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2 text-center">Kişi Sayısı</label>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() => setSplitCount(Math.max(2, splitCount - 1))}
+                      className="w-12 h-12 bg-white border-2 border-gray-300 rounded-xl font-bold text-xl hover:bg-gray-50"
+                    >
+                      −
+                    </button>
+                    <span className="text-4xl font-bold w-16 text-center text-gray-900">{splitCount}</span>
+                    <button
+                      onClick={() => setSplitCount(Math.min(20, splitCount + 1))}
+                      className="w-12 h-12 bg-white border-2 border-gray-300 rounded-xl font-bold text-xl hover:bg-gray-50"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="mt-3 p-3 bg-blue-100 rounded-lg text-center">
+                    <p className="text-sm text-blue-600">Kişi Başı</p>
+                    <p className="text-2xl font-bold text-blue-700">₺{splitAmount.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Discount */}
+              {!showDiscountInput ? (
+                <button
+                  onClick={() => setShowDiscountInput(true)}
+                  className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-orange-400 hover:text-orange-500 flex items-center justify-center gap-2"
+                >
+                  <Percent className="w-4 h-4" />
+                  İndirim Uygula
+                </button>
+              ) : (
+                <div className="p-4 bg-green-50 rounded-xl border-2 border-green-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-gray-700">İndirim</span>
+                    <button onClick={() => { setShowDiscountInput(false); setDiscount(0); }} className="text-red-500 text-sm">
+                      Kaldır
+                    </button>
+                  </div>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      onClick={() => setDiscountType('percent')}
+                      className={`flex-1 py-2 rounded-lg font-semibold text-sm ${discountType === 'percent' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
+                    >
+                      Yüzde (%)
+                    </button>
+                    <button
+                      onClick={() => setDiscountType('amount')}
+                      className={`flex-1 py-2 rounded-lg font-semibold text-sm ${discountType === 'amount' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
+                    >
+                      Tutar (₺)
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    value={discount || ''}
+                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                    className="w-full text-xl font-bold text-center py-2 border-2 border-gray-300 rounded-xl bg-white text-gray-900"
+                  />
+                  {discount > 0 && (
+                    <p className="text-sm text-green-600 mt-2 text-center">
+                      İndirim: -₺{discountAmount.toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Payment Methods */}
+              <div className="space-y-2 mt-4">
+                <button
+                  onClick={() => handlePaymentMethodSelect('cash')}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <Banknote className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-bold text-gray-900">Nakit</p>
+                    <p className="text-sm text-gray-500">Nakit ödeme al</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </button>
+
+                <button
+                  onClick={() => handlePaymentMethodSelect('card')}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-bold text-gray-900">Kredi / Banka Kartı</p>
+                    <p className="text-sm text-gray-500">POS ile ödeme</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </button>
+
+                <button
+                  onClick={() => handlePaymentMethodSelect('titpay')}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                    <QrCode className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-bold text-gray-900">TiT Pay</p>
+                    <p className="text-sm text-gray-500">QR kod ile ödeme</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Total */}
+              <div className="mt-4 p-4 bg-gray-100 rounded-xl">
+                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                  <span>Ara Toplam</span>
+                  <span>₺{totalAmount.toLocaleString()}</span>
+                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600 mb-1">
+                    <span>İndirim</span>
+                    <span>-₺{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-300">
+                  <span>Toplam</span>
+                  <span>₺{finalTotal.toLocaleString()}</span>
+                </div>
+                {paymentMode === 'split' && (
+                  <div className="flex justify-between text-sm text-blue-600 mt-1">
+                    <span>Kişi Başı ({splitCount} kişi)</span>
+                    <span>₺{splitAmount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Document Type */}
+          {step === 'document' && (
+            <div className="space-y-4">
+              <button
+                onClick={() => setStep('method')}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4"
+              >
+                ← Geri
+              </button>
+              
+              <h3 className="font-bold text-gray-800 text-lg text-center mb-4">Belge Türü</h3>
+
+              {/* Cash input */}
+              {paymentMethod === 'cash' && paymentMode === 'full' && (
+                <div className="mb-4 p-4 bg-green-50 rounded-xl border-2 border-green-200">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Alınan Tutar</label>
+                  <input
+                    type="number"
+                    value={cashReceived}
+                    onChange={(e) => setCashReceived(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-2xl font-bold text-center py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:border-green-500 outline-none"
+                  />
+                  <div className="flex gap-2 mt-3">
+                    {[50, 100, 200, 500, 1000].map(amount => (
+                      <button
+                        key={amount}
+                        onClick={() => setCashReceived(amount.toString())}
+                        className="flex-1 py-2 bg-green-100 hover:bg-green-200 rounded-lg text-sm font-semibold text-green-700"
+                      >
+                        {amount}
+                      </button>
+                    ))}
+                  </div>
+                  {parseFloat(cashReceived) >= finalTotal && (
+                    <div className="mt-3 p-3 bg-green-100 rounded-lg text-center">
+                      <p className="text-sm text-green-600">Para Üstü</p>
+                      <p className="text-2xl font-bold text-green-700">₺{change.toFixed(2)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TiT Pay QR */}
+              {paymentMethod === 'titpay' && (
+                <div className="mb-4 p-6 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl text-center border-2 border-purple-200">
+                  <div className="w-32 h-32 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center shadow-md">
+                    <QrCode className="w-24 h-24 text-purple-600" />
+                  </div>
+                  <p className="font-semibold text-purple-800">TiT Pay ile Ödeme</p>
+                  <p className="text-sm text-purple-600">QR kodu müşteriye gösterin</p>
+                </div>
+              )}
+              
+              <button
+                onClick={() => handleDocumentSelect('receipt')}
+                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all flex items-center gap-4"
+              >
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <Receipt className="w-6 h-6 text-orange-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold text-gray-900">Fiş</p>
+                  <p className="text-sm text-gray-500">Standart satış fişi</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => handleDocumentSelect('invoice')}
+                className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4"
+              >
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold text-gray-900">Fatura</p>
+                  <p className="text-sm text-gray-500">Kurumsal veya bireysel fatura</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+          )}
+
+          {/* Step 3: Invoice Info */}
+          {step === 'invoice' && (
+            <div className="space-y-4">
+              <button
+                onClick={() => setStep('document')}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4"
+              >
+                ← Geri
+              </button>
+              
+              <h3 className="font-bold text-gray-800 text-lg text-center mb-4">Fatura Bilgileri</h3>
+
+              {/* Invoice Type Toggle */}
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
+                <button
+                  onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'corporate' })}
+                  className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+                    invoiceInfo.type === 'corporate' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  Kurumsal
+                </button>
+                <button
+                  onClick={() => setInvoiceInfo({ ...invoiceInfo, type: 'individual' })}
+                  className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+                    invoiceInfo.type === 'individual' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                  }`}
+                >
+                  <UserCircle className="w-4 h-4" />
+                  Bireysel
+                </button>
+              </div>
+
+              {invoiceInfo.type === 'corporate' ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Şirket / Firma Adı *</label>
+                    <input
+                      type="text"
+                      value={invoiceInfo.companyName}
+                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, companyName: e.target.value })}
+                      placeholder="ABC Teknoloji A.Ş."
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Vergi Dairesi *</label>
+                      <input
+                        type="text"
+                        value={invoiceInfo.taxOffice}
+                        onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxOffice: e.target.value })}
+                        placeholder="Kadıköy"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Vergi No *</label>
+                      <input
+                        type="text"
+                        value={invoiceInfo.taxNumber}
+                        onChange={(e) => setInvoiceInfo({ ...invoiceInfo, taxNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                        placeholder="1234567890"
+                        maxLength={10}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">{invoiceInfo.taxNumber?.length || 0}/10</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Adres</label>
+                    <textarea
+                      value={invoiceInfo.address}
+                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, address: e.target.value })}
+                      placeholder="Şirket adresi"
+                      rows={2}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta</label>
+                    <input
+                      type="email"
+                      value={invoiceInfo.email}
+                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, email: e.target.value })}
+                      placeholder="muhasebe@sirket.com"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">TC Kimlik No *</label>
+                    <input
+                      type="text"
+                      value={invoiceInfo.tcNumber}
+                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, tcNumber: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                      placeholder="12345678901"
+                      maxLength={11}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">{invoiceInfo.tcNumber?.length || 0}/11</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Ad Soyad</label>
+                    <input
+                      type="text"
+                      value={invoiceInfo.companyName}
+                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, companyName: e.target.value })}
+                      placeholder="Ali Yılmaz"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta</label>
+                    <input
+                      type="email"
+                      value={invoiceInfo.email}
+                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, email: e.target.value })}
+                      placeholder="ali@email.com"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleInvoiceSubmit}
+                className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors mt-4"
+              >
+                Devam Et
+              </button>
+            </div>
+          )}
+
+          {/* Step 4: Complete */}
+          {step === 'complete' && (
+            <div className="text-center py-6">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Ödeme Hazır</h3>
+              <p className="text-gray-600 mb-6">
+                {paymentMethod === 'cash' && 'Nakit ödeme alındı'}
+                {paymentMethod === 'card' && 'Kart ile ödeme alınacak'}
+                {paymentMethod === 'titpay' && 'TiT Pay ödemesi onaylandı'}
+              </p>
+
+              <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left">
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-600">Ödeme Yöntemi</span>
+                  <span className="font-semibold">
+                    {paymentMethod === 'cash' && 'Nakit'}
+                    {paymentMethod === 'card' && 'Kredi/Banka Kartı'}
+                    {paymentMethod === 'titpay' && 'TiT Pay'}
+                  </span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-600">Belge Türü</span>
+                  <span className="font-semibold">{documentType === 'receipt' ? 'Fiş' : 'Fatura'}</span>
+                </div>
+                {documentType === 'invoice' && invoiceInfo.companyName && (
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-600">{invoiceInfo.type === 'corporate' ? 'Şirket' : 'Ad Soyad'}</span>
+                    <span className="font-semibold">{invoiceInfo.companyName}</span>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div className="flex justify-between mb-2 text-green-600">
+                    <span>İndirim</span>
+                    <span className="font-semibold">-₺{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 mt-2">
+                  <span>Toplam</span>
+                  <span className="text-green-600">₺{getPayAmount().toLocaleString()}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={onPaymentComplete}
+                className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                Ödemeyi Tamamla
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -957,7 +1581,6 @@ function PrintPreviewModal({
             .header p { margin: 2px 0; font-size: 12px; }
             .items { border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
             .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; }
-            .item-name { flex: 1; }
             .totals { margin-top: 10px; }
             .total-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 12px; }
             .grand-total { font-size: 16px; font-weight: bold; border-top: 2px solid #000; padding-top: 5px; margin-top: 5px; }
@@ -999,12 +1622,16 @@ function PrintPreviewModal({
 
             {/* Items */}
             <div className="border-b-2 border-dashed border-gray-400 pb-3 mb-3">
-              {items.map((item, idx) => (
-                <div key={idx} className="flex justify-between py-1">
-                  <span className="flex-1">{item.quantity}x {item.product_name || item.name}</span>
-                  <span className="font-semibold">₺{(item.total_price || item.quantity * item.unit_price).toLocaleString()}</span>
-                </div>
-              ))}
+              {items.length > 0 ? (
+                items.map((item, idx) => (
+                  <div key={idx} className="flex justify-between py-1">
+                    <span className="flex-1">{item.quantity}x {item.product_name || item.name}</span>
+                    <span className="font-semibold">₺{(item.total_price || item.quantity * item.unit_price || 0).toLocaleString()}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500">Ürün bulunamadı</p>
+              )}
             </div>
 
             {/* Totals */}

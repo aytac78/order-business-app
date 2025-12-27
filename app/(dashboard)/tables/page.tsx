@@ -640,14 +640,14 @@ function TableDetailModal({
                         <div className="p-4 bg-white">
                           <div className="space-y-2">
                             {orderItems.length > 0 ? orderItems.map((item, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-sm">
+                              <div key={idx} className="flex items-center justify-between text-sm py-2 px-3 bg-gray-50 rounded-lg">
                                 <div className="flex items-center gap-2">
-                                  <span className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-bold">
+                                  <span className="w-7 h-7 bg-orange-500 text-white rounded-lg flex items-center justify-center text-xs font-bold">
                                     {item.quantity}x
                                   </span>
-                                  <span className="font-medium">{item.name}</span>
+                                  <span className="font-medium text-gray-800">{item.name}</span>
                                 </div>
-                                <span className="font-semibold">₺{(item.total_price || item.quantity * item.price!).toLocaleString()}</span>
+                                <span className="font-semibold text-gray-900">₺{(item.total_price || item.quantity * item.price!).toLocaleString()}</span>
                               </div>
                             )) : (
                               <p className="text-sm text-gray-500 italic">Ürün detayı yok</p>

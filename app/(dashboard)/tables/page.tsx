@@ -553,21 +553,21 @@ function TableDetailModal({
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-gray-500">Kişi Sayısı</p>
-                    <p className="text-xl font-bold">{table.current_guests || '-'}</p>
+                    <p className="text-xl font-bold text-gray-800">{table.current_guests || '-'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Oturma Saati</p>
-                    <p className="text-xl font-bold">{getSeatedTime(table.seated_at)}</p>
+                    <p className="text-xl font-bold text-gray-800">{getSeatedTime(table.seated_at)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Geçen Süre</p>
-                    <p className="text-xl font-bold">{getSeatedDuration(table.seated_at)}</p>
+                    <p className="text-xl font-bold text-gray-800">{getSeatedDuration(table.seated_at)}</p>
                   </div>
                 </div>
                 {table.customer_name && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <p className="text-xs text-gray-500">Müşteri</p>
-                    <p className="text-lg font-semibold">{table.customer_name}</p>
+                    <p className="text-lg font-semibold text-gray-800">{table.customer_name}</p>
                   </div>
                 )}
               </div>

@@ -31,19 +31,18 @@ import {
   Building2,
   Check,
   ChevronRight,
-  Percent,
-  Split,
-  Minus,
-  Plus as PlusIcon
+  Percent
 } from 'lucide-react';
 
 interface OrderItem {
-  id: string;
-  product_name: string;
+  id?: string;
+  product_name?: string;
+  name?: string;
   quantity: number;
-  unit_price: number;
-  total_price: number;
-  status: string;
+  unit_price?: number;
+  price?: number;
+  total_price?: number;
+  status?: string;
   notes?: string;
 }
 
@@ -54,13 +53,14 @@ interface ActiveOrder {
   status: string;
   total: number;
   subtotal: number;
-  items: OrderItem[];
+  items: any;
   created_at: string;
   waiter_id?: string;
   waiter_name?: string;
   customer_name?: string;
   guest_count?: number;
   notes?: string;
+  paid_amount?: number;
 }
 
 interface TableData {
@@ -107,17 +107,69 @@ const shapeIcons: Record<string, any> = {
   rectangle: RectangleHorizontal,
 };
 
-// Items'ı parse et (string ise JSON.parse yap)
+// Items'ı parse et - her türlü formatı destekle
 const parseItems = (items: any): OrderItem[] => {
   if (!items) return [];
+  
+  // Zaten array ise
+  if (Array.isArray(items)) {
+    return items.map(item => ({
+      ...item,
+      product_name: item.product_name || item.name || 'Ürün',
+      quantity: item.quantity || 1,
+      unit_price: item.unit_price || item.price || 0,
+      total_price: item.total_price || (item.quantity * (item.unit_price || item.price || 0))
+    }));
+  }
+  
+  // String ise JSON parse et
   if (typeof items === 'string') {
     try {
-      return JSON.parse(items);
+      const parsed = JSON.parse(items);
+      return parseItems(parsed); // Recursive call
     } catch {
       return [];
     }
   }
-  return Array.isArray(items) ? items : [];
+  
+  // Object ise (tek item)
+  if (typeof items === 'object') {
+    return [{
+      ...items,
+      product_name: items.product_name || items.name || 'Ürün',
+      quantity: items.quantity || 1,
+      unit_price: items.unit_price || items.price || 0,
+      total_price: items.total_price || (items.quantity * (items.unit_price || items.price || 0))
+    }];
+  }
+  
+  return [];
+};
+
+// localStorage'dan ödenen miktarları al
+const getPaidAmounts = (): Record<string, number> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(localStorage.getItem('order_paid_amounts') || '{}');
+  } catch {
+    return {};
+  }
+};
+
+// localStorage'a ödenen miktarı kaydet
+const savePaidAmount = (orderId: string, amount: number) => {
+  if (typeof window === 'undefined') return;
+  const paidAmounts = getPaidAmounts();
+  paidAmounts[orderId] = (paidAmounts[orderId] || 0) + amount;
+  localStorage.setItem('order_paid_amounts', JSON.stringify(paidAmounts));
+};
+
+// localStorage'dan ödenen miktarı sil
+const clearPaidAmount = (orderId: string) => {
+  if (typeof window === 'undefined') return;
+  const paidAmounts = getPaidAmounts();
+  delete paidAmounts[orderId];
+  localStorage.setItem('order_paid_amounts', JSON.stringify(paidAmounts));
 };
 
 export default function TablesPage() {
@@ -389,7 +441,14 @@ export default function TablesPage() {
           const tableOrders = getTableOrders(table.number);
           const hasOrder = tableOrders.length > 0;
           const hasReadyOrder = tableOrders.some(o => o.status === 'ready');
-          const totalAmount = tableOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+          
+          // Kalan tutarı hesapla (ödenen miktarları çıkar)
+          const paidAmounts = getPaidAmounts();
+          const totalAmount = tableOrders.reduce((sum, o) => {
+            const paid = paidAmounts[o.id] || 0;
+            return sum + Math.max(0, (o.total || 0) - paid);
+          }, 0);
+          
           const ShapeIcon = shapeIcons[table.shape] || Square;
           const realStatus = getRealStatus(table);
           const config = statusConfig[realStatus] || statusConfig.available;
@@ -570,13 +629,19 @@ function TableDetailModal({
   const [customerName, setCustomerName] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [, forceUpdate] = useState(0); // Force re-render after payment
 
   const hasOrders = orders.length > 0;
   // Sipariş varsa VEYA müşteri oturmuşsa dolu say
   const isOccupied = hasOrders || table.status === 'occupied' || (table.current_guests && table.current_guests > 0);
-  const totalAmount = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  
+  // Kalan tutarı hesapla
+  const paidAmounts = getPaidAmounts();
+  const originalTotal = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalPaid = orders.reduce((sum, o) => sum + (paidAmounts[o.id] || 0), 0);
+  const totalAmount = Math.max(0, originalTotal - totalPaid);
   const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-  const tax = totalAmount - subtotal;
+  const tax = originalTotal - subtotal;
 
   // Tüm sipariş itemlarını birleştir
   const allItems = orders.flatMap(o => parseItems(o.items));
@@ -618,17 +683,29 @@ function TableDetailModal({
     else alert('Sipariş oluşturulurken hata: ' + error.message);
   };
 
-  const handlePaymentComplete = async () => {
-    // Tüm siparişleri completed yap
-    for (const order of orders) {
-      await supabase.from('orders').update({ 
-        status: 'completed', 
-        payment_status: 'paid' 
-      }).eq('id', order.id);
+  const handlePaymentComplete = async (paidAmount: number, isFullPayment: boolean) => {
+    if (isFullPayment) {
+      // Tam ödeme - siparişleri kapat ve localStorage'ı temizle
+      for (const order of orders) {
+        await supabase.from('orders').update({ 
+          status: 'completed', 
+          payment_status: 'paid' 
+        }).eq('id', order.id);
+        clearPaidAmount(order.id);
+      }
+      onClearTable();
+      setShowPaymentModal(false);
+      onClose();
+    } else {
+      // Kısmi ödeme - localStorage'a kaydet
+      // Ödemeyi ilk siparişe uygula
+      if (orders.length > 0) {
+        savePaidAmount(orders[0].id, paidAmount);
+      }
+      setShowPaymentModal(false);
+      forceUpdate(n => n + 1); // Re-render to show updated amount
+      alert(`₺${paidAmount.toLocaleString()} ödeme alındı.\nKalan: ₺${(totalAmount - paidAmount).toLocaleString()}`);
     }
-    onClearTable();
-    setShowPaymentModal(false);
-    onClose();
   };
 
   return (
@@ -699,9 +776,27 @@ function TableDetailModal({
                 <div className="bg-green-100 rounded-xl p-4 text-center border-2 border-green-200">
                   <CreditCard className="w-7 h-7 mx-auto mb-2 text-green-600" />
                   <p className="text-3xl font-bold text-green-700">₺{totalAmount.toLocaleString()}</p>
-                  <p className="text-sm font-semibold text-green-600">Toplam</p>
+                  <p className="text-sm font-semibold text-green-600">
+                    {totalPaid > 0 ? 'Kalan' : 'Toplam'}
+                  </p>
                 </div>
               </div>
+
+              {/* Paid Amount Info */}
+              {totalPaid > 0 && (
+                <div className="bg-amber-50 rounded-xl p-4 border-2 border-amber-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-700">Kısmi Ödeme Yapıldı</p>
+                      <p className="text-xs text-amber-600">Orijinal: ₺{originalTotal.toLocaleString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-amber-700">₺{totalPaid.toLocaleString()}</p>
+                      <p className="text-xs text-amber-600">Ödenen</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Order Status Summary */}
               {hasOrders && (
@@ -733,6 +828,9 @@ function TableDetailModal({
                     const statusConf = orderStatusConfig[order.status] || orderStatusConfig.pending;
                     const StatusIcon = statusConf.icon;
                     const orderItems = parseItems(order.items);
+                    const orderPaid = paidAmounts[order.id] || 0;
+                    const orderRemaining = Math.max(0, (order.total || 0) - orderPaid);
+                    
                     return (
                       <div key={order.id} className="border-2 rounded-xl overflow-hidden shadow-sm">
                         <div className={`px-4 py-3 flex items-center justify-between ${statusConf.color} border-b-2`}>
@@ -744,23 +842,30 @@ function TableDetailModal({
                         </div>
                         <div className="p-4 bg-white">
                           <div className="space-y-2">
-                            {orderItems.map((item: any, idx: number) => (
+                            {orderItems.length > 0 ? orderItems.map((item: OrderItem, idx: number) => (
                               <div key={idx} className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-2">
                                   <span className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-bold text-gray-700">
                                     {item.quantity}x
                                   </span>
-                                  <span className="font-medium text-gray-800">{item.product_name || item.name}</span>
+                                  <span className="font-medium text-gray-800">{item.product_name || item.name || 'Ürün'}</span>
                                 </div>
-                                <span className="font-semibold text-gray-700">₺{item.total_price || (item.quantity * item.unit_price)}</span>
+                                <span className="font-semibold text-gray-700">₺{(item.total_price || (item.quantity * (item.unit_price || item.price || 0))).toLocaleString()}</span>
                               </div>
-                            ))}
+                            )) : (
+                              <p className="text-sm text-gray-500 italic">Ürün detayı yok</p>
+                            )}
                           </div>
                           <div className="mt-4 pt-3 border-t-2 flex items-center justify-between">
                             <span className="text-sm text-gray-500 font-medium">
                               {new Date(order.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            <span className="font-bold text-lg text-gray-900">₺{order.total?.toLocaleString()}</span>
+                            <div className="text-right">
+                              {orderPaid > 0 && (
+                                <span className="text-sm text-green-600 mr-2">-₺{orderPaid.toLocaleString()}</span>
+                              )}
+                              <span className="font-bold text-lg text-gray-900">₺{orderRemaining.toLocaleString()}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -879,8 +984,13 @@ function TableDetailModal({
         {isOccupied && hasOrders && (
           <div className="p-5 border-t-2 bg-gray-50 flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Toplam Tutar</p>
+              <p className="text-sm text-gray-500 font-medium">
+                {totalPaid > 0 ? 'Kalan Tutar' : 'Toplam Tutar'}
+              </p>
               <p className="text-3xl font-bold text-gray-900">₺{totalAmount.toLocaleString()}</p>
+              {totalPaid > 0 && (
+                <p className="text-xs text-green-600">₺{totalPaid.toLocaleString()} ödendi</p>
+              )}
             </div>
             <div className="flex gap-3">
               <button 
@@ -907,6 +1017,8 @@ function TableDetailModal({
         <PaymentModal
           tableNumber={table.number}
           totalAmount={totalAmount}
+          originalTotal={originalTotal}
+          totalPaid={totalPaid}
           subtotal={subtotal}
           tax={tax}
           items={allItems}
@@ -923,6 +1035,8 @@ function TableDetailModal({
         <PrintPreviewModal
           tableNumber={table.number}
           totalAmount={totalAmount}
+          originalTotal={originalTotal}
+          totalPaid={totalPaid}
           subtotal={subtotal}
           tax={tax}
           items={allItems}
@@ -936,10 +1050,12 @@ function TableDetailModal({
   );
 }
 
-// Payment Modal Component - POS özellikleriyle
+// Payment Modal Component
 function PaymentModal({
   tableNumber,
   totalAmount,
+  originalTotal,
+  totalPaid,
   subtotal,
   tax,
   items,
@@ -951,14 +1067,16 @@ function PaymentModal({
 }: {
   tableNumber: string;
   totalAmount: number;
+  originalTotal: number;
+  totalPaid: number;
   subtotal: number;
   tax: number;
-  items: any[];
+  items: OrderItem[];
   venueName: string;
   customerName?: string;
   guestCount: number;
   onClose: () => void;
-  onPaymentComplete: () => void;
+  onPaymentComplete: (paidAmount: number, isFullPayment: boolean) => void;
 }) {
   const [step, setStep] = useState<'method' | 'document' | 'invoice' | 'complete'>('method');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'titpay' | null>(null);
@@ -982,7 +1100,7 @@ function PaymentModal({
 
   // Hesaplamalar
   const discountAmount = discountType === 'percent' ? (totalAmount * discount / 100) : discount;
-  const finalTotal = totalAmount - discountAmount;
+  const finalTotal = Math.max(0, totalAmount - discountAmount);
   const change = parseFloat(cashReceived) - finalTotal;
   const splitAmount = Math.ceil(finalTotal / splitCount);
   const partialValue = parseFloat(partialAmount) || 0;
@@ -1030,11 +1148,21 @@ function PaymentModal({
     return finalTotal;
   };
 
+  const isFullPayment = () => {
+    const payAmount = getPayAmount();
+    return payAmount >= finalTotal;
+  };
+
   const canPay = () => {
     if (paymentMode === 'partial') return partialValue > 0 && partialValue <= finalTotal;
     if (paymentMode === 'split') return splitCount >= 2;
     if (paymentMethod === 'cash') return parseFloat(cashReceived) >= finalTotal;
     return true;
+  };
+
+  const handleFinalPayment = () => {
+    const payAmount = getPayAmount();
+    onPaymentComplete(payAmount, isFullPayment());
   };
 
   return (
@@ -1044,7 +1172,10 @@ function PaymentModal({
         <div className="p-5 border-b-2 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Ödeme Al</h2>
-            <p className="text-sm text-gray-600">Masa {tableNumber} • ₺{finalTotal.toLocaleString()}</p>
+            <p className="text-sm text-gray-600">
+              Masa {tableNumber} • ₺{finalTotal.toLocaleString()}
+              {totalPaid > 0 && <span className="text-green-600"> (₺{totalPaid} ödendi)</span>}
+            </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
             <X className="w-6 h-6 text-gray-600" />
@@ -1236,10 +1367,18 @@ function PaymentModal({
 
               {/* Total */}
               <div className="mt-4 p-4 bg-gray-100 rounded-xl">
-                <div className="flex justify-between text-sm text-gray-600 mb-1">
-                  <span>Ara Toplam</span>
-                  <span>₺{totalAmount.toLocaleString()}</span>
-                </div>
+                {totalPaid > 0 && (
+                  <div className="flex justify-between text-sm text-gray-600 mb-1">
+                    <span>Orijinal Tutar</span>
+                    <span>₺{originalTotal.toLocaleString()}</span>
+                  </div>
+                )}
+                {totalPaid > 0 && (
+                  <div className="flex justify-between text-sm text-green-600 mb-1">
+                    <span>Önceki Ödemeler</span>
+                    <span>-₺{totalPaid.toLocaleString()}</span>
+                  </div>
+                )}
                 {discount > 0 && (
                   <div className="flex justify-between text-sm text-green-600 mb-1">
                     <span>İndirim</span>
@@ -1247,13 +1386,13 @@ function PaymentModal({
                   </div>
                 )}
                 <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-300">
-                  <span>Toplam</span>
-                  <span>₺{finalTotal.toLocaleString()}</span>
+                  <span>Ödenecek</span>
+                  <span>₺{getPayAmount().toLocaleString()}</span>
                 </div>
-                {paymentMode === 'split' && (
-                  <div className="flex justify-between text-sm text-blue-600 mt-1">
-                    <span>Kişi Başı ({splitCount} kişi)</span>
-                    <span>₺{splitAmount.toLocaleString()}</span>
+                {paymentMode === 'partial' && partialValue > 0 && partialValue < finalTotal && (
+                  <div className="flex justify-between text-sm text-orange-600 mt-1">
+                    <span>Kalan</span>
+                    <span>₺{(finalTotal - partialValue).toLocaleString()}</span>
                   </div>
                 )}
               </div>
@@ -1414,26 +1553,6 @@ function PaymentModal({
                       <p className="text-xs text-gray-500 mt-1">{invoiceInfo.taxNumber?.length || 0}/10</p>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Adres</label>
-                    <textarea
-                      value={invoiceInfo.address}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, address: e.target.value })}
-                      placeholder="Şirket adresi"
-                      rows={2}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta</label>
-                    <input
-                      type="email"
-                      value={invoiceInfo.email}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, email: e.target.value })}
-                      placeholder="muhasebe@sirket.com"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                    />
-                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1448,26 +1567,6 @@ function PaymentModal({
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                     />
                     <p className="text-xs text-gray-500 mt-1">{invoiceInfo.tcNumber?.length || 0}/11</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Ad Soyad</label>
-                    <input
-                      type="text"
-                      value={invoiceInfo.companyName}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, companyName: e.target.value })}
-                      placeholder="Ali Yılmaz"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta</label>
-                    <input
-                      type="email"
-                      value={invoiceInfo.email}
-                      onChange={(e) => setInvoiceInfo({ ...invoiceInfo, email: e.target.value })}
-                      placeholder="ali@email.com"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                    />
                   </div>
                 </div>
               )}
@@ -1507,30 +1606,32 @@ function PaymentModal({
                   <span className="text-gray-600">Belge Türü</span>
                   <span className="font-semibold">{documentType === 'receipt' ? 'Fiş' : 'Fatura'}</span>
                 </div>
-                {documentType === 'invoice' && invoiceInfo.companyName && (
-                  <div className="flex justify-between mb-2">
-                    <span className="text-gray-600">{invoiceInfo.type === 'corporate' ? 'Şirket' : 'Ad Soyad'}</span>
-                    <span className="font-semibold">{invoiceInfo.companyName}</span>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div className="flex justify-between mb-2 text-green-600">
-                    <span>İndirim</span>
-                    <span className="font-semibold">-₺{discountAmount.toLocaleString()}</span>
-                  </div>
-                )}
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-600">Ödeme Tipi</span>
+                  <span className="font-semibold">
+                    {paymentMode === 'full' && 'Tam Ödeme'}
+                    {paymentMode === 'partial' && 'Kısmi Ödeme'}
+                    {paymentMode === 'split' && `Bölünmüş (${splitCount} kişi)`}
+                  </span>
+                </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 mt-2">
-                  <span>Toplam</span>
+                  <span>Alınacak Tutar</span>
                   <span className="text-green-600">₺{getPayAmount().toLocaleString()}</span>
                 </div>
+                {!isFullPayment() && (
+                  <div className="flex justify-between text-sm text-orange-600 mt-1">
+                    <span>Kalan Tutar</span>
+                    <span>₺{(finalTotal - getPayAmount()).toLocaleString()}</span>
+                  </div>
+                )}
               </div>
 
               <button
-                onClick={onPaymentComplete}
+                onClick={handleFinalPayment}
                 className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
               >
                 <Check className="w-5 h-5" />
-                Ödemeyi Tamamla
+                {isFullPayment() ? 'Ödemeyi Tamamla' : 'Kısmi Ödemeyi Al'}
               </button>
             </div>
           )}
@@ -1544,6 +1645,8 @@ function PaymentModal({
 function PrintPreviewModal({
   tableNumber,
   totalAmount,
+  originalTotal,
+  totalPaid,
   subtotal,
   tax,
   items,
@@ -1554,9 +1657,11 @@ function PrintPreviewModal({
 }: {
   tableNumber: string;
   totalAmount: number;
+  originalTotal: number;
+  totalPaid: number;
   subtotal: number;
   tax: number;
-  items: any[];
+  items: OrderItem[];
   venueName: string;
   customerName?: string;
   seatedAt?: string;
@@ -1624,12 +1729,16 @@ function PrintPreviewModal({
             {/* Items */}
             <div className="border-b-2 border-dashed border-gray-400 pb-3 mb-3">
               {items.length > 0 ? (
-                items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between py-1">
-                    <span className="flex-1">{item.quantity}x {item.product_name || item.name}</span>
-                    <span className="font-semibold">₺{(item.total_price || item.quantity * item.unit_price || 0).toLocaleString()}</span>
-                  </div>
-                ))
+                items.map((item, idx) => {
+                  const itemName = item.product_name || item.name || 'Ürün';
+                  const itemTotal = item.total_price || (item.quantity * (item.unit_price || item.price || 0));
+                  return (
+                    <div key={idx} className="flex justify-between py-1">
+                      <span className="flex-1">{item.quantity}x {itemName}</span>
+                      <span className="font-semibold">₺{itemTotal.toLocaleString()}</span>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-center text-gray-500">Ürün bulunamadı</p>
               )}
@@ -1645,8 +1754,20 @@ function PrintPreviewModal({
                 <span>KDV:</span>
                 <span>₺{tax.toLocaleString()}</span>
               </div>
+              {totalPaid > 0 && (
+                <>
+                  <div className="flex justify-between border-t border-gray-300 pt-1">
+                    <span>Toplam:</span>
+                    <span>₺{originalTotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-green-600">
+                    <span>Ödenen:</span>
+                    <span>-₺{totalPaid.toLocaleString()}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between text-lg font-bold border-t-2 border-gray-400 pt-2 mt-2">
-                <span>TOPLAM:</span>
+                <span>{totalPaid > 0 ? 'KALAN:' : 'TOPLAM:'}</span>
                 <span>₺{totalAmount.toLocaleString()}</span>
               </div>
             </div>

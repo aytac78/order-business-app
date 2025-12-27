@@ -69,6 +69,30 @@ const paymentMethods: { id: PaymentMethod; name: string; icon: any; color?: stri
   { id: 'mobile', name: 'Mobil Ödeme', icon: Smartphone },
 ];
 
+// Parse items from JSONB - supports both formats (Customer App & Business App)
+const parseItems = (items: any): OrderItem[] => {
+  if (!items) return [];
+  try {
+    const parsed = typeof items === 'string' ? JSON.parse(items) : items;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item: any) => {
+      const quantity = item.quantity || 1;
+      const price = item.unit_price || item.price || 0;
+      return {
+        id: item.id || crypto.randomUUID(),
+        product_name: item.product_name || item.name || 'Ürün',
+        quantity: quantity,
+        unit_price: price,
+        total_price: item.total_price || (quantity * price),
+        notes: item.notes,
+        status: item.status || 'pending'
+      };
+    });
+  } catch {
+    return [];
+  }
+};
+
 export default function POSPage() {
   const { currentVenue } = useVenueStore();
   const [checks, setChecks] = useState<OpenCheck[]>([]);
@@ -86,7 +110,7 @@ export default function POSPage() {
     try {
       setError(null);
       
-      // Fetch orders
+      // Fetch orders with items JSONB
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
@@ -97,7 +121,7 @@ export default function POSPage() {
 
       if (ordersError) throw ordersError;
 
-      // Fetch items for all orders
+      // Also try to fetch from order_items table as fallback
       const orderIds = (ordersData || []).map(o => o.id);
       let itemsData: any[] = [];
       
@@ -107,13 +131,27 @@ export default function POSPage() {
           .select('*')
           .in('order_id', orderIds);
         
-        if (itemsError) console.warn('Items fetch error:', itemsError);
-        itemsData = items || [];
+        if (!itemsError && items) {
+          itemsData = items;
+        }
       }
 
       // Transform orders to checks format
       const openChecks: OpenCheck[] = (ordersData || []).map(order => {
-        const orderItems = itemsData.filter(item => item.order_id === order.id);
+        // First try order_items table, then fall back to JSONB
+        const tableItems = itemsData.filter(item => item.order_id === order.id);
+        const items = tableItems.length > 0 
+          ? tableItems.map(item => ({
+              id: item.id,
+              product_name: item.product_name,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total_price: item.total_price,
+              notes: item.notes,
+              status: item.status
+            }))
+          : parseItems(order.items); // Fall back to JSONB
+        
         const paidAmount = order.paid_amount || 0;
         const total = order.total || 0;
         
@@ -124,15 +162,7 @@ export default function POSPage() {
           table_number: order.table_number,
           table_id: order.table_id,
           customer_name: order.customer_name,
-          items: orderItems.map(item => ({
-            id: item.id,
-            product_name: item.product_name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            notes: item.notes,
-            status: item.status
-          })),
+          items: items,
           subtotal: order.subtotal || 0,
           discount: order.discount || 0,
           tax: order.tax || 0,
@@ -205,35 +235,33 @@ export default function POSPage() {
     const newTotal = newSubtotal + newTax;
 
     try {
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('orders')
         .update({
           discount: discountAmount,
-          tax: Math.round(newTax * 100) / 100,
-          total: Math.round(newTotal * 100) / 100
+          tax: Math.round(newTax),
+          total: Math.round(newTotal)
         })
         .eq('id', selectedCheck.id);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
       
-      await fetchOpenOrders();
+      setShowDiscountModal(false);
+      fetchOpenOrders();
     } catch (err: any) {
-      console.error('Error applying discount:', err);
-      setError(err.message);
+      console.error('Discount error:', err);
+      alert('İndirim uygulanırken hata oluştu');
     }
-    
-    setShowDiscountModal(false);
   };
 
-  const handlePayment = async (method: PaymentMethod, amount: number, isPartial: boolean) => {
+  const handlePayment = async (method: PaymentMethod, amount: number) => {
     if (!selectedCheck) return;
     
+    const newPaidAmount = selectedCheck.paid_amount + amount;
+    const isFullyPaid = newPaidAmount >= selectedCheck.total;
+
     try {
-      const newPaidAmount = selectedCheck.paid_amount + amount;
-      const isFullyPaid = newPaidAmount >= selectedCheck.total;
-      
-      // Update order
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('orders')
         .update({
           paid_amount: newPaidAmount,
@@ -243,68 +271,39 @@ export default function POSPage() {
         })
         .eq('id', selectedCheck.id);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
-      // Update table status if fully paid and has table
+      // If table order and fully paid, update table status
       if (isFullyPaid && selectedCheck.table_id) {
         await supabase
           .from('tables')
-          .update({ status: 'cleaning', current_order_id: null })
+          .update({ status: 'cleaning' })
           .eq('id', selectedCheck.table_id);
       }
-
+      
       setShowPaymentModal(false);
-      
-      const methodName = paymentMethods.find(m => m.id === method)?.name;
-      if (isFullyPaid) {
-        alert(`✓ Ödeme tamamlandı!\n${methodName}: ₺${amount.toLocaleString()}`);
-        setSelectedCheck(null);
-      } else {
-        const remaining = selectedCheck.total - newPaidAmount;
-        alert(`✓ Kısmi ödeme alındı!\n${methodName}: ₺${amount.toLocaleString()}\nKalan: ₺${remaining.toLocaleString()}`);
-      }
-      
-      await fetchOpenOrders();
+      setSelectedCheck(null);
+      fetchOpenOrders();
     } catch (err: any) {
-      console.error('Error processing payment:', err);
-      setError(err.message);
+      console.error('Payment error:', err);
+      alert('Ödeme işlenirken hata oluştu');
     }
   };
 
-  // Calculate duration from created_at
-  const getDuration = (createdAt: string) => {
-    const start = new Date(createdAt);
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - start.getTime()) / 60000);
-    return diff;
+  const getTimeDiff = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins} dk`;
+    const hours = Math.floor(mins / 60);
+    return `${hours} sa ${mins % 60} dk`;
   };
 
-  // Get time string from created_at
-  const getOpenedAt = (createdAt: string) => {
-    return new Date(createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const totalRevenue = checks.reduce((sum, c) => sum + c.remaining_amount, 0);
-  const tableChecks = checks.filter(c => c.type === 'dine_in');
-  const otherChecks = checks.filter(c => c.type !== 'dine_in');
-
-  const typeLabels: Record<string, { text: string; color: string }> = {
-    dine_in: { text: 'Masada', color: 'bg-blue-100 text-blue-700' },
-    takeaway: { text: 'Paket', color: 'bg-purple-100 text-purple-700' },
-    delivery: { text: 'Teslimat', color: 'bg-green-100 text-green-700' },
-    qr_order: { text: 'QR Sipariş', color: 'bg-orange-100 text-orange-700' }
-  };
-
-  const statusLabels: Record<string, { text: string; color: string }> = {
-    pending: { text: 'Bekliyor', color: 'bg-yellow-100 text-yellow-700' },
-    confirmed: { text: 'Onaylandı', color: 'bg-blue-100 text-blue-700' },
-    preparing: { text: 'Hazırlanıyor', color: 'bg-purple-100 text-purple-700' },
-    ready: { text: 'Hazır', color: 'bg-green-100 text-green-700' },
-    served: { text: 'Servis Edildi', color: 'bg-gray-100 text-gray-700' }
-  };
+  const tableChecks = checks.filter(c => c.table_number);
+  const otherChecks = checks.filter(c => !c.table_number);
+  const totalRevenue = checks.reduce((sum, c) => sum + c.total, 0);
 
   if (!mounted) {
-    return <div className="animate-pulse bg-gray-100 rounded-2xl h-96" />;
+    return <div className="animate-pulse bg-gray-800 rounded-2xl h-96" />;
   }
 
   if (!currentVenue) {
@@ -312,8 +311,8 @@ export default function POSPage() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Mekan Seçimi Gerekli</h2>
-          <p className="text-gray-500">Kasa için lütfen bir mekan seçin.</p>
+          <h2 className="text-xl font-bold text-white mb-2">Mekan Seçimi Gerekli</h2>
+          <p className="text-gray-400">POS için lütfen bir mekan seçin.</p>
         </div>
       </div>
     );
@@ -323,41 +322,29 @@ export default function POSPage() {
     <div className="flex gap-6 h-[calc(100vh-120px)]">
       {/* Left: Open Checks */}
       <div className="w-80 flex-shrink-0 flex flex-col">
-        <div className="bg-white rounded-2xl border border-gray-100 flex-1 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-gray-700 flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-gray-900">Açık Hesaplar</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="font-semibold text-white">Açık Hesaplar</h2>
+              <p className="text-sm text-gray-400">
                 {checks.length} hesap • ₺{totalRevenue.toLocaleString()}
               </p>
             </div>
             <button 
               onClick={fetchOpenOrders}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-              title="Yenile"
+              className="p-2 hover:bg-gray-700 rounded-lg text-gray-400"
             >
-              <RefreshCw className={`w-4 h-4 text-gray-500 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-50 border-b border-red-100">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="p-4 text-center text-gray-500">
-                <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
-                <p>Yükleniyor...</p>
-              </div>
+              <div className="p-4 text-center text-gray-400">Yükleniyor...</div>
+            ) : error ? (
+              <div className="p-4 text-center text-red-400">{error}</div>
             ) : checks.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>Açık hesap yok</p>
-                <p className="text-sm mt-1">Ödenmemiş sipariş bulunmuyor</p>
-              </div>
+              <div className="p-4 text-center text-gray-400">Açık hesap yok</div>
             ) : (
               <>
                 {/* Table Checks */}
@@ -370,37 +357,33 @@ export default function POSPage() {
                         onClick={() => setSelectedCheck(check)}
                         className={`w-full p-3 rounded-xl mb-1 text-left transition-all ${
                           selectedCheck?.id === check.id
-                            ? 'bg-orange-50 border-2 border-orange-500'
-                            : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                            ? 'bg-orange-600/20 border-2 border-orange-500'
+                            : 'bg-gray-700/50 hover:bg-gray-700 border-2 border-transparent'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                              <span className="font-bold text-red-600">#{check.table_number}</span>
+                            <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                              <span className="font-bold text-red-400">#{check.table_number}</span>
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">{check.order_number}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <p className="font-medium text-white">{check.order_number}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
                                 <Clock className="w-3 h-3" />
-                                <span>{getDuration(check.created_at)} dk</span>
-                                <span className={`px-1.5 py-0.5 rounded ${statusLabels[check.status]?.color || 'bg-gray-100'}`}>
-                                  {statusLabels[check.status]?.text || check.status}
+                                <span>{getTimeDiff(check.created_at)}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                  check.status === 'preparing' ? 'bg-purple-500/20 text-purple-400' :
+                                  check.status === 'ready' ? 'bg-green-500/20 text-green-400' :
+                                  'bg-amber-500/20 text-amber-400'
+                                }`}>
+                                  {check.status === 'preparing' ? 'Hazırlanıyor' :
+                                   check.status === 'ready' ? 'Hazır' :
+                                   check.status === 'served' ? 'Servis Edildi' : 'Bekliyor'}
                                 </span>
                               </div>
-                              {check.paid_amount > 0 && (
-                                <p className="text-xs text-green-600 mt-1">
-                                  ₺{check.paid_amount.toLocaleString()} ödendi
-                                </p>
-                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold text-gray-900">₺{check.remaining_amount.toLocaleString()}</p>
-                            {check.paid_amount > 0 && (
-                              <p className="text-xs text-gray-400 line-through">₺{check.total.toLocaleString()}</p>
-                            )}
-                          </div>
+                          <p className="font-bold text-white">₺{check.total.toLocaleString()}</p>
                         </div>
                       </button>
                     ))}
@@ -409,7 +392,7 @@ export default function POSPage() {
 
                 {/* Other Checks */}
                 {otherChecks.length > 0 && (
-                  <div className="p-2 border-t border-gray-100">
+                  <div className="p-2 border-t border-gray-700">
                     <p className="text-xs font-medium text-gray-500 px-2 py-1">PAKET / TESLİMAT ({otherChecks.length})</p>
                     {otherChecks.map(check => (
                       <button
@@ -417,29 +400,25 @@ export default function POSPage() {
                         onClick={() => setSelectedCheck(check)}
                         className={`w-full p-3 rounded-xl mb-1 text-left transition-all ${
                           selectedCheck?.id === check.id
-                            ? 'bg-orange-50 border-2 border-orange-500'
-                            : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                            ? 'bg-orange-600/20 border-2 border-orange-500'
+                            : 'bg-gray-700/50 hover:bg-gray-700 border-2 border-transparent'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                              check.type === 'takeaway' ? 'bg-purple-100' : 'bg-green-100'
+                              check.type === 'takeaway' ? 'bg-purple-500/20' : 'bg-green-500/20'
                             }`}>
-                              <span className={`text-sm font-bold ${
-                                check.type === 'takeaway' ? 'text-purple-600' : 'text-green-600'
-                              }`}>
+                              <span className="font-bold text-xs text-gray-300">
                                 {check.type === 'takeaway' ? 'P' : 'T'}
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">{check.order_number}</p>
-                              <p className="text-xs text-gray-500">
-                                {check.customer_name || typeLabels[check.type]?.text}
-                              </p>
+                              <p className="font-medium text-white">{check.order_number}</p>
+                              <p className="text-xs text-gray-400">{check.customer_name || 'Müşteri'}</p>
                             </div>
                           </div>
-                          <p className="font-bold text-gray-900">₺{check.remaining_amount.toLocaleString()}</p>
+                          <p className="font-bold text-white">₺{check.total.toLocaleString()}</p>
                         </div>
                       </button>
                     ))}
@@ -454,41 +433,49 @@ export default function POSPage() {
       {/* Center: Check Detail */}
       <div className="flex-1 flex flex-col">
         {selectedCheck ? (
-          <div className="bg-white rounded-2xl border border-gray-100 flex-1 flex flex-col overflow-hidden">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {selectedCheck.type === 'dine_in' 
+                  <h2 className="text-xl font-bold text-white">
+                    {selectedCheck.table_number 
                       ? `Masa ${selectedCheck.table_number}` 
-                      : selectedCheck.customer_name || selectedCheck.order_number}
+                      : selectedCheck.customer_name || 'Paket Sipariş'}
                   </h2>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${typeLabels[selectedCheck.type]?.color}`}>
-                    {typeLabels[selectedCheck.type]?.text}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusLabels[selectedCheck.status]?.color}`}>
-                    {statusLabels[selectedCheck.status]?.text}
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    selectedCheck.status === 'preparing' ? 'bg-purple-500/20 text-purple-400' :
+                    selectedCheck.status === 'ready' ? 'bg-green-500/20 text-green-400' :
+                    'bg-amber-500/20 text-amber-400'
+                  }`}>
+                    {selectedCheck.status === 'preparing' ? 'Hazırlanıyor' :
+                     selectedCheck.status === 'ready' ? 'Hazır' :
+                     selectedCheck.status === 'served' ? 'Servis Edildi' : 'Bekliyor'}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500">
-                  {selectedCheck.order_number} • Açılış: {getOpenedAt(selectedCheck.created_at)} • {selectedCheck.items.length} kalem
-                  {selectedCheck.waiter_name && ` • ${selectedCheck.waiter_name}`}
+                <p className="text-sm text-gray-400">
+                  {selectedCheck.order_number} • Açılış: {new Date(selectedCheck.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} • {selectedCheck.items.length} kalem
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-gray-100 rounded-lg" title="Yazdır">
-                  <Printer className="w-5 h-5 text-gray-600" />
+                <button className="p-2 hover:bg-gray-700 rounded-lg text-gray-400">
+                  <Printer className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
             {/* Items */}
             <div className="flex-1 overflow-y-auto p-4">
-              {selectedCheck.items.length > 0 ? (
+              {selectedCheck.items.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <UtensilsCrossed className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>Sipariş detayı yok</p>
+                  <p className="text-sm">Ürünler orders.items JSONB'de</p>
+                </div>
+              ) : (
                 <table className="w-full">
                   <thead>
-                    <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
+                    <tr className="text-left text-sm text-gray-400 border-b border-gray-700">
                       <th className="pb-2">Ürün</th>
                       <th className="pb-2 text-center">Adet</th>
                       <th className="pb-2 text-right">Fiyat</th>
@@ -497,75 +484,60 @@ export default function POSPage() {
                   </thead>
                   <tbody>
                     {selectedCheck.items.map((item, idx) => (
-                      <tr key={item.id || idx} className="border-b border-gray-50">
+                      <tr key={item.id || idx} className="border-b border-gray-700/50">
                         <td className="py-3">
-                          <p className="font-medium text-gray-900">{item.product_name}</p>
-                          {item.notes && <p className="text-xs text-orange-500">{item.notes}</p>}
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            item.status === 'ready' ? 'bg-green-100 text-green-700' :
-                            item.status === 'preparing' ? 'bg-purple-100 text-purple-700' :
-                            'bg-gray-100 text-gray-600'
-                          }`}>
-                            {item.status === 'ready' ? 'Hazır' : 
-                             item.status === 'preparing' ? 'Hazırlanıyor' : 
-                             item.status === 'served' ? 'Servis Edildi' : 'Bekliyor'}
-                          </span>
+                          <p className="font-medium text-white">{item.product_name}</p>
+                          {item.notes && <p className="text-xs text-gray-500">{item.notes}</p>}
                         </td>
-                        <td className="py-3 text-center text-gray-900 font-medium">{item.quantity}</td>
-                        <td className="py-3 text-right text-gray-600">₺{item.unit_price.toLocaleString()}</td>
-                        <td className="py-3 text-right font-medium text-gray-900">₺{item.total_price.toLocaleString()}</td>
+                        <td className="py-3 text-center text-gray-300">{item.quantity}</td>
+                        <td className="py-3 text-right text-gray-300">₺{item.unit_price.toLocaleString()}</td>
+                        <td className="py-3 text-right font-medium text-white">₺{item.total_price.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <UtensilsCrossed className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Sipariş detayı yok</p>
-                  <p className="text-sm mt-1">Ürünler order_items tablosuna eklenmemiş</p>
-                </div>
               )}
             </div>
 
             {/* Totals */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100">
+            <div className="p-4 bg-gray-900 border-t border-gray-700">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Ara Toplam</span>
-                  <span className="text-gray-900">₺{selectedCheck.subtotal.toLocaleString()}</span>
+                  <span className="text-gray-400">Ara Toplam</span>
+                  <span className="text-white">₺{selectedCheck.subtotal.toLocaleString()}</span>
                 </div>
                 {selectedCheck.discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
+                  <div className="flex justify-between text-sm text-green-400">
                     <span>İndirim</span>
                     <span>-₺{selectedCheck.discount.toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">KDV (%8)</span>
-                  <span className="text-gray-900">₺{selectedCheck.tax.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
-                  <span className="text-gray-500">Toplam</span>
-                  <span className="text-gray-900">₺{selectedCheck.total.toLocaleString()}</span>
+                  <span className="text-gray-400">KDV (%8)</span>
+                  <span className="text-white">₺{selectedCheck.tax.toLocaleString()}</span>
                 </div>
                 {selectedCheck.paid_amount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
+                  <div className="flex justify-between text-sm text-blue-400">
                     <span>Ödenen</span>
-                    <span>-₺{selectedCheck.paid_amount.toLocaleString()}</span>
+                    <span>₺{selectedCheck.paid_amount.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300">
-                  <span>Kalan</span>
-                  <span className="text-orange-600">₺{selectedCheck.remaining_amount.toLocaleString()}</span>
+                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-700">
+                  <span className="text-white">
+                    {selectedCheck.paid_amount > 0 ? 'Kalan' : 'Toplam'}
+                  </span>
+                  <span className="text-orange-500">
+                    ₺{selectedCheck.remaining_amount.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 flex-1 flex items-center justify-center">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex items-center justify-center">
             <div className="text-center">
-              <Receipt className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Hesap seçin</p>
+              <Receipt className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">Hesap seçin</p>
             </div>
           </div>
         )}
@@ -586,7 +558,7 @@ export default function POSPage() {
 
         {/* Actions */}
         {selectedCheck && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 space-y-3">
             <button
               onClick={() => setShowPaymentModal(true)}
               className="w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
@@ -598,21 +570,20 @@ export default function POSPage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setShowDiscountModal(true)}
-                className="py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium text-gray-700 flex items-center justify-center gap-1 transition-colors"
+                className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white flex items-center justify-center gap-1 transition-colors"
               >
                 <Percent className="w-4 h-4" />
-                İndirim
+                % İndirim
               </button>
               <button
-                onClick={() => setShowPaymentModal(true)}
-                className="py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium text-gray-700 flex items-center justify-center gap-1 transition-colors"
+                className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white flex items-center justify-center gap-1 transition-colors"
               >
                 <Split className="w-4 h-4" />
                 Böl
               </button>
             </div>
 
-            <button className="w-full py-3 border border-gray-200 rounded-xl font-medium text-gray-700 flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors">
+            <button className="w-full py-3 border border-gray-600 rounded-xl font-medium text-gray-300 flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors">
               <Printer className="w-4 h-4" />
               Ön Hesap Yazdır
             </button>
@@ -620,18 +591,18 @@ export default function POSPage() {
         )}
 
         {/* Payment Methods Quick Access */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-sm font-medium text-gray-500 mb-3">Hızlı Ödeme</p>
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4">
+          <p className="text-sm font-medium text-gray-400 mb-3">Hızlı Ödeme</p>
           <div className="grid grid-cols-3 gap-2">
             {paymentMethods.slice(0, 6).map(method => (
               <button
                 key={method.id}
                 onClick={() => selectedCheck && setShowPaymentModal(true)}
                 disabled={!selectedCheck}
-                className="p-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-center transition-colors disabled:opacity-50"
+                className="p-3 bg-gray-700 hover:bg-gray-600 rounded-xl text-center transition-colors disabled:opacity-50"
               >
-                <method.icon className="w-5 h-5 mx-auto text-gray-600 mb-1" />
-                <p className="text-xs text-gray-600">{method.name}</p>
+                <method.icon className="w-5 h-5 mx-auto text-gray-300 mb-1" />
+                <p className="text-xs text-gray-400">{method.name}</p>
               </button>
             ))}
           </div>
@@ -659,60 +630,49 @@ export default function POSPage() {
   );
 }
 
-// Payment Modal with full features
+// Payment Modal
 function PaymentModal({
   check,
   onPay,
   onClose
 }: {
   check: OpenCheck;
-  onPay: (method: PaymentMethod, amount: number, isPartial: boolean) => void;
+  onPay: (method: PaymentMethod, amount: number) => void;
   onClose: () => void;
 }) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('cash');
   const [cashReceived, setCashReceived] = useState<string>('');
   const [manualAmount, setManualAmount] = useState<string>('');
-  const [paymentMode, setPaymentMode] = useState<'full' | 'partial' | 'split'>('full');
-  const [splitCount, setSplitCount] = useState(2);
+  const [paymentMode, setPaymentMode] = useState<'full' | 'partial'>('full');
 
-  const remainingAmount = check.remaining_amount;
   const cashAmount = parseFloat(cashReceived) || 0;
-  const change = cashAmount - remainingAmount;
+  const change = cashAmount - check.remaining_amount;
   const partialAmount = parseFloat(manualAmount) || 0;
-  const splitAmount = Math.ceil(remainingAmount / splitCount);
 
   const quickAmounts = [50, 100, 200, 500, 1000, 2000];
 
   const getPayAmount = () => {
     if (paymentMode === 'partial') return partialAmount;
-    if (paymentMode === 'split') return splitAmount;
-    return remainingAmount;
+    return selectedMethod === 'cash' ? Math.min(cashAmount, check.remaining_amount) : check.remaining_amount;
   };
 
   const canPay = () => {
-    if (paymentMode === 'partial') return partialAmount > 0 && partialAmount <= remainingAmount;
-    if (paymentMode === 'split') return splitCount >= 2;
-    if (selectedMethod === 'cash') return cashAmount >= remainingAmount;
+    if (paymentMode === 'partial') return partialAmount > 0 && partialAmount <= check.remaining_amount;
+    if (selectedMethod === 'cash') return cashAmount >= check.remaining_amount;
     return true;
   };
 
-  const handlePay = () => {
-    const amount = getPayAmount();
-    const isPartial = paymentMode === 'partial' || paymentMode === 'split';
-    onPay(selectedMethod, amount, isPartial);
-  };
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-700">
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Ödeme Al</h2>
-            <p className="text-gray-500">
-              {check.type === 'dine_in' ? `Masa ${check.table_number}` : check.order_number}
+            <h2 className="text-xl font-bold text-white">Ödeme Al</h2>
+            <p className="text-gray-400">
+              {check.table_number ? `Masa ${check.table_number}` : check.customer_name}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg text-gray-400">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -720,19 +680,21 @@ function PaymentModal({
         <div className="p-6 space-y-6">
           {/* Total */}
           <div className="text-center">
-            <p className="text-gray-500">Ödenecek Tutar</p>
-            <p className="text-4xl font-bold text-gray-900">₺{remainingAmount.toLocaleString()}</p>
+            <p className="text-gray-400">Ödenecek Tutar</p>
+            <p className="text-4xl font-bold text-white">₺{check.remaining_amount.toLocaleString()}</p>
             {check.paid_amount > 0 && (
-              <p className="text-sm text-green-600 mt-1">₺{check.paid_amount.toLocaleString()} zaten ödendi</p>
+              <p className="text-sm text-blue-400 mt-1">
+                (₺{check.paid_amount.toLocaleString()} ödenmiş)
+              </p>
             )}
           </div>
 
           {/* Payment Mode Tabs */}
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+          <div className="flex gap-2 p-1 bg-gray-900 rounded-xl">
             <button
               onClick={() => setPaymentMode('full')}
               className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                paymentMode === 'full' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                paymentMode === 'full' ? 'bg-gray-700 text-white' : 'text-gray-400'
               }`}
             >
               Tam Ödeme
@@ -740,81 +702,36 @@ function PaymentModal({
             <button
               onClick={() => setPaymentMode('partial')}
               className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                paymentMode === 'partial' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                paymentMode === 'partial' ? 'bg-gray-700 text-white' : 'text-gray-400'
               }`}
             >
               Kısmi Ödeme
-            </button>
-            <button
-              onClick={() => setPaymentMode('split')}
-              className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                paymentMode === 'split' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-              }`}
-            >
-              Böl
             </button>
           </div>
 
           {/* Partial Amount Input */}
           {paymentMode === 'partial' && (
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Ödenecek Tutar</p>
+              <p className="text-sm font-medium text-gray-300 mb-2">Ödenecek Tutar (Manuel)</p>
               <input
                 type="number"
                 value={manualAmount}
                 onChange={(e) => setManualAmount(e.target.value)}
                 placeholder="Tutar girin..."
-                max={remainingAmount}
-                className="w-full text-2xl font-bold text-center py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-900 placeholder-gray-400"
+                max={check.remaining_amount}
+                className="w-full text-2xl font-bold text-center py-4 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
-              <div className="grid grid-cols-4 gap-2 mt-3">
-                {[remainingAmount * 0.25, remainingAmount * 0.5, remainingAmount * 0.75, remainingAmount].map((amount, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setManualAmount(Math.round(amount).toString())}
-                    className="py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700"
-                  >
-                    {i === 3 ? 'Tamamı' : `%${(i + 1) * 25}`}
-                  </button>
-                ))}
-              </div>
-              {partialAmount > 0 && partialAmount < remainingAmount && (
-                <p className="text-sm text-orange-600 mt-2 text-center font-medium">
-                  Kalan: ₺{(remainingAmount - partialAmount).toLocaleString()}
+              {partialAmount > 0 && (
+                <p className="text-sm text-gray-400 mt-2 text-center">
+                  Kalan: ₺{(check.remaining_amount - partialAmount).toLocaleString()}
                 </p>
               )}
             </div>
           )}
 
-          {/* Split Options */}
-          {paymentMode === 'split' && (
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Kişi Sayısı</p>
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  onClick={() => setSplitCount(Math.max(2, splitCount - 1))}
-                  className="w-12 h-12 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-xl flex items-center justify-center"
-                >
-                  <Minus className="w-5 h-5" />
-                </button>
-                <span className="text-4xl font-bold w-16 text-center text-gray-900">{splitCount}</span>
-                <button
-                  onClick={() => setSplitCount(Math.min(10, splitCount + 1))}
-                  className="w-12 h-12 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-xl flex items-center justify-center"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="mt-4 p-4 bg-blue-50 rounded-xl text-center">
-                <p className="text-blue-600">Kişi Başı</p>
-                <p className="text-2xl font-bold text-blue-700">₺{splitAmount.toLocaleString()}</p>
-              </div>
-            </div>
-          )}
-
           {/* Payment Methods */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Ödeme Yöntemi</p>
+            <p className="text-sm font-medium text-gray-300 mb-2">Ödeme Yöntemi</p>
             <div className="grid grid-cols-4 gap-2">
               {paymentMethods.map(method => (
                 <button
@@ -825,7 +742,7 @@ function PaymentModal({
                       ? method.color 
                         ? `bg-gradient-to-br ${method.color} text-white`
                         : 'bg-orange-500 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                   }`}
                 >
                   <method.icon className="w-5 h-5 mx-auto mb-1" />
@@ -835,58 +752,58 @@ function PaymentModal({
             </div>
           </div>
 
-          {/* TiT Pay QR Display */}
-          {selectedMethod === 'titpay' && (
-            <div className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl text-center">
-              <div className="w-32 h-32 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center shadow-sm">
-                <QrCode className="w-24 h-24 text-purple-600" />
-              </div>
-              <p className="font-medium text-purple-800">TiT Pay ile Ödeme</p>
-              <p className="text-sm text-purple-600">QR kodu müşteriye gösterin</p>
-            </div>
-          )}
-
           {/* Cash Input */}
           {selectedMethod === 'cash' && paymentMode === 'full' && (
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Alınan Tutar</p>
+              <p className="text-sm font-medium text-gray-300 mb-2">Alınan Tutar</p>
               <input
                 type="number"
                 value={cashReceived}
                 onChange={(e) => setCashReceived(e.target.value)}
                 placeholder="0"
-                className="w-full text-3xl font-bold text-center py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-900 placeholder-gray-400"
+                className="w-full text-3xl font-bold text-center py-4 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
               <div className="grid grid-cols-6 gap-2 mt-3">
                 {quickAmounts.map(amount => (
                   <button
                     key={amount}
                     onClick={() => setCashReceived(amount.toString())}
-                    className="py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700"
+                    className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-white"
                   >
                     {amount}
                   </button>
                 ))}
               </div>
-              {cashAmount >= remainingAmount && (
-                <div className="mt-4 p-4 bg-green-50 rounded-xl text-center">
-                  <p className="text-green-600">Para Üstü</p>
-                  <p className="text-2xl font-bold text-green-700">₺{change.toFixed(2)}</p>
+              {cashAmount >= check.remaining_amount && (
+                <div className="mt-4 p-4 bg-green-500/20 rounded-xl text-center">
+                  <p className="text-green-400">Para Üstü</p>
+                  <p className="text-2xl font-bold text-green-400">₺{change.toFixed(2)}</p>
                 </div>
               )}
             </div>
           )}
 
+          {/* TiT Pay QR Display */}
+          {selectedMethod === 'titpay' && (
+            <div className="p-6 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-xl text-center border border-purple-500/30">
+              <div className="w-32 h-32 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                <QrCode className="w-24 h-24 text-purple-600" />
+              </div>
+              <p className="font-medium text-purple-200">TiT Pay ile Ödeme</p>
+              <p className="text-sm text-purple-400">QR kodu müşteriye gösterin</p>
+            </div>
+          )}
+
           {/* Pay Button */}
           <button
-            onClick={handlePay}
+            onClick={() => onPay(selectedMethod, getPayAmount())}
             disabled={!canPay()}
-            className="w-full py-4 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-4 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
           >
             <Check className="w-5 h-5" />
-            {paymentMode === 'partial' ? `₺${partialAmount.toLocaleString()} Ödeme Al` : 
-             paymentMode === 'split' ? `₺${splitAmount.toLocaleString()} Ödeme Al (1/${splitCount})` :
-             'Ödemeyi Tamamla'}
+            {paymentMode === 'partial' 
+              ? `₺${partialAmount.toLocaleString()} Ödeme Al` 
+              : 'Ödemeyi Tamamla'}
           </button>
         </div>
       </div>
@@ -905,27 +822,27 @@ function DiscountModal({
   onClose: () => void;
 }) {
   const [type, setType] = useState<'percent' | 'amount'>('percent');
-  const [value, setValue] = useState(currentDiscount > 0 ? currentDiscount.toString() : '');
+  const [value, setValue] = useState(currentDiscount.toString());
 
   const quickPercents = [5, 10, 15, 20, 25, 50];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">İndirim Uygula</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-sm border border-gray-700">
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">İndirim Uygula</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg text-gray-400">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
           {/* Type Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
+          <div className="flex bg-gray-900 rounded-lg p-1">
             <button
               onClick={() => setType('percent')}
               className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-                type === 'percent' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                type === 'percent' ? 'bg-gray-700 text-white' : 'text-gray-400'
               }`}
             >
               Yüzde (%)
@@ -933,7 +850,7 @@ function DiscountModal({
             <button
               onClick={() => setType('amount')}
               className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-                type === 'amount' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+                type === 'amount' ? 'bg-gray-700 text-white' : 'text-gray-400'
               }`}
             >
               Tutar (₺)
@@ -947,9 +864,9 @@ function DiscountModal({
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder="0"
-              className="w-full text-3xl font-bold text-center py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-900 placeholder-gray-400"
+              className="w-full text-3xl font-bold text-center py-4 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400">
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl text-gray-500">
               {type === 'percent' ? '%' : '₺'}
             </span>
           </div>
@@ -961,7 +878,7 @@ function DiscountModal({
                 <button
                   key={p}
                   onClick={() => setValue(p.toString())}
-                  className="py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700"
+                  className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-white"
                 >
                   %{p}
                 </button>
@@ -973,7 +890,7 @@ function DiscountModal({
           <div className="flex gap-3">
             <button
               onClick={() => onApply(type, 0)}
-              className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
+              className="flex-1 py-3 border border-gray-600 rounded-xl font-medium text-gray-300 hover:bg-gray-700"
             >
               Kaldır
             </button>

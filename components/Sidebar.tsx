@@ -284,3 +284,4 @@ export function MobileHeader() {
       <div className="w-10" />
     </header>
   );
+}

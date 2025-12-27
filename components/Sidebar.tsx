@@ -248,3 +248,77 @@ export function Sidebar() {
     </aside>
   );
 }
+
+// MobileHeader component - layout.tsx'de import ediliyor
+export function MobileHeader() {
+  const { currentVenue } = useVenueStore();
+  const { toggleSidebar } = useUIStore();
+  const pathname = usePathname();
+
+  const getPageTitle = () => {
+    const routes: Record<string, string> = {
+      '/dashboard': 'Dashboard',
+      '/tables': 'Masalar',
+      '/orders': 'Siparişler',
+      '/waiter': 'Garson Paneli',
+      '/kitchen': 'Mutfak',
+      '/reception': 'Resepsiyon',
+      '/pos': 'Kasa/POS',
+      '/menu': 'Menü',
+      '/reservations': 'Rezervasyonlar',
+      '/stock': 'Stok',
+      '/staff': 'Personel',
+      '/settings': 'Ayarlar',
+    };
+    return routes[pathname] || 'ORDER Business';
+  };
+
+  return (
+    <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 text-white flex items-center justify-between px-4 z-40">
+      <button onClick={toggleSidebar} className="p-2 hover:bg-gray-800 rounded-lg">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <span className="font-semibold">{getPageTitle()}</span>
+      <div className="w-10" />
+    </header>
+  );
+}
+
+// MobileHeader component - layout.tsx'de import ediliyor
+export function MobileHeader() {
+  const { currentVenue } = useVenueStore();
+  const { toggleSidebar } = useUIStore();
+  const pathname = usePathname();
+
+  const getPageTitle = () => {
+    const routes: Record<string, string> = {
+      '/dashboard': 'Dashboard',
+      '/tables': 'Masalar',
+      '/orders': 'Siparişler',
+      '/waiter': 'Garson Paneli',
+      '/kitchen': 'Mutfak',
+      '/reception': 'Resepsiyon',
+      '/pos': 'Kasa/POS',
+      '/menu': 'Menü',
+      '/reservations': 'Rezervasyonlar',
+      '/stock': 'Stok',
+      '/staff': 'Personel',
+      '/settings': 'Ayarlar',
+    };
+    return routes[pathname] || 'ORDER Business';
+  };
+
+  return (
+    <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 text-white flex items-center justify-between px-4 z-40">
+      <button onClick={toggleSidebar} className="p-2 hover:bg-gray-800 rounded-lg">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <span className="font-semibold">{getPageTitle()}</span>
+      <div className="w-10" />
+    </header>
+  );
+}

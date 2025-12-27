@@ -590,7 +590,7 @@ function TableDetailModal({
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-            <X className="w-6 h-6" />
+            <X className="w-6 h-6 text-gray-600" />
           </button>
         </div>
 
@@ -691,7 +691,7 @@ function TableDetailModal({
                                   <span className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-bold text-gray-700">
                                     {item.quantity}x
                                   </span>
-                                  <span className="font-medium">{item.product_name || item.name}</span>
+                                  <span className="font-medium text-gray-800">{item.product_name || item.name}</span>
                                 </div>
                                 <span className="font-semibold text-gray-700">₺{item.total_price || (item.quantity * item.unit_price)}</span>
                               </div>
@@ -701,7 +701,7 @@ function TableDetailModal({
                             <span className="text-sm text-gray-500 font-medium">
                               {new Date(order.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            <span className="font-bold text-lg">₺{order.total?.toLocaleString()}</span>
+                            <span className="font-bold text-lg text-gray-900">₺{order.total?.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
@@ -743,7 +743,7 @@ function TableDetailModal({
                     <Users className="w-5 h-5" />
                     Müşteri Oturt
                   </button>
-                  <div className="pt-6 border-t">
+                  <div className="pt-6 border-t border-gray-200">
                     <p className="text-sm text-gray-600 font-medium mb-3">veya durum değiştir:</p>
                     <div className="flex items-center justify-center gap-3">
                       {(['available', 'reserved', 'cleaning'] as const).map(status => {
@@ -765,47 +765,47 @@ function TableDetailModal({
                   </div>
                 </div>
               ) : (
-                <div className="max-w-sm mx-auto space-y-4">
-                  <h3 className="font-bold text-gray-800">Müşteri Bilgileri</h3>
+                <div className="max-w-sm mx-auto space-y-5 text-left">
+                  <h3 className="font-bold text-gray-800 text-center">Müşteri Bilgileri</h3>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Kişi Sayısı *</label>
-                    <div className="flex items-center gap-3 justify-center">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Kişi Sayısı *</label>
+                    <div className="flex items-center gap-4 justify-center">
                       <button 
                         onClick={() => setGuestCount(Math.max(1, guestCount - 1))} 
-                        className="w-10 h-10 bg-gray-200 rounded-lg font-bold hover:bg-gray-300"
+                        className="w-14 h-14 bg-gray-100 rounded-xl font-bold text-2xl text-gray-700 hover:bg-gray-200 transition-colors border-2 border-gray-300 flex items-center justify-center"
                       >
-                        -
+                        −
                       </button>
-                      <span className="text-3xl font-bold w-16 text-center">{guestCount}</span>
+                      <span className="text-4xl font-bold w-20 text-center text-gray-900">{guestCount}</span>
                       <button 
                         onClick={() => setGuestCount(Math.min(table.capacity, guestCount + 1))} 
-                        className="w-10 h-10 bg-gray-200 rounded-lg font-bold hover:bg-gray-300"
+                        className="w-14 h-14 bg-gray-100 rounded-xl font-bold text-2xl text-gray-700 hover:bg-gray-200 transition-colors border-2 border-gray-300 flex items-center justify-center"
                       >
                         +
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Kapasite: {table.capacity}</p>
+                    <p className="text-xs text-gray-500 mt-2 text-center">Kapasite: {table.capacity}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Müşteri Adı (Opsiyonel)</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Müşteri Adı (Opsiyonel)</label>
                     <input 
                       type="text" 
                       value={customerName} 
                       onChange={(e) => setCustomerName(e.target.value)} 
                       placeholder="Örn: Ali Yılmaz" 
-                      className="w-full px-4 py-2 border-2 rounded-lg" 
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-colors" 
                     />
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 pt-2">
                     <button 
                       onClick={() => setShowSeatForm(false)} 
-                      className="flex-1 py-2 border-2 rounded-lg font-medium hover:bg-gray-50"
+                      className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
                     >
                       İptal
                     </button>
                     <button 
                       onClick={handleSeatTable} 
-                      className="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600"
+                      className="flex-1 py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition-colors shadow-md"
                     >
                       Oturt
                     </button>
@@ -824,7 +824,7 @@ function TableDetailModal({
               <p className="text-3xl font-bold text-gray-900">₺{totalAmount.toLocaleString()}</p>
             </div>
             <div className="flex gap-3">
-              <button className="px-5 py-3 border-2 border-gray-300 rounded-xl hover:bg-white font-semibold transition-colors">
+              <button className="px-5 py-3 border-2 border-gray-300 rounded-xl hover:bg-white font-semibold transition-colors text-gray-700">
                 Hesap Yazdır
               </button>
               <button className="px-5 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 font-semibold flex items-center gap-2 transition-colors shadow-md">
@@ -863,9 +863,9 @@ function TableModal({
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         <div className="p-5 border-b-2 flex items-center justify-between">
-          <h2 className="text-xl font-bold">{table ? 'Masa Düzenle' : 'Yeni Masa'}</h2>
+          <h2 className="text-xl font-bold text-gray-900">{table ? 'Masa Düzenle' : 'Yeni Masa'}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-gray-600" />
           </button>
         </div>
         
@@ -877,7 +877,7 @@ function TableModal({
                 type="text" 
                 value={formData.number} 
                 onChange={(e) => setFormData({ ...formData, number: e.target.value })} 
-                className="w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium" 
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium outline-none transition-colors" 
                 placeholder="1, 2, VIP1..." 
               />
             </div>
@@ -887,7 +887,7 @@ function TableModal({
                 type="number" 
                 value={formData.capacity} 
                 onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })} 
-                className="w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium" 
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium outline-none transition-colors" 
                 min={1} 
               />
             </div>
@@ -898,7 +898,7 @@ function TableModal({
             <select 
               value={formData.section} 
               onChange={(e) => setFormData({ ...formData, section: e.target.value })} 
-              className="w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium outline-none transition-colors"
             >
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -915,10 +915,10 @@ function TableModal({
                     type="button" 
                     onClick={() => setFormData({ ...formData, shape })} 
                     className={`flex-1 p-4 rounded-xl border-2 transition-all ${
-                      formData.shape === shape ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 hover:border-gray-300'
+                      formData.shape === shape ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 hover:border-gray-300 bg-white'
                     }`}
                   >
-                    <Icon className="w-7 h-7 mx-auto" />
+                    <Icon className={`w-7 h-7 mx-auto ${formData.shape === shape ? 'text-orange-600' : 'text-gray-600'}`} />
                   </button>
                 );
               })}
@@ -929,7 +929,7 @@ function TableModal({
         <div className="p-5 border-t-2 flex gap-3">
           <button 
             onClick={onClose} 
-            className="flex-1 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-semibold transition-colors"
+            className="flex-1 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-semibold transition-colors text-gray-700"
           >
             İptal
           </button>

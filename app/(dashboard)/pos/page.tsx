@@ -2,226 +2,116 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useVenueStore } from '@/stores';
+import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 import {
-  CreditCard,
-  Banknote,
-  Wallet,
-  Receipt,
-  Percent,
-  Split,
-  Printer,
-  X,
-  Check,
-  AlertCircle,
-  QrCode,
-  Smartphone,
-  Gift,
-  Minus,
-  Plus,
-  RefreshCw,
-  Clock,
-  Users,
-  ChefHat,
-  UtensilsCrossed
+  CreditCard, Banknote, Wallet, Receipt, Percent, Split,
+  Printer, X, Check, Calculator, Users, Clock, AlertCircle,
+  QrCode, Smartphone, Gift, Minus, Plus, Loader2, RefreshCw
 } from 'lucide-react';
 
 interface OrderItem {
   id: string;
-  product_name: string;
+  name: string;
   quantity: number;
-  unit_price: number;
-  total_price: number;
+  price: number;
   notes?: string;
-  status: string;
 }
 
 interface OpenCheck {
   id: string;
-  order_number: string;
   type: 'dine_in' | 'takeaway' | 'delivery' | 'qr_order';
-  table_number?: string;
-  table_id?: string;
-  customer_name?: string;
+  tableNumber?: string;
+  customerName?: string;
   items: OrderItem[];
   subtotal: number;
   discount: number;
+  discountType: 'percent' | 'amount';
   tax: number;
   total: number;
-  paid_amount: number;
-  remaining_amount: number;
-  waiter_name?: string;
-  status: string;
-  payment_status: string;
-  created_at: string;
-  notes?: string;
+  waiter?: string;
+  createdAt: string;
 }
 
-type PaymentMethod = 'cash' | 'card' | 'multinet' | 'sodexo' | 'ticket' | 'mobile' | 'titpay';
-
-const paymentMethods: { id: PaymentMethod; name: string; icon: any; color?: string }[] = [
-  { id: 'cash', name: 'Nakit', icon: Banknote },
-  { id: 'card', name: 'Kredi Kartı', icon: CreditCard },
-  { id: 'titpay', name: 'TiT Pay', icon: QrCode, color: 'from-purple-500 to-indigo-500' },
-  { id: 'multinet', name: 'Multinet', icon: Wallet },
-  { id: 'sodexo', name: 'Sodexo', icon: Wallet },
-  { id: 'ticket', name: 'Ticket', icon: Gift },
-  { id: 'mobile', name: 'Mobil Ödeme', icon: Smartphone },
-];
-
-// Parse items from JSONB - supports both formats (Customer App & Business App)
-const parseItems = (items: any): OrderItem[] => {
-  if (!items) return [];
-  try {
-    const parsed = typeof items === 'string' ? JSON.parse(items) : items;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((item: any) => {
-      const quantity = item.quantity || 1;
-      const price = item.unit_price || item.price || 0;
-      return {
-        id: item.id || crypto.randomUUID(),
-        product_name: item.product_name || item.name || 'Ürün',
-        quantity: quantity,
-        unit_price: price,
-        total_price: item.total_price || (quantity * price),
-        notes: item.notes,
-        status: item.status || 'pending'
-      };
-    });
-  } catch {
-    return [];
-  }
-};
+type PaymentMethod = 'cash' | 'card' | 'titpay' | 'multinet' | 'sodexo' | 'ticket' | 'mobile';
 
 export default function POSPage() {
   const { currentVenue } = useVenueStore();
+  const t = useTranslations('pos');
+  const tOrders = useTranslations('orders');
+  const tCommon = useTranslations('common');
+
   const [checks, setChecks] = useState<OpenCheck[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCheck, setSelectedCheck] = useState<OpenCheck | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
 
-  // Fetch open orders with items from Supabase
-  const fetchOpenOrders = useCallback(async () => {
+  // Payment methods config
+  const paymentMethods: { id: PaymentMethod; name: string; icon: any; color?: string }[] = [
+    { id: 'cash', name: t('cash'), icon: Banknote },
+    { id: 'card', name: t('card'), icon: CreditCard },
+    { id: 'titpay', name: t('titPay'), icon: QrCode, color: 'from-purple-500 to-indigo-500' },
+    { id: 'multinet', name: 'Multinet', icon: Wallet },
+    { id: 'sodexo', name: 'Sodexo', icon: Wallet },
+    { id: 'ticket', name: 'Ticket', icon: Gift },
+    { id: 'mobile', name: 'Mobile', icon: Smartphone },
+  ];
+
+  const loadChecks = useCallback(async () => {
     if (!currentVenue?.id) return;
 
-    try {
-      setError(null);
-      
-      // Fetch orders with items JSONB
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('venue_id', currentVenue.id)
-        .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served'])
-        .neq('payment_status', 'paid')
-        .order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served'])
+      .order('created_at', { ascending: false });
 
-      if (ordersError) throw ordersError;
-
-      // Also try to fetch from order_items table as fallback
-      const orderIds = (ordersData || []).map(o => o.id);
-      let itemsData: any[] = [];
-      
-      if (orderIds.length > 0) {
-        const { data: items, error: itemsError } = await supabase
-          .from('order_items')
-          .select('*')
-          .in('order_id', orderIds);
-        
-        if (!itemsError && items) {
-          itemsData = items;
-        }
-      }
-
-      // Transform orders to checks format
-      const openChecks: OpenCheck[] = (ordersData || []).map(order => {
-        // First try order_items table, then fall back to JSONB
-        const tableItems = itemsData.filter(item => item.order_id === order.id);
-        const items = tableItems.length > 0 
-          ? tableItems.map(item => ({
-              id: item.id,
-              product_name: item.product_name,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              total_price: item.total_price,
-              notes: item.notes,
-              status: item.status
-            }))
-          : parseItems(order.items); // Fall back to JSONB
-        
-        const paidAmount = order.paid_amount || 0;
-        const total = order.total || 0;
-        
-        return {
-          id: order.id,
-          order_number: order.order_number || `ORD-${order.id.slice(0, 6).toUpperCase()}`,
-          type: order.type || 'dine_in',
-          table_number: order.table_number,
-          table_id: order.table_id,
-          customer_name: order.customer_name,
-          items: items,
-          subtotal: order.subtotal || 0,
-          discount: order.discount || 0,
-          tax: order.tax || 0,
-          total: total,
-          paid_amount: paidAmount,
-          remaining_amount: total - paidAmount,
-          waiter_name: order.waiter_name,
-          status: order.status,
-          payment_status: order.payment_status || 'pending',
-          created_at: order.created_at,
-          notes: order.notes
-        };
-      });
-
+    if (data) {
+      const openChecks: OpenCheck[] = data.map(order => ({
+        id: order.id,
+        type: order.type || 'dine_in',
+        tableNumber: order.table_number,
+        customerName: order.customer_name,
+        items: (order.items || []).map((item: any, idx: number) => ({
+          id: `${order.id}-${idx}`,
+          name: item.name || item.product_name,
+          quantity: item.quantity,
+          price: item.price || item.unit_price || 0,
+          notes: item.notes
+        })),
+        subtotal: order.subtotal || order.total || 0,
+        discount: order.discount || 0,
+        discountType: order.discount_type || 'percent',
+        tax: order.tax || 0,
+        total: order.total || 0,
+        waiter: order.waiter_name,
+        createdAt: order.created_at
+      }));
       setChecks(openChecks);
-      
-      // Update selected check if it exists
-      if (selectedCheck) {
-        const updated = openChecks.find(c => c.id === selectedCheck.id);
-        if (updated) {
-          setSelectedCheck(updated);
-        } else {
-          setSelectedCheck(null);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error fetching orders:', err);
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
     }
-  }, [currentVenue?.id, selectedCheck]);
+    setLoading(false);
+  }, [currentVenue?.id]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    loadChecks();
+  }, [loadChecks]);
 
+  // Real-time subscription
   useEffect(() => {
-    if (currentVenue?.id) {
-      fetchOpenOrders();
+    if (!currentVenue?.id) return;
 
-      // Real-time subscription
-      const channel = supabase
-        .channel('pos-orders-realtime')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${currentVenue.id}` },
-          () => fetchOpenOrders()
-        )
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'order_items' },
-          () => fetchOpenOrders()
-        )
-        .subscribe();
+    const channel = supabase
+      .channel('pos-orders')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${currentVenue.id}` },
+        loadChecks
+      )
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [currentVenue?.id, fetchOpenOrders]);
+    return () => { channel.unsubscribe(); };
+  }, [currentVenue?.id, loadChecks]);
 
   const handleApplyDiscount = async (type: 'percent' | 'amount', value: number) => {
     if (!selectedCheck) return;
@@ -234,197 +124,159 @@ export default function POSPage() {
     const newTax = newSubtotal * 0.08;
     const newTotal = newSubtotal + newTax;
 
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          discount: discountAmount,
-          tax: Math.round(newTax),
-          total: Math.round(newTotal)
-        })
-        .eq('id', selectedCheck.id);
+    await supabase.from('orders').update({
+      discount: value,
+      discount_type: type,
+      tax: Math.round(newTax),
+      total: Math.round(newTotal)
+    }).eq('id', selectedCheck.id);
 
-      if (error) throw error;
-      
-      setShowDiscountModal(false);
-      fetchOpenOrders();
-    } catch (err: any) {
-      console.error('Discount error:', err);
-      alert('İndirim uygulanırken hata oluştu');
-    }
+    setSelectedCheck(prev => prev ? { 
+      ...prev, 
+      discount: value, 
+      discountType: type, 
+      tax: Math.round(newTax), 
+      total: Math.round(newTotal) 
+    } : null);
+    
+    setShowDiscountModal(false);
+    loadChecks();
   };
 
   const handlePayment = async (method: PaymentMethod, amount: number) => {
     if (!selectedCheck) return;
     
-    const newPaidAmount = selectedCheck.paid_amount + amount;
-    const isFullyPaid = newPaidAmount >= selectedCheck.total;
+    await supabase.from('orders').update({ 
+      status: 'completed',
+      payment_status: 'paid',
+      payment_method: method
+    }).eq('id', selectedCheck.id);
 
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          paid_amount: newPaidAmount,
-          payment_status: isFullyPaid ? 'paid' : 'partial',
-          payment_method: method,
-          status: isFullyPaid ? 'completed' : selectedCheck.status
-        })
-        .eq('id', selectedCheck.id);
-
-      if (error) throw error;
-
-      // If table order and fully paid, update table status
-      if (isFullyPaid && selectedCheck.table_id) {
-        await supabase
-          .from('tables')
-          .update({ status: 'cleaning' })
-          .eq('id', selectedCheck.table_id);
-      }
-      
-      setShowPaymentModal(false);
-      setSelectedCheck(null);
-      fetchOpenOrders();
-    } catch (err: any) {
-      console.error('Payment error:', err);
-      alert('Ödeme işlenirken hata oluştu');
+    if (selectedCheck.tableNumber) {
+      await supabase.from('tables').update({ 
+        status: 'cleaning' 
+      }).eq('venue_id', currentVenue?.id).eq('number', selectedCheck.tableNumber);
     }
+    
+    setSelectedCheck(null);
+    setShowPaymentModal(false);
+    loadChecks();
   };
 
-  const getTimeDiff = (dateStr: string) => {
+  const getTimeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins} dk`;
-    const hours = Math.floor(mins / 60);
-    return `${hours} sa ${mins % 60} dk`;
+    return mins;
   };
 
-  const tableChecks = checks.filter(c => c.table_number);
-  const otherChecks = checks.filter(c => !c.table_number);
   const totalRevenue = checks.reduce((sum, c) => sum + c.total, 0);
-
-  if (!mounted) {
-    return <div className="animate-pulse bg-gray-800 rounded-2xl h-96" />;
-  }
+  const tableChecks = checks.filter(c => c.type === 'dine_in');
+  const otherChecks = checks.filter(c => c.type !== 'dine_in');
 
   if (!currentVenue) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Mekan Seçimi Gerekli</h2>
-          <p className="text-gray-400">POS için lütfen bir mekan seçin.</p>
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <p className="text-gray-400">{tCommon('selectVenue')}</p>
         </div>
       </div>
     );
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex gap-6 h-[calc(100vh-120px)]">
+    <div className="flex gap-6 h-[calc(100vh-180px)]">
       {/* Left: Open Checks */}
       <div className="w-80 flex-shrink-0 flex flex-col">
         <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex flex-col overflow-hidden">
           <div className="p-4 border-b border-gray-700 flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-white">Açık Hesaplar</h2>
+              <h2 className="font-semibold text-white">{t('openChecks')}</h2>
               <p className="text-sm text-gray-400">
-                {checks.length} hesap • ₺{totalRevenue.toLocaleString()}
+                {checks.length} {tCommon('items')} • ₺{totalRevenue.toLocaleString()}
               </p>
             </div>
-            <button 
-              onClick={fetchOpenOrders}
-              className="p-2 hover:bg-gray-700 rounded-lg text-gray-400"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <button onClick={loadChecks} className="p-2 hover:bg-gray-700 rounded-lg">
+              <RefreshCw className="w-4 h-4 text-gray-400" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {isLoading ? (
-              <div className="p-4 text-center text-gray-400">Yükleniyor...</div>
-            ) : error ? (
-              <div className="p-4 text-center text-red-400">{error}</div>
-            ) : checks.length === 0 ? (
-              <div className="p-4 text-center text-gray-400">Açık hesap yok</div>
-            ) : (
-              <>
-                {/* Table Checks */}
-                {tableChecks.length > 0 && (
-                  <div className="p-2">
-                    <p className="text-xs font-medium text-gray-500 px-2 py-1">MASALAR ({tableChecks.length})</p>
-                    {tableChecks.map(check => (
-                      <button
-                        key={check.id}
-                        onClick={() => setSelectedCheck(check)}
-                        className={`w-full p-3 rounded-xl mb-1 text-left transition-all ${
-                          selectedCheck?.id === check.id
-                            ? 'bg-orange-600/20 border-2 border-orange-500'
-                            : 'bg-gray-700/50 hover:bg-gray-700 border-2 border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
-                              <span className="font-bold text-red-400">#{check.table_number}</span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-white">{check.order_number}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-400">
-                                <Clock className="w-3 h-3" />
-                                <span>{getTimeDiff(check.created_at)}</span>
-                                <span className={`px-1.5 py-0.5 rounded text-xs ${
-                                  check.status === 'preparing' ? 'bg-purple-500/20 text-purple-400' :
-                                  check.status === 'ready' ? 'bg-green-500/20 text-green-400' :
-                                  'bg-amber-500/20 text-amber-400'
-                                }`}>
-                                  {check.status === 'preparing' ? 'Hazırlanıyor' :
-                                   check.status === 'ready' ? 'Hazır' :
-                                   check.status === 'served' ? 'Servis Edildi' : 'Bekliyor'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="font-bold text-white">₺{check.total.toLocaleString()}</p>
+          <div className="flex-1 overflow-y-auto p-2">
+            {/* Table Checks */}
+            {tableChecks.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-medium text-gray-500 px-2 py-1">{tOrders('dineIn').toUpperCase()} ({tableChecks.length})</p>
+                {tableChecks.map(check => (
+                  <button
+                    key={check.id}
+                    onClick={() => setSelectedCheck(check)}
+                    className={`w-full p-3 rounded-xl mb-1 text-left transition-all ${
+                      selectedCheck?.id === check.id
+                        ? 'bg-orange-500/20 border-2 border-orange-500'
+                        : 'bg-gray-700/50 hover:bg-gray-700 border-2 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                          <span className="font-bold text-red-400">#{check.tableNumber}</span>
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        <div>
+                          <p className="font-medium text-white">{tOrders('dineIn')} {check.tableNumber}</p>
+                          <p className="text-xs text-gray-400">{check.waiter || '-'} • {getTimeAgo(check.createdAt)} dk</p>
+                        </div>
+                      </div>
+                      <p className="font-bold text-white">₺{check.total.toFixed(0)}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
 
-                {/* Other Checks */}
-                {otherChecks.length > 0 && (
-                  <div className="p-2 border-t border-gray-700">
-                    <p className="text-xs font-medium text-gray-500 px-2 py-1">PAKET / TESLİMAT ({otherChecks.length})</p>
-                    {otherChecks.map(check => (
-                      <button
-                        key={check.id}
-                        onClick={() => setSelectedCheck(check)}
-                        className={`w-full p-3 rounded-xl mb-1 text-left transition-all ${
-                          selectedCheck?.id === check.id
-                            ? 'bg-orange-600/20 border-2 border-orange-500'
-                            : 'bg-gray-700/50 hover:bg-gray-700 border-2 border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                              check.type === 'takeaway' ? 'bg-purple-500/20' : 'bg-green-500/20'
-                            }`}>
-                              <span className="font-bold text-xs text-gray-300">
-                                {check.type === 'takeaway' ? 'P' : 'T'}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-white">{check.order_number}</p>
-                              <p className="text-xs text-gray-400">{check.customer_name || 'Müşteri'}</p>
-                            </div>
-                          </div>
-                          <p className="font-bold text-white">₺{check.total.toLocaleString()}</p>
+            {/* Other Checks */}
+            {otherChecks.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 px-2 py-1">{tOrders('takeaway').toUpperCase()} / {tOrders('delivery').toUpperCase()} ({otherChecks.length})</p>
+                {otherChecks.map(check => (
+                  <button
+                    key={check.id}
+                    onClick={() => setSelectedCheck(check)}
+                    className={`w-full p-3 rounded-xl mb-1 text-left transition-all ${
+                      selectedCheck?.id === check.id
+                        ? 'bg-orange-500/20 border-2 border-orange-500'
+                        : 'bg-gray-700/50 hover:bg-gray-700 border-2 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                          <Users className="w-5 h-5 text-purple-400" />
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
+                        <div>
+                          <p className="font-medium text-white">{check.customerName || tOrders('takeaway')}</p>
+                          <p className="text-xs text-gray-400">{check.type === 'takeaway' ? tOrders('takeaway') : tOrders('delivery')}</p>
+                        </div>
+                      </div>
+                      <p className="font-bold text-white">₺{check.total.toFixed(0)}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {checks.length === 0 && (
+              <div className="text-center py-12">
+                <Receipt className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">{t('openChecks')} - {tCommon('noData')}</p>
+              </div>
             )}
           </div>
         </div>
@@ -437,98 +289,70 @@ export default function POSPage() {
             {/* Header */}
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-white">
-                    {selectedCheck.table_number 
-                      ? `Masa ${selectedCheck.table_number}` 
-                      : selectedCheck.customer_name || 'Paket Sipariş'}
-                  </h2>
-                  <span className={`px-2 py-0.5 rounded text-xs ${
-                    selectedCheck.status === 'preparing' ? 'bg-purple-500/20 text-purple-400' :
-                    selectedCheck.status === 'ready' ? 'bg-green-500/20 text-green-400' :
-                    'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    {selectedCheck.status === 'preparing' ? 'Hazırlanıyor' :
-                     selectedCheck.status === 'ready' ? 'Hazır' :
-                     selectedCheck.status === 'served' ? 'Servis Edildi' : 'Bekliyor'}
-                  </span>
-                </div>
+                <h2 className="text-xl font-bold text-white">
+                  {selectedCheck.type === 'dine_in' 
+                    ? `${tOrders('dineIn')} ${selectedCheck.tableNumber}` 
+                    : selectedCheck.customerName || tOrders('takeaway')}
+                </h2>
                 <p className="text-sm text-gray-400">
-                  {selectedCheck.order_number} • Açılış: {new Date(selectedCheck.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} • {selectedCheck.items.length} kalem
+                  {selectedCheck.waiter || '-'} • {selectedCheck.items.length} {tCommon('items')}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-gray-700 rounded-lg text-gray-400">
-                  <Printer className="w-5 h-5" />
-                </button>
-              </div>
+              <button className="p-2 hover:bg-gray-700 rounded-lg">
+                <Printer className="w-5 h-5 text-gray-400" />
+              </button>
             </div>
 
             {/* Items */}
             <div className="flex-1 overflow-y-auto p-4">
-              {selectedCheck.items.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <UtensilsCrossed className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Sipariş detayı yok</p>
-                  <p className="text-sm">Ürünler orders.items JSONB'de</p>
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-sm text-gray-400 border-b border-gray-700">
-                      <th className="pb-2">Ürün</th>
-                      <th className="pb-2 text-center">Adet</th>
-                      <th className="pb-2 text-right">Fiyat</th>
-                      <th className="pb-2 text-right">Toplam</th>
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-sm text-gray-500 border-b border-gray-700">
+                    <th className="pb-2">{tCommon('name')}</th>
+                    <th className="pb-2 text-center">{tCommon('quantity')}</th>
+                    <th className="pb-2 text-right">{tCommon('price')}</th>
+                    <th className="pb-2 text-right">{tCommon('total')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedCheck.items.map(item => (
+                    <tr key={item.id} className="border-b border-gray-700/50">
+                      <td className="py-3">
+                        <p className="font-medium text-white">{item.name}</p>
+                        {item.notes && <p className="text-xs text-amber-400">{item.notes}</p>}
+                      </td>
+                      <td className="py-3 text-center text-gray-400">{item.quantity}</td>
+                      <td className="py-3 text-right text-gray-400">₺{item.price.toFixed(0)}</td>
+                      <td className="py-3 text-right font-medium text-white">₺{(item.price * item.quantity).toFixed(0)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {selectedCheck.items.map((item, idx) => (
-                      <tr key={item.id || idx} className="border-b border-gray-700/50">
-                        <td className="py-3">
-                          <p className="font-medium text-white">{item.product_name}</p>
-                          {item.notes && <p className="text-xs text-gray-500">{item.notes}</p>}
-                        </td>
-                        <td className="py-3 text-center text-gray-300">{item.quantity}</td>
-                        <td className="py-3 text-right text-gray-300">₺{item.unit_price.toLocaleString()}</td>
-                        <td className="py-3 text-right font-medium text-white">₺{item.total_price.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             {/* Totals */}
-            <div className="p-4 bg-gray-900 border-t border-gray-700">
+            <div className="p-4 bg-gray-700/50 border-t border-gray-700">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Ara Toplam</span>
-                  <span className="text-white">₺{selectedCheck.subtotal.toLocaleString()}</span>
+                  <span className="text-gray-400">{tCommon('subtotal')}</span>
+                  <span className="text-white">₺{selectedCheck.subtotal.toFixed(0)}</span>
                 </div>
                 {selectedCheck.discount > 0 && (
                   <div className="flex justify-between text-sm text-green-400">
-                    <span>İndirim</span>
-                    <span>-₺{selectedCheck.discount.toLocaleString()}</span>
+                    <span>{tCommon('discount')} ({selectedCheck.discountType === 'percent' ? `%${selectedCheck.discount}` : `₺${selectedCheck.discount}`})</span>
+                    <span>-₺{selectedCheck.discountType === 'percent' 
+                      ? Math.round(selectedCheck.subtotal * selectedCheck.discount / 100)
+                      : selectedCheck.discount
+                    }</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">KDV (%8)</span>
-                  <span className="text-white">₺{selectedCheck.tax.toLocaleString()}</span>
+                  <span className="text-gray-400">{tCommon('tax')} (8%)</span>
+                  <span className="text-white">₺{selectedCheck.tax.toFixed(0)}</span>
                 </div>
-                {selectedCheck.paid_amount > 0 && (
-                  <div className="flex justify-between text-sm text-blue-400">
-                    <span>Ödenen</span>
-                    <span>₺{selectedCheck.paid_amount.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-700">
-                  <span className="text-white">
-                    {selectedCheck.paid_amount > 0 ? 'Kalan' : 'Toplam'}
-                  </span>
-                  <span className="text-orange-500">
-                    ₺{selectedCheck.remaining_amount.toLocaleString()}
-                  </span>
+                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-600">
+                  <span className="text-white">{tCommon('total')}</span>
+                  <span className="text-orange-400">₺{selectedCheck.total.toFixed(0)}</span>
                 </div>
               </div>
             </div>
@@ -537,7 +361,7 @@ export default function POSPage() {
           <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex items-center justify-center">
             <div className="text-center">
               <Receipt className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">Hesap seçin</p>
+              <p className="text-gray-400">{t('openChecks')} - {tCommon('select')}</p>
             </div>
           </div>
         )}
@@ -547,12 +371,10 @@ export default function POSPage() {
       <div className="w-72 flex-shrink-0 space-y-4">
         {/* Quick Stats */}
         <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-4 text-white">
-          <p className="text-orange-100 text-sm">Açık Hesaplar Toplamı</p>
+          <p className="text-orange-100 text-sm">{t('dailySummary')}</p>
           <p className="text-3xl font-bold">₺{totalRevenue.toLocaleString()}</p>
           <div className="flex items-center gap-4 mt-2 text-sm text-orange-100">
-            <span>{checks.length} hesap</span>
-            <span>•</span>
-            <span>{tableChecks.length} masa</span>
+            <span>{checks.length} {t('openChecks').toLowerCase()}</span>
           </div>
         </div>
 
@@ -564,7 +386,7 @@ export default function POSPage() {
               className="w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
             >
               <CreditCard className="w-5 h-5" />
-              Ödeme Al
+              {t('checkout')}
             </button>
 
             <div className="grid grid-cols-2 gap-2">
@@ -573,26 +395,24 @@ export default function POSPage() {
                 className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white flex items-center justify-center gap-1 transition-colors"
               >
                 <Percent className="w-4 h-4" />
-                % İndirim
+                {tCommon('discount')}
               </button>
-              <button
-                className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white flex items-center justify-center gap-1 transition-colors"
-              >
+              <button className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white flex items-center justify-center gap-1 transition-colors">
                 <Split className="w-4 h-4" />
-                Böl
+                {t('splitBill')}
               </button>
             </div>
 
             <button className="w-full py-3 border border-gray-600 rounded-xl font-medium text-gray-300 flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors">
               <Printer className="w-4 h-4" />
-              Ön Hesap Yazdır
+              {t('printPreBill')}
             </button>
           </div>
         )}
 
         {/* Payment Methods Quick Access */}
         <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4">
-          <p className="text-sm font-medium text-gray-400 mb-3">Hızlı Ödeme</p>
+          <p className="text-sm font-medium text-gray-400 mb-3">{t('paymentMethod')}</p>
           <div className="grid grid-cols-3 gap-2">
             {paymentMethods.slice(0, 6).map(method => (
               <button
@@ -601,7 +421,7 @@ export default function POSPage() {
                 disabled={!selectedCheck}
                 className="p-3 bg-gray-700 hover:bg-gray-600 rounded-xl text-center transition-colors disabled:opacity-50"
               >
-                <method.icon className="w-5 h-5 mx-auto text-gray-300 mb-1" />
+                <method.icon className="w-5 h-5 mx-auto text-gray-400 mb-1" />
                 <p className="text-xs text-gray-400">{method.name}</p>
               </button>
             ))}
@@ -613,6 +433,9 @@ export default function POSPage() {
       {showPaymentModal && selectedCheck && (
         <PaymentModal
           check={selectedCheck}
+          paymentMethods={paymentMethods}
+          t={t}
+          tCommon={tCommon}
           onPay={handlePayment}
           onClose={() => setShowPaymentModal(false)}
         />
@@ -622,6 +445,9 @@ export default function POSPage() {
       {showDiscountModal && selectedCheck && (
         <DiscountModal
           currentDiscount={selectedCheck.discount}
+          currentType={selectedCheck.discountType}
+          t={t}
+          tCommon={tCommon}
           onApply={handleApplyDiscount}
           onClose={() => setShowDiscountModal(false)}
         />
@@ -632,106 +458,52 @@ export default function POSPage() {
 
 // Payment Modal
 function PaymentModal({
-  check,
-  onPay,
-  onClose
+  check, paymentMethods, t, tCommon, onPay, onClose
 }: {
   check: OpenCheck;
+  paymentMethods: any[];
+  t: any;
+  tCommon: any;
   onPay: (method: PaymentMethod, amount: number) => void;
   onClose: () => void;
 }) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('cash');
   const [cashReceived, setCashReceived] = useState<string>('');
-  const [manualAmount, setManualAmount] = useState<string>('');
-  const [paymentMode, setPaymentMode] = useState<'full' | 'partial'>('full');
 
   const cashAmount = parseFloat(cashReceived) || 0;
-  const change = cashAmount - check.remaining_amount;
-  const partialAmount = parseFloat(manualAmount) || 0;
-
+  const change = cashAmount - check.total;
   const quickAmounts = [50, 100, 200, 500, 1000, 2000];
 
-  const getPayAmount = () => {
-    if (paymentMode === 'partial') return partialAmount;
-    return selectedMethod === 'cash' ? Math.min(cashAmount, check.remaining_amount) : check.remaining_amount;
-  };
-
   const canPay = () => {
-    if (paymentMode === 'partial') return partialAmount > 0 && partialAmount <= check.remaining_amount;
-    if (selectedMethod === 'cash') return cashAmount >= check.remaining_amount;
+    if (selectedMethod === 'cash') return cashAmount >= check.total;
     return true;
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-700">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800">
           <div>
-            <h2 className="text-xl font-bold text-white">Ödeme Al</h2>
+            <h2 className="text-xl font-bold text-white">{t('checkout')}</h2>
             <p className="text-gray-400">
-              {check.table_number ? `Masa ${check.table_number}` : check.customer_name}
+              {check.type === 'dine_in' ? `${check.tableNumber}` : check.customerName}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg text-gray-400">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
         <div className="p-6 space-y-6">
           {/* Total */}
           <div className="text-center">
-            <p className="text-gray-400">Ödenecek Tutar</p>
-            <p className="text-4xl font-bold text-white">₺{check.remaining_amount.toLocaleString()}</p>
-            {check.paid_amount > 0 && (
-              <p className="text-sm text-blue-400 mt-1">
-                (₺{check.paid_amount.toLocaleString()} ödenmiş)
-              </p>
-            )}
+            <p className="text-gray-400">{tCommon('total')}</p>
+            <p className="text-4xl font-bold text-white">₺{check.total.toLocaleString()}</p>
           </div>
-
-          {/* Payment Mode Tabs */}
-          <div className="flex gap-2 p-1 bg-gray-900 rounded-xl">
-            <button
-              onClick={() => setPaymentMode('full')}
-              className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                paymentMode === 'full' ? 'bg-gray-700 text-white' : 'text-gray-400'
-              }`}
-            >
-              Tam Ödeme
-            </button>
-            <button
-              onClick={() => setPaymentMode('partial')}
-              className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                paymentMode === 'partial' ? 'bg-gray-700 text-white' : 'text-gray-400'
-              }`}
-            >
-              Kısmi Ödeme
-            </button>
-          </div>
-
-          {/* Partial Amount Input */}
-          {paymentMode === 'partial' && (
-            <div>
-              <p className="text-sm font-medium text-gray-300 mb-2">Ödenecek Tutar (Manuel)</p>
-              <input
-                type="number"
-                value={manualAmount}
-                onChange={(e) => setManualAmount(e.target.value)}
-                placeholder="Tutar girin..."
-                max={check.remaining_amount}
-                className="w-full text-2xl font-bold text-center py-4 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-              {partialAmount > 0 && (
-                <p className="text-sm text-gray-400 mt-2 text-center">
-                  Kalan: ₺{(check.remaining_amount - partialAmount).toLocaleString()}
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Payment Methods */}
           <div>
-            <p className="text-sm font-medium text-gray-300 mb-2">Ödeme Yöntemi</p>
+            <p className="text-sm font-medium text-gray-400 mb-2">{t('paymentMethod')}</p>
             <div className="grid grid-cols-4 gap-2">
               {paymentMethods.map(method => (
                 <button
@@ -752,16 +524,27 @@ function PaymentModal({
             </div>
           </div>
 
+          {/* TiT Pay QR */}
+          {selectedMethod === 'titpay' && (
+            <div className="p-6 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-xl text-center">
+              <div className="w-32 h-32 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center">
+                <QrCode className="w-24 h-24 text-purple-600" />
+              </div>
+              <p className="font-medium text-purple-200">{t('titPay')}</p>
+              <p className="text-sm text-purple-300">QR</p>
+            </div>
+          )}
+
           {/* Cash Input */}
-          {selectedMethod === 'cash' && paymentMode === 'full' && (
+          {selectedMethod === 'cash' && (
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-2">Alınan Tutar</p>
+              <p className="text-sm font-medium text-gray-400 mb-2">{t('cashReceived')}</p>
               <input
                 type="number"
                 value={cashReceived}
                 onChange={(e) => setCashReceived(e.target.value)}
                 placeholder="0"
-                className="w-full text-3xl font-bold text-center py-4 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full text-3xl font-bold text-center py-4 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
               <div className="grid grid-cols-6 gap-2 mt-3">
                 {quickAmounts.map(amount => (
@@ -774,36 +557,23 @@ function PaymentModal({
                   </button>
                 ))}
               </div>
-              {cashAmount >= check.remaining_amount && (
-                <div className="mt-4 p-4 bg-green-500/20 rounded-xl text-center">
-                  <p className="text-green-400">Para Üstü</p>
-                  <p className="text-2xl font-bold text-green-400">₺{change.toFixed(2)}</p>
+              {cashAmount >= check.total && (
+                <div className="mt-4 p-4 bg-green-900/50 border border-green-700 rounded-xl text-center">
+                  <p className="text-green-400">{t('change')}</p>
+                  <p className="text-2xl font-bold text-green-300">₺{change.toFixed(2)}</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* TiT Pay QR Display */}
-          {selectedMethod === 'titpay' && (
-            <div className="p-6 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-xl text-center border border-purple-500/30">
-              <div className="w-32 h-32 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
-                <QrCode className="w-24 h-24 text-purple-600" />
-              </div>
-              <p className="font-medium text-purple-200">TiT Pay ile Ödeme</p>
-              <p className="text-sm text-purple-400">QR kodu müşteriye gösterin</p>
-            </div>
-          )}
-
           {/* Pay Button */}
           <button
-            onClick={() => onPay(selectedMethod, getPayAmount())}
+            onClick={() => onPay(selectedMethod, check.total)}
             disabled={!canPay()}
             className="w-full py-4 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
           >
             <Check className="w-5 h-5" />
-            {paymentMode === 'partial' 
-              ? `₺${partialAmount.toLocaleString()} Ödeme Al` 
-              : 'Ödemeyi Tamamla'}
+            {t('checkout')}
           </button>
         </div>
       </div>
@@ -813,47 +583,47 @@ function PaymentModal({
 
 // Discount Modal
 function DiscountModal({
-  currentDiscount,
-  onApply,
-  onClose
+  currentDiscount, currentType, t, tCommon, onApply, onClose
 }: {
   currentDiscount: number;
+  currentType: 'percent' | 'amount';
+  t: any;
+  tCommon: any;
   onApply: (type: 'percent' | 'amount', value: number) => void;
   onClose: () => void;
 }) {
-  const [type, setType] = useState<'percent' | 'amount'>('percent');
+  const [type, setType] = useState<'percent' | 'amount'>(currentType);
   const [value, setValue] = useState(currentDiscount.toString());
-
   const quickPercents = [5, 10, 15, 20, 25, 50];
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm border border-gray-700">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-sm">
         <div className="p-6 border-b border-gray-700 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">İndirim Uygula</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg text-gray-400">
-            <X className="w-5 h-5" />
+          <h2 className="text-xl font-bold text-white">{t('applyDiscount')}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
           {/* Type Toggle */}
-          <div className="flex bg-gray-900 rounded-lg p-1">
+          <div className="flex bg-gray-700 rounded-xl p-1">
             <button
               onClick={() => setType('percent')}
-              className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-                type === 'percent' ? 'bg-gray-700 text-white' : 'text-gray-400'
+              className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
+                type === 'percent' ? 'bg-gray-600 text-white' : 'text-gray-400'
               }`}
             >
-              Yüzde (%)
+              {t('discountPercent')}
             </button>
             <button
               onClick={() => setType('amount')}
-              className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-                type === 'amount' ? 'bg-gray-700 text-white' : 'text-gray-400'
+              className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
+                type === 'amount' ? 'bg-gray-600 text-white' : 'text-gray-400'
               }`}
             >
-              Tutar (₺)
+              {t('discountAmount')}
             </button>
           </div>
 
@@ -864,9 +634,9 @@ function DiscountModal({
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder="0"
-              className="w-full text-3xl font-bold text-center py-4 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full text-3xl font-bold text-center py-4 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl text-gray-500">
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400">
               {type === 'percent' ? '%' : '₺'}
             </span>
           </div>
@@ -892,13 +662,13 @@ function DiscountModal({
               onClick={() => onApply(type, 0)}
               className="flex-1 py-3 border border-gray-600 rounded-xl font-medium text-gray-300 hover:bg-gray-700"
             >
-              Kaldır
+              {tCommon('delete')}
             </button>
             <button
               onClick={() => onApply(type, parseFloat(value) || 0)}
               className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600"
             >
-              Uygula
+              {tCommon('save')}
             </button>
           </div>
         </div>

@@ -1,85 +1,129 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useVenueStore } from '@/stores';
+import { useTranslations } from 'next-intl';
+import { supabase } from '@/lib/supabase';
 import {
-  AlertTriangle,
-  Package,
-  TrendingDown,
-  ShoppingCart,
-  Bell,
-  Settings,
-  Check,
-  X,
-  Clock,
-  Filter,
-  Search,
-  ChevronRight
+  AlertTriangle, AlertCircle, Loader2, RefreshCw,
+  Package, CheckCircle, Clock, TrendingDown, XCircle,
+  Bell, BellOff, Eye, Trash2
 } from 'lucide-react';
 
 interface StockAlert {
   id: string;
-  productName: string;
-  category: string;
-  currentStock: number;
-  minStock: number;
+  venue_id: string;
+  stock_item_id: string;
+  item_name: string;
+  item_sku?: string;
+  current_quantity: number;
+  min_quantity: number;
   unit: string;
-  supplier: string;
-  lastOrdered?: string;
-  priority: 'critical' | 'low' | 'warning';
-  createdAt: string;
+  type: 'low' | 'out' | 'expiring';
+  is_read: boolean;
+  created_at: string;
 }
-
-const demoAlerts: StockAlert[] = [
-  { id: '1', productName: 'Zeytinyağı', category: 'Yağ', currentStock: 2, minStock: 10, unit: 'L', supplier: 'Tariş', priority: 'critical', createdAt: '2025-01-15T10:00:00Z' },
-  { id: '2', productName: 'Limon', category: 'Sebze', currentStock: 5, minStock: 20, unit: 'kg', supplier: 'Bodrum Hal', priority: 'critical', createdAt: '2025-01-15T09:30:00Z' },
-  { id: '3', productName: 'Roka', category: 'Sebze', currentStock: 3, minStock: 15, unit: 'kg', supplier: 'Bodrum Hal', priority: 'critical', createdAt: '2025-01-15T09:00:00Z' },
-  { id: '4', productName: 'Levrek', category: 'Balık', currentStock: 8, minStock: 15, unit: 'kg', supplier: 'Güllük Balık', priority: 'low', createdAt: '2025-01-15T08:00:00Z' },
-  { id: '5', productName: 'Karides', category: 'Balık', currentStock: 4, minStock: 10, unit: 'kg', supplier: 'Güllük Balık', priority: 'low', createdAt: '2025-01-14T18:00:00Z' },
-  { id: '6', productName: 'Rakı', category: 'Alkol', currentStock: 12, minStock: 20, unit: 'şişe', supplier: 'Tekel', priority: 'warning', createdAt: '2025-01-14T15:00:00Z' },
-  { id: '7', productName: 'Beyaz Şarap', category: 'Alkol', currentStock: 8, minStock: 15, unit: 'şişe', supplier: 'Kavaklidere', priority: 'warning', createdAt: '2025-01-14T14:00:00Z' },
-];
 
 export default function StockAlertsPage() {
   const { currentVenue } = useVenueStore();
-  const [mounted, setMounted] = useState(false);
-  const [alerts, setAlerts] = useState<StockAlert[]>(demoAlerts);
-  const [filter, setFilter] = useState<'all' | 'critical' | 'low' | 'warning'>('all');
+  const t = useTranslations('stockAlerts');
+  const tStock = useTranslations('stock');
+  const tCommon = useTranslations('common');
+
+  const [alerts, setAlerts] = useState<StockAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<string>('all');
+  const [showRead, setShowRead] = useState(false);
+
+  // Alert type config
+  const alertTypeConfig = {
+    low: { label: tStock('lowStock'), color: 'bg-amber-500', icon: TrendingDown },
+    out: { label: tStock('outOfStock'), color: 'bg-red-500', icon: XCircle },
+    expiring: { label: t('expiringAlerts'), color: 'bg-orange-500', icon: Clock },
+  };
+
+  const loadAlerts = useCallback(async () => {
+    if (!currentVenue?.id) return;
+
+    // Get stock items that are low or out of stock
+    const { data: stockItems } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .eq('is_active', true);
+
+    if (stockItems) {
+      const generatedAlerts: StockAlert[] = stockItems
+        .filter(item => item.current_quantity <= item.min_quantity)
+        .map(item => ({
+          id: item.id,
+          venue_id: item.venue_id,
+          stock_item_id: item.id,
+          item_name: item.name,
+          item_sku: item.sku,
+          current_quantity: item.current_quantity,
+          min_quantity: item.min_quantity,
+          unit: item.unit,
+          type: item.current_quantity === 0 ? 'out' : 'low',
+          is_read: false,
+          created_at: item.updated_at || item.created_at
+        }));
+
+      setAlerts(generatedAlerts);
+    }
+    setLoading(false);
+  }, [currentVenue?.id]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    loadAlerts();
+  }, [loadAlerts]);
 
-  const filteredAlerts = alerts.filter(a => filter === 'all' || a.priority === filter);
+  // Filter alerts
+  const filteredAlerts = alerts.filter(alert => {
+    const matchesType = filterType === 'all' || alert.type === filterType;
+    const matchesRead = showRead || !alert.is_read;
+    return matchesType && matchesRead;
+  });
 
+  // Stats
   const stats = {
-    critical: alerts.filter(a => a.priority === 'critical').length,
-    low: alerts.filter(a => a.priority === 'low').length,
-    warning: alerts.filter(a => a.priority === 'warning').length,
+    total: alerts.length,
+    low: alerts.filter(a => a.type === 'low').length,
+    out: alerts.filter(a => a.type === 'out').length,
+    unread: alerts.filter(a => !a.is_read).length,
   };
 
-  const handleDismiss = (id: string) => {
-    setAlerts(prev => prev.filter(a => a.id !== id));
+  const handleMarkRead = (alertId: string) => {
+    setAlerts(prev => prev.map(a => 
+      a.id === alertId ? { ...a, is_read: true } : a
+    ));
   };
 
-  const handleOrder = (alert: StockAlert) => {
-    // Simulate order
-    window.alert(`${alert.productName} için ${alert.supplier}'a sipariş oluşturuldu!`);
+  const handleMarkAllRead = () => {
+    setAlerts(prev => prev.map(a => ({ ...a, is_read: true })));
   };
 
-  const getPriorityBadge = (priority: StockAlert['priority']) => {
-    switch (priority) {
-      case 'critical':
-        return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full animate-pulse">KRİTİK</span>;
-      case 'low':
-        return <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">DÜŞÜK</span>;
-      case 'warning':
-        return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">UYARI</span>;
-    }
+  const handleDismiss = (alertId: string) => {
+    setAlerts(prev => prev.filter(a => a.id !== alertId));
   };
 
-  if (!mounted) {
-    return <div className="animate-pulse bg-gray-100 rounded-2xl h-96" />;
+  if (!currentVenue) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <p className="text-gray-400">{tCommon('selectVenue')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
   }
 
   return (
@@ -87,134 +131,175 @@ export default function StockAlertsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Stok Uyarıları</h1>
-          <p className="text-gray-500 mt-1">Kritik stok seviyelerini takip edin</p>
+          <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
+          <p className="text-gray-400">{stats.unread} {tCommon('items')}</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition-colors">
-          <Settings className="w-4 h-4" />
-          Uyarı Ayarları
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadAlerts}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {tCommon('refresh')}
+          </button>
+          {stats.unread > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors"
+            >
+              <CheckCircle className="w-4 h-4" />
+              {t('markRead')}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 text-white">
-          <div className="flex items-center justify-between">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <div className="flex items-center gap-3">
+            <Bell className="w-10 h-10 text-blue-400 bg-blue-400/20 rounded-xl p-2" />
             <div>
-              <p className="text-red-100">Kritik Seviye</p>
-              <p className="text-4xl font-bold mt-2">{stats.critical}</p>
-              <p className="text-red-200 text-sm mt-1">Acil sipariş gerekli</p>
+              <p className="text-2xl font-bold text-white">{stats.total}</p>
+              <p className="text-sm text-gray-400">{tCommon('total')}</p>
             </div>
-            <AlertTriangle className="w-12 h-12 text-red-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white">
-          <div className="flex items-center justify-between">
+        <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <TrendingDown className="w-10 h-10 text-amber-400 bg-amber-400/20 rounded-xl p-2" />
             <div>
-              <p className="text-orange-100">Düşük Stok</p>
-              <p className="text-4xl font-bold mt-2">{stats.low}</p>
-              <p className="text-orange-200 text-sm mt-1">Yakında sipariş ver</p>
+              <p className="text-2xl font-bold text-white">{stats.low}</p>
+              <p className="text-sm text-amber-400">{tStock('lowStock')}</p>
             </div>
-            <TrendingDown className="w-12 h-12 text-orange-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-2xl p-6 text-white">
-          <div className="flex items-center justify-between">
+        <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <XCircle className="w-10 h-10 text-red-400 bg-red-400/20 rounded-xl p-2" />
             <div>
-              <p className="text-yellow-100">Uyarı</p>
-              <p className="text-4xl font-bold mt-2">{stats.warning}</p>
-              <p className="text-yellow-200 text-sm mt-1">Takipte</p>
+              <p className="text-2xl font-bold text-white">{stats.out}</p>
+              <p className="text-sm text-red-400">{tStock('outOfStock')}</p>
             </div>
-            <Bell className="w-12 h-12 text-yellow-200" />
+          </div>
+        </div>
+        <div className="bg-purple-500/20 border border-purple-500/50 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <BellOff className="w-10 h-10 text-purple-400 bg-purple-400/20 rounded-xl p-2" />
+            <div>
+              <p className="text-2xl font-bold text-white">{stats.unread}</p>
+              <p className="text-sm text-purple-400">Okunmamış</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2">
-        {[
-          { id: 'all', label: 'Tümü' },
-          { id: 'critical', label: 'Kritik' },
-          { id: 'low', label: 'Düşük' },
-          { id: 'warning', label: 'Uyarı' }
-        ].map(f => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id as any)}
-            className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-              filter === f.id
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex gap-2">
+          {['all', 'low', 'out'].map(type => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`px-4 py-2 rounded-xl transition-colors ${
+                filterType === type
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              {type === 'all' ? tCommon('all') : alertTypeConfig[type as 'low' | 'out']?.label}
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 text-gray-400 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showRead}
+            onChange={(e) => setShowRead(e.target.checked)}
+            className="w-4 h-4 rounded"
+          />
+          Okunanları göster
+        </label>
       </div>
 
       {/* Alerts List */}
-      <div className="space-y-3">
-        {filteredAlerts.map(alert => (
-          <div 
-            key={alert.id} 
-            className={`bg-white rounded-xl border p-4 ${
-              alert.priority === 'critical' ? 'border-red-200 bg-red-50/30' : 'border-gray-100'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  alert.priority === 'critical' ? 'bg-red-100' : 
-                  alert.priority === 'low' ? 'bg-orange-100' : 'bg-yellow-100'
-                }`}>
-                  <Package className={`w-6 h-6 ${
-                    alert.priority === 'critical' ? 'text-red-600' : 
-                    alert.priority === 'low' ? 'text-orange-600' : 'text-yellow-600'
-                  }`} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">{alert.productName}</h3>
-                    {getPriorityBadge(alert.priority)}
+      <div className="space-y-4">
+        {filteredAlerts.length === 0 ? (
+          <div className="text-center py-12 bg-gray-800/50 rounded-xl">
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+            <p className="text-gray-400">{t('noAlerts')}</p>
+          </div>
+        ) : (
+          filteredAlerts.map(alert => {
+            const typeConfig = alertTypeConfig[alert.type];
+            const TypeIcon = typeConfig.icon;
+
+            return (
+              <div
+                key={alert.id}
+                className={`bg-gray-800 rounded-xl p-4 border transition-colors ${
+                  alert.is_read 
+                    ? 'border-gray-700 opacity-60' 
+                    : 'border-amber-500/50 bg-amber-500/5'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* Icon */}
+                    <div className={`w-12 h-12 ${typeConfig.color} rounded-xl flex items-center justify-center`}>
+                      <TypeIcon className="w-6 h-6 text-white" />
+                    </div>
+
+                    {/* Info */}
+                    <div>
+                      <p className="font-medium text-white">{alert.item_name}</p>
+                      <div className="flex items-center gap-3 text-sm text-gray-400">
+                        {alert.item_sku && <span>SKU: {alert.item_sku}</span>}
+                        <span className={alert.type === 'out' ? 'text-red-400' : 'text-amber-400'}>
+                          {tStock('currentStock')}: {alert.current_quantity} {alert.unit}
+                        </span>
+                        <span>Min: {alert.min_quantity} {alert.unit}</span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-500">{alert.category} • {alert.supplier}</p>
+
+                  <div className="flex items-center gap-3">
+                    {/* Status Badge */}
+                    <span className={`px-3 py-1 ${typeConfig.color} text-white text-sm rounded-full`}>
+                      {typeConfig.label}
+                    </span>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1">
+                      {!alert.is_read && (
+                        <button
+                          onClick={() => handleMarkRead(alert.id)}
+                          className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+                          title={t('markRead')}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDismiss(alert.id)}
+                        className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
+                        title="Kapat"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <a
+                        href="/stock"
+                        className="p-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
+                        title={tStock('restock')}
+                      >
+                        <Package className="w-4 h-4" />
+                      </a>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-6">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-red-600">{alert.currentStock}</p>
-                  <p className="text-xs text-gray-500">Mevcut ({alert.unit})</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-400">{alert.minStock}</p>
-                  <p className="text-xs text-gray-500">Minimum ({alert.unit})</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleOrder(alert)}
-                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    <ShoppingCart className="w-4 h-4" />
-                    Sipariş Ver
-                  </button>
-                  <button
-                    onClick={() => handleDismiss(alert.id)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <X className="w-4 h-4 text-gray-400" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {filteredAlerts.length === 0 && (
-          <div className="text-center py-12">
-            <Check className="w-12 h-12 text-green-500 mx-auto mb-4" />
-            <p className="text-gray-500">Tüm stoklar yeterli seviyede!</p>
-          </div>
+            );
+          })
         )}
       </div>
     </div>

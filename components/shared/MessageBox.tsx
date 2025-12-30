@@ -248,7 +248,7 @@ export function MessageBox({
   showHeader = true,
   className = ''
 }: MessageBoxProps) {
-  const [messages, setMessages] = useState<CustomerMessage[]>(mockMessages);
+  const [messages, setMessages] = useState<CustomerMessage[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const unreadCount = messages.filter(m => m.status === 'unread').length;
@@ -358,7 +358,7 @@ export function MessageBox({
 // ============================================
 
 export function MessageIndicator({ onClick }: { onClick?: () => void }) {
-  const [messages] = useState<CustomerMessage[]>(mockMessages);
+  const [messages] = useState<CustomerMessage[]>([]);
   const unreadCount = messages.filter(m => m.status === 'unread').length;
   const hasUrgent = messages.some(m => m.status === 'unread' && m.priority === 'urgent');
 

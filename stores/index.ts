@@ -2,62 +2,19 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Venue, VenueSummary, UserVenue, VenueAlert } from '@/types';
 
-// Default venue - Nihal's Break Point
-const defaultVenue: Venue = {
-  id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8',
-  name: "Nihal's Break Point",
-  slug: 'nihals-break-point',
-  type: 'restaurant',
-  address: 'Bodrum Marina, Bodrum',
-  city: 'Muğla',
-  district: 'Bodrum',
-  phone: '+90 252 316 1234',
-  email: 'info@nihalsbreakpoint.com',
-  currency: 'TRY',
-  timezone: 'Europe/Istanbul',
-  is_active: true,
-  settings: {
-    working_hours: {
-      monday: { is_open: true, open: '10:00', close: '23:00' },
-      tuesday: { is_open: true, open: '10:00', close: '23:00' },
-      wednesday: { is_open: true, open: '10:00', close: '23:00' },
-      thursday: { is_open: true, open: '10:00', close: '23:00' },
-      friday: { is_open: true, open: '10:00', close: '00:00' },
-      saturday: { is_open: true, open: '10:00', close: '00:00' },
-      sunday: { is_open: true, open: '10:00', close: '22:00' },
-    },
-    reservation_enabled: true,
-    qr_menu_enabled: true,
-    online_ordering_enabled: true,
-    min_order_amount: 100,
-    service_charge_percent: 10,
-    tax_rate: 8,
-    auto_accept_orders: true,
-    notification_sounds: true,
-    theme_color: '#f97316',
-  },
-  created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z',
-};
-
+// =============================================
+// VENUE STORE
+// =============================================
 interface VenueState {
-  // Current venue
   currentVenue: Venue | null;
   currentVenueId: string | null;
-  
-  // All venues user has access to
   venues: Venue[];
   userVenues: UserVenue[];
-  
-  // Multi-venue dashboard data
   venueSummaries: VenueSummary[];
   alerts: VenueAlert[];
-  
-  // Loading states
   isLoading: boolean;
   error: string | null;
   
-  // Actions
   setCurrentVenue: (venue: Venue | null) => void;
   setCurrentVenueById: (venueId: string) => void;
   setVenues: (venues: Venue[]) => void;
@@ -67,8 +24,6 @@ interface VenueState {
   markAlertRead: (alertId: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  
-  // Computed
   getCurrentVenueRole: () => string | null;
   hasPermission: (permission: string) => boolean;
 }
@@ -76,17 +31,15 @@ interface VenueState {
 export const useVenueStore = create<VenueState>()(
   persist(
     (set, get) => ({
-      // Initial state - varsayılan venue ile başla
-      currentVenue: defaultVenue,
-      currentVenueId: defaultVenue.id,
-      venues: [defaultVenue],
+      currentVenue: null,
+      currentVenueId: null,
+      venues: [],
       userVenues: [],
       venueSummaries: [],
       alerts: [],
       isLoading: false,
       error: null,
       
-      // Actions
       setCurrentVenue: (venue) => set({ 
         currentVenue: venue,
         currentVenueId: venue?.id || null 
@@ -99,11 +52,8 @@ export const useVenueStore = create<VenueState>()(
       },
       
       setVenues: (venues) => set({ venues }),
-      
       setUserVenues: (userVenues) => set({ userVenues }),
-      
       setVenueSummaries: (summaries) => set({ venueSummaries: summaries }),
-      
       setAlerts: (alerts) => set({ alerts }),
       
       markAlertRead: (alertId) => set((state) => ({
@@ -113,10 +63,8 @@ export const useVenueStore = create<VenueState>()(
       })),
       
       setLoading: (loading) => set({ isLoading: loading }),
-      
       setError: (error) => set({ error }),
       
-      // Computed
       getCurrentVenueRole: () => {
         const { currentVenueId, userVenues } = get();
         if (!currentVenueId) return null;
@@ -129,23 +77,20 @@ export const useVenueStore = create<VenueState>()(
         if (!currentVenueId) return false;
         const userVenue = userVenues.find(uv => uv.venue_id === currentVenueId);
         if (!userVenue) return false;
-        // Owner has all permissions
         if (userVenue.role === 'owner') return true;
-        return userVenue.permissions.includes(permission as any);
+        return userVenue.permissions.includes(permission as never);
       },
     }),
     {
       name: 'order-venue-storage',
-      partialize: (state) => ({ 
-        currentVenueId: state.currentVenueId,
-        currentVenue: state.currentVenue,
-        venues: state.venues,
-      }),
+      partialize: (state) => ({ currentVenueId: state.currentVenueId }),
     }
   )
 );
 
-// Notification store
+// =============================================
+// NOTIFICATION STORE
+// =============================================
 interface NotificationState {
   notifications: VenueAlert[];
   unreadCount: number;
@@ -158,7 +103,7 @@ interface NotificationState {
   toggleSound: () => void;
 }
 
-export const useNotificationStore = create<NotificationState>((set, get) => ({
+export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
   unreadCount: 0,
   soundEnabled: true,
@@ -181,11 +126,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   })),
   
   clearAll: () => set({ notifications: [], unreadCount: 0 }),
-  
   toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
 }));
 
-// UI State store
+// =============================================
+// UI STATE STORE
+// =============================================
 interface UIState {
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
@@ -209,13 +155,13 @@ export const useUIStore = create<UIState>()(
       toggleSidebarCollapse: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setVenueDrawerOpen: (open) => set({ venueDrawerOpen: open }),
     }),
-    {
-      name: 'order-ui-storage',
-    }
+    { name: 'order-ui-storage' }
   )
 );
 
-// Table types
+// =============================================
+// TABLE TYPES & STORE
+// =============================================
 export type TableStatus = 'available' | 'occupied' | 'reserved' | 'cleaning';
 export type TableShape = 'square' | 'round' | 'rectangle';
 
@@ -235,118 +181,208 @@ export interface TableReservation {
 
 export interface Table {
   id: string;
+  venue_id?: string;
   number: string;
+  name?: string;
   capacity: number;
   section: string;
   status: TableStatus;
   shape: TableShape;
   position: { x: number; y: number };
+  position_x?: number;
+  position_y?: number;
+  is_active?: boolean;
   currentOrder?: TableOrder;
   reservation?: TableReservation;
 }
 
-// Table Store
 interface TableState {
   tables: Table[];
-  setTables: (tables: Table[]) => void;
-  updateTable: (id: string, updates: Partial<Table>) => void;
-  addTable: (table: Table) => void;
-  deleteTable: (id: string) => void;
-  swapTablePositions: (id1: string, id2: string) => void;
-}
-
-const initialTables: Table[] = [
-  { id: 'c1233da5-170d-4190-9dd3-17c6ffc952b8', number: '1', capacity: 2, section: 'İç Mekan', status: 'occupied', shape: 'square', position: { x: 0, y: 0 }, currentOrder: { id: 'ORD-101', total: 450, itemCount: 5, duration: 45, waiter: 'Ahmet' } },
-  { id: '2', number: '2', capacity: 2, section: 'İç Mekan', status: 'available', shape: 'square', position: { x: 1, y: 0 } },
-  { id: '3', number: '3', capacity: 4, section: 'İç Mekan', status: 'occupied', shape: 'rectangle', position: { x: 2, y: 0 }, currentOrder: { id: 'ORD-102', total: 890, itemCount: 8, duration: 30, waiter: 'Mehmet' } },
-  { id: '4', number: '4', capacity: 4, section: 'İç Mekan', status: 'reserved', shape: 'rectangle', position: { x: 0, y: 1 }, reservation: { name: 'Yılmaz', time: '20:00', guests: 4 } },
-  { id: '5', number: '5', capacity: 6, section: 'İç Mekan', status: 'cleaning', shape: 'rectangle', position: { x: 1, y: 1 } },
-  { id: '6', number: '6', capacity: 2, section: 'İç Mekan', status: 'available', shape: 'round', position: { x: 2, y: 1 } },
-  { id: '7', number: '7', capacity: 4, section: 'Teras', status: 'occupied', shape: 'round', position: { x: 0, y: 0 }, currentOrder: { id: 'ORD-103', total: 1250, itemCount: 12, duration: 60, waiter: 'Ayşe' } },
-  { id: '8', number: '8', capacity: 4, section: 'Teras', status: 'available', shape: 'round', position: { x: 1, y: 0 } },
-  { id: '9', number: '9', capacity: 6, section: 'Teras', status: 'occupied', shape: 'rectangle', position: { x: 2, y: 0 }, currentOrder: { id: 'ORD-104', total: 680, itemCount: 6, duration: 25, waiter: 'Ahmet' } },
-  { id: '10', number: '10', capacity: 8, section: 'Teras', status: 'reserved', shape: 'rectangle', position: { x: 0, y: 1 }, reservation: { name: 'Kaya', time: '21:00', guests: 7 } },
-  { id: '11', number: '11', capacity: 4, section: 'Bahçe', status: 'available', shape: 'round', position: { x: 0, y: 0 } },
-  { id: '12', number: '12', capacity: 4, section: 'Bahçe', status: 'available', shape: 'round', position: { x: 1, y: 0 } },
-  { id: '13', number: '13', capacity: 6, section: 'Bahçe', status: 'occupied', shape: 'rectangle', position: { x: 2, y: 0 }, currentOrder: { id: 'ORD-105', total: 2100, itemCount: 15, duration: 90, waiter: 'Mehmet' } },
-  { id: '14', number: '14', capacity: 10, section: 'Bahçe', status: 'available', shape: 'rectangle', position: { x: 0, y: 1 } },
-  { id: '15', number: 'VIP 1', capacity: 8, section: 'VIP', status: 'reserved', shape: 'rectangle', position: { x: 0, y: 0 }, reservation: { name: 'Demir', time: '20:30', guests: 6 } },
-  { id: '16', number: 'VIP 2', capacity: 12, section: 'VIP', status: 'available', shape: 'rectangle', position: { x: 1, y: 0 } },
-];
-
-export const useTableStore = create<TableState>()(
-  persist(
-    (set) => ({
-      tables: initialTables,
-      setTables: (tables) => set({ tables }),
-      updateTable: (id, updates) => set((state) => ({
-        tables: state.tables.map((t) => t.id === id ? { ...t, ...updates } : t)
-      })),
-      addTable: (table) => set((state) => ({
-        tables: [...state.tables, table]
-      })),
-      deleteTable: (id) => set((state) => ({
-        tables: state.tables.filter((t) => t.id !== id)
-      })),
-      swapTablePositions: (id1, id2) => set((state) => {
-        const table1 = state.tables.find(t => t.id === id1);
-        const table2 = state.tables.find(t => t.id === id2);
-        if (!table1 || !table2) return state;
-        
-        return {
-          tables: state.tables.map(t => {
-            if (t.id === id1) return { ...t, position: table2.position };
-            if (t.id === id2) return { ...t, position: table1.position };
-            return t;
-          })
-        };
-      }),
-    }),
-    {
-      name: 'order-table-storage',
-    }
-  )
-);
-
-// Panel PIN Store
-interface PinState {
-  isAuthenticated: boolean;
-  authenticatedPanels: string[];
+  isLoading: boolean;
+  error: string | null;
   
-  authenticate: (panel: string) => void;
-  logout: (panel: string) => void;
-  logoutAll: () => void;
-  isAuthenticatedForPanel: (panel: string) => boolean;
+  setTables: (tables: Table[]) => void;
+  updateTableLocal: (id: string, updates: Partial<Table>) => void;
+  addTableLocal: (table: Table) => void;
+  deleteTableLocal: (id: string) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
 }
 
-export const usePinStore = create<PinState>()(
-  persist(
-    (set, get) => ({
-      isAuthenticated: false,
-      authenticatedPanels: [],
+export const useTableStore = create<TableState>()((set) => ({
+  tables: [],
+  isLoading: false,
+  error: null,
+  
+  setTables: (tables) => set({ tables }),
+  updateTableLocal: (id, updates) => set((state) => ({
+    tables: state.tables.map((t) => t.id === id ? { ...t, ...updates } : t)
+  })),
+  addTableLocal: (table) => set((state) => ({
+    tables: [...state.tables, table]
+  })),
+  deleteTableLocal: (id) => set((state) => ({
+    tables: state.tables.filter((t) => t.id !== id)
+  })),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
+}));
+
+// =============================================
+// ORDER STORE
+// =============================================
+export interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  notes?: string;
+  status?: 'pending' | 'preparing' | 'ready';
+}
+
+export interface Order {
+  id: string;
+  venue_id: string;
+  order_number?: string;
+  table_number?: string;
+  customer_name?: string;
+  type: 'dine_in' | 'takeaway' | 'delivery' | 'qr_order';
+  status: string;
+  items: OrderItem[];
+  subtotal?: number;
+  tax?: number;
+  discount?: number;
+  discount_type?: 'percent' | 'amount';
+  total: number;
+  payment_status?: string;
+  payment_method?: string;
+  waiter_name?: string;
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+interface OrderState {
+  orders: Order[];
+  isLoading: boolean;
+  error: string | null;
+  
+  setOrders: (orders: Order[]) => void;
+  addOrder: (order: Order) => void;
+  updateOrder: (id: string, updates: Partial<Order>) => void;
+  removeOrder: (id: string) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+}
+
+export const useOrderStore = create<OrderState>()((set) => ({
+  orders: [],
+  isLoading: false,
+  error: null,
+  
+  setOrders: (orders) => set({ orders }),
+  addOrder: (order) => set((state) => ({ orders: [...state.orders, order] })),
+  updateOrder: (id, updates) => set((state) => ({
+    orders: state.orders.map((o) => o.id === id ? { ...o, ...updates } : o)
+  })),
+  removeOrder: (id) => set((state) => ({
+    orders: state.orders.filter((o) => o.id !== id)
+  })),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
+}));
+
+// =============================================
+// CART STORE
+// =============================================
+export interface CartItem {
+  id: string;
+  product_id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  notes?: string;
+  options?: { name: string; choice: string; price: number }[];
+}
+
+interface CartState {
+  items: CartItem[];
+  tableNumber: string | null;
+  orderType: 'dine_in' | 'takeaway' | 'delivery' | 'qr_order';
+  notes: string;
+  orderId: string | null;
+  
+  addItem: (item: Omit<CartItem, 'id'>) => void;
+  updateItemQuantity: (id: string, quantity: number) => void;
+  removeItem: (id: string) => void;
+  setTableNumber: (tableNumber: string | null) => void;
+  setOrderType: (type: 'dine_in' | 'takeaway' | 'delivery' | 'qr_order') => void;
+  setNotes: (notes: string) => void;
+  setOrderId: (orderId: string | null) => void;
+  clearCart: () => void;
+  getTotal: () => number;
+}
+
+export const useCartStore = create<CartState>()((set, get) => ({
+  items: [],
+  tableNumber: null,
+  orderType: 'dine_in',
+  notes: '',
+  orderId: null,
+  
+  addItem: (item) => {
+    const id = `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    set((state) => {
+      const existingItem = state.items.find(
+        i => i.product_id === item.product_id && 
+             i.notes === item.notes &&
+             JSON.stringify(i.options) === JSON.stringify(item.options)
+      );
       
-      authenticate: (panel) => set((state) => ({
-        isAuthenticated: true,
-        authenticatedPanels: [...new Set([...state.authenticatedPanels, panel])]
-      })),
-      
-      logout: (panel) => set((state) => ({
-        authenticatedPanels: state.authenticatedPanels.filter(p => p !== panel),
-        isAuthenticated: state.authenticatedPanels.filter(p => p !== panel).length > 0
-      })),
-      
-      logoutAll: () => set({
-        isAuthenticated: false,
-        authenticatedPanels: []
-      }),
-      
-      isAuthenticatedForPanel: (panel) => {
-        return get().authenticatedPanels.includes(panel);
+      if (existingItem) {
+        return {
+          items: state.items.map(i => 
+            i.id === existingItem.id 
+              ? { ...i, quantity: i.quantity + item.quantity }
+              : i
+          )
+        };
       }
-    }),
-    {
-      name: 'order-pin-storage',
-    }
-  )
-);
-export { useAuthStore, roleConfig } from './authStore';
+      
+      return { items: [...state.items, { ...item, id }] };
+    });
+  },
+  
+  updateItemQuantity: (id, quantity) => set((state) => ({
+    items: quantity <= 0 
+      ? state.items.filter(i => i.id !== id)
+      : state.items.map(i => i.id === id ? { ...i, quantity } : i)
+  })),
+  
+  removeItem: (id) => set((state) => ({
+    items: state.items.filter(i => i.id !== id)
+  })),
+  
+  setTableNumber: (tableNumber) => set({ tableNumber }),
+  setOrderType: (orderType) => set({ orderType }),
+  setNotes: (notes) => set({ notes }),
+  setOrderId: (orderId) => set({ orderId }),
+  
+  clearCart: () => set({ 
+    items: [], 
+    tableNumber: null, 
+    orderType: 'dine_in', 
+    notes: '',
+    orderId: null 
+  }),
+  
+  getTotal: () => {
+    const { items } = get();
+    return items.reduce((sum, item) => {
+      const optionsPrice = item.options?.reduce((s, o) => s + o.price, 0) || 0;
+      return sum + ((item.price + optionsPrice) * item.quantity);
+    }, 0);
+  },
+}));
+// Re-export authStore
+export * from './authStore';

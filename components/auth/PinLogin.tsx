@@ -21,7 +21,7 @@ interface PinLoginProps {
   title?: string;
 }
 
-export function PinLogin({ staff = demoStaff, onLogin, onCancel, title = 'Personel Girişi' }: PinLoginProps) {
+export function PinLogin({ staff = [], onLogin, onCancel, title = 'Personel Girişi' }: PinLoginProps) {
   const { login } = useAuthStore();
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [pin, setPin] = useState('');

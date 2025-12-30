@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* Dark theme body */
+html, body {
+  background-color: #111827 !important;
+  color: #f9fafb;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -134,4 +141,248 @@ input[type="number"] {
   .no-print {
     display: none !important;
   }
+}
+
+/* Force light mode for form inputs */
+input, select, textarea {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+  -webkit-text-fill-color: #111827 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #9ca3af !important;
+  -webkit-text-fill-color: #9ca3af !important;
+}
+
+/* Modal light mode override */
+[style*="colorScheme: light"] input,
+[style*="colorScheme: light"] select,
+[style*="colorScheme: light"] textarea {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+/* Fix button text visibility */
+button {
+  color: inherit;
+}
+
+/* Dark Mode Form Elements Fix */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: rgb(31, 41, 55) !important;
+  color: white !important;
+  border-color: rgb(55, 65, 81) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(156, 163, 175) !important;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: rgb(249, 115, 22) !important;
+  outline: none;
+}
+
+/* Modal/Dialog Dark Mode */
+.dark [role="dialog"],
+.dark .modal,
+.dark .fixed > div > div {
+  background-color: rgb(31, 41, 55) !important;
+  color: white !important;
+}
+
+/* Card backgrounds */
+.dark .bg-white {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+.dark .text-gray-900 {
+  color: white !important;
+}
+
+.dark .text-gray-700 {
+  color: rgb(209, 213, 219) !important;
+}
+
+.dark .text-gray-600 {
+  color: rgb(156, 163, 175) !important;
+}
+
+.dark .border-gray-200 {
+  border-color: rgb(55, 65, 81) !important;
+}
+
+.dark .border-gray-300 {
+  border-color: rgb(75, 85, 99) !important;
+}
+
+/* Force all form text to be visible in dark mode */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark input[type="tel"],
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="password"],
+.dark textarea,
+.dark select,
+.dark option {
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+}
+
+/* Fix select dropdown */
+.dark select option {
+  background-color: rgb(31, 41, 55) !important;
+  color: white !important;
+}
+
+/* Labels */
+.dark label {
+  color: rgb(229, 231, 235) !important;
+}
+
+/* Fix any text inside inputs */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea {
+  color: white !important;
+  caret-color: white;
+}
+
+/* Settings page fix */
+.space-y-6 label {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+/* Ensure form labels are fully visible */
+input + label,
+select + label,
+.text-sm.font-medium {
+  min-width: fit-content;
+}
+
+/* ========================================
+   GLOBAL DARK THEME OVERRIDE
+   Tüm sayfalar için tutarlı koyu tema
+   ======================================== */
+
+/* Ana container'lar */
+.bg-white {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+.bg-gray-50 {
+  background-color: rgb(17, 24, 39) !important;
+}
+
+.bg-gray-100 {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+/* Metin renkleri */
+.text-gray-900 {
+  color: rgb(255, 255, 255) !important;
+}
+
+.text-gray-800 {
+  color: rgb(243, 244, 246) !important;
+}
+
+.text-gray-700 {
+  color: rgb(209, 213, 219) !important;
+}
+
+.text-gray-600 {
+  color: rgb(156, 163, 175) !important;
+}
+
+.text-gray-500 {
+  color: rgb(156, 163, 175) !important;
+}
+
+/* Border renkleri */
+.border-gray-200 {
+  border-color: rgb(55, 65, 81) !important;
+}
+
+.border-gray-100 {
+  border-color: rgb(55, 65, 81) !important;
+}
+
+.border-gray-300 {
+  border-color: rgb(75, 85, 99) !important;
+}
+
+/* Hover states */
+.hover\:bg-gray-50:hover {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+.hover\:bg-gray-100:hover {
+  background-color: rgb(55, 65, 81) !important;
+}
+
+/* Divide renkleri */
+.divide-gray-200 > * + * {
+  border-color: rgb(55, 65, 81) !important;
+}
+
+/* Ring renkleri */
+.ring-gray-200 {
+  --tw-ring-color: rgb(55, 65, 81) !important;
+}
+
+/* Shadow için koyu arka plan */
+.shadow, .shadow-sm, .shadow-md, .shadow-lg {
+  --tw-shadow-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Açık renkli kartlar için */
+.bg-yellow-50, .bg-green-50, .bg-blue-50, .bg-purple-50, .bg-red-50, .bg-orange-50, .bg-pink-50 {
+  filter: brightness(0.85) saturate(1.2);
+}
+
+/* Input alanları - dark mode */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  background-color: rgb(31, 41, 55) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgb(55, 65, 81) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(156, 163, 175) !important;
+}
+
+/* Dropdown/Select options */
+option {
+  background-color: rgb(31, 41, 55) !important;
+  color: rgb(255, 255, 255) !important;
+}
+
+/* Table header */
+thead {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+th {
+  color: rgb(156, 163, 175) !important;
+}
+
+/* Table rows */
+tbody tr {
+  border-color: rgb(55, 65, 81) !important;
+}
+
+tbody tr:hover {
+  background-color: rgb(31, 41, 55) !important;
 }

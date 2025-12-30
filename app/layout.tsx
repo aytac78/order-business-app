@@ -26,7 +26,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body className={`${inter.className} bg-zinc-950 text-white antialiased`}>
+      <body className={`${inter.className} bg-zinc-950 text-white antialiased`} style={{ backgroundColor: "#09090b" }}>
         <I18nProvider>
           <AuthProvider>
             {children}

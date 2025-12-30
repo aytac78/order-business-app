@@ -1,0 +1,994 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useVenueStore } from '@/stores';
+import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
+import {
+  Plus, RefreshCw, Users, Armchair, X, Clock, Receipt,
+  AlertCircle, Loader2, Trash2, Edit2, ExternalLink, UserPlus, User,
+  Calendar, Phone, MessageSquare
+} from 'lucide-react';
+
+// ===========================================
+// TYPES - Supabase tabloları ile uyumlu
+// ===========================================
+interface TableData {
+  id: string;
+  venue_id: string;
+  number: string;
+  capacity: number;
+  section: string;
+  status: 'available' | 'occupied' | 'reserved' | 'cleaning';
+  shape: 'square' | 'round' | 'rectangle';
+  is_active: boolean;
+  current_guests?: number;
+  customer_name?: string;
+  seated_at?: string;
+}
+
+interface OrderData {
+  id: string;
+  order_number: string;
+  table_number: string;
+  status: string;
+  payment_status: string;
+  total: number;
+  subtotal: number;
+  items: any[];
+  notes?: string;
+  customer_name?: string;
+  created_at: string;
+}
+
+interface ReservationData {
+  id: string;
+  venue_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  date: string;
+  time: string;
+  party_size: number;
+  table_number?: string;
+  status: string;
+  notes?: string;
+  special_requests?: string;
+  created_at: string;
+}
+
+// ===========================================
+// STATUS CONFIG
+// ===========================================
+const statusConfig = {
+  available: { label: 'Boş', bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-800', badge: 'bg-green-500' },
+  occupied: { label: 'Dolu', bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-800', badge: 'bg-red-500' },
+  reserved: { label: 'Rezerve', bg: 'bg-amber-100', border: 'border-amber-400', text: 'text-amber-800', badge: 'bg-amber-500' },
+  cleaning: { label: 'Temizleniyor', bg: 'bg-blue-100', border: 'border-blue-400', text: 'text-blue-800', badge: 'bg-blue-500' },
+};
+
+// ===========================================
+// HELPER FUNCTIONS
+// ===========================================
+function formatDuration(dateStr: string) {
+  const start = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return `${diffMins} dk`;
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  return `${hours} sa ${mins} dk`;
+}
+
+function getTimeUntilReservation(time: string): string {
+  const now = new Date();
+  const [hours, minutes] = time.split(':').map(Number);
+  const reservationDate = new Date();
+  reservationDate.setHours(hours, minutes, 0, 0);
+  const diffMs = reservationDate.getTime() - now.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins <= 0) return 'Şimdi';
+  if (diffMins < 60) return `${diffMins} dk sonra`;
+  const h = Math.floor(diffMins / 60);
+  const m = diffMins % 60;
+  return m > 0 ? `${h} sa ${m} dk sonra` : `${h} saat sonra`;
+}
+
+// ===========================================
+// MAIN COMPONENT
+// ===========================================
+export default function TablesPage() {
+  const { currentVenue } = useVenueStore();
+  const [tables, setTables] = useState<TableData[]>([]);
+  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [reservations, setReservations] = useState<ReservationData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
+  const [selectedSection, setSelectedSection] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTable, setEditingTable] = useState<TableData | null>(null);
+
+  // Load Tables
+  const loadTables = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const { data, error } = await supabase
+      .from('tables')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .eq('is_active', true)
+      .order('number');
+
+    if (!error && data) {
+      setTables(data);
+    }
+  }, [currentVenue?.id]);
+
+  // Load Active Orders
+  const loadOrders = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served'])
+      .not('table_number', 'is', null);
+
+    if (!error && data) {
+      setOrders(data);
+    }
+  }, [currentVenue?.id]);
+
+  // Load Today's Reservations
+  const loadReservations = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .eq('date', today)
+      .in('status', ['pending', 'confirmed'])
+      .order('time');
+
+    if (!error && data) {
+      setReservations(data);
+    }
+  }, [currentVenue?.id]);
+
+  // Initial Load
+  useEffect(() => {
+    if (currentVenue?.id) {
+      setLoading(true);
+      Promise.all([loadTables(), loadOrders(), loadReservations()]).finally(() => setLoading(false));
+    }
+  }, [currentVenue?.id, loadTables, loadOrders, loadReservations]);
+
+  // Realtime Subscriptions
+  useEffect(() => {
+    if (!currentVenue?.id) return;
+
+    const channel = supabase
+      .channel('tables-page-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `venue_id=eq.${currentVenue.id}` }, loadTables)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${currentVenue.id}` }, loadOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations', filter: `venue_id=eq.${currentVenue.id}` }, loadReservations)
+      .subscribe();
+
+    return () => { channel.unsubscribe(); };
+  }, [currentVenue?.id, loadTables, loadOrders, loadReservations]);
+
+  // Get table's active order
+  const getTableOrder = (tableNumber: string) => {
+    return orders.find(o => o.table_number === tableNumber);
+  };
+
+  // Get table's reservations (can be multiple)
+  const getTableReservations = (tableNumber: string) => {
+    return reservations.filter(r => r.table_number === tableNumber);
+  };
+
+  // Get real status (check if table has active order)
+  const getRealStatus = (table: TableData): TableData['status'] => {
+    const order = getTableOrder(table.number);
+    if (order) return 'occupied';
+    return table.status;
+  };
+
+  // Update table status
+  const updateTableStatus = async (tableId: string, status: TableData['status']) => {
+    const updateData: any = { status };
+    
+    if (status === 'cleaning' || status === 'available') {
+      updateData.current_guests = null;
+      updateData.customer_name = null;
+      updateData.seated_at = null;
+    }
+    
+    await supabase.from('tables').update(updateData).eq('id', tableId);
+    loadTables();
+    setSelectedTable(null);
+  };
+
+  // Seat customer at table
+  const seatCustomer = async (tableId: string, guestCount: number, customerName?: string) => {
+    await supabase.from('tables').update({ 
+      status: 'occupied',
+      current_guests: guestCount,
+      customer_name: customerName || null,
+      seated_at: new Date().toISOString()
+    }).eq('id', tableId);
+    loadTables();
+    setSelectedTable(null);
+  };
+
+  // Add new table
+  const addTable = async (data: { number: string; capacity: number; section: string; shape: string }) => {
+    if (!currentVenue?.id) return;
+    
+    await supabase.from('tables').insert({
+      venue_id: currentVenue.id,
+      number: data.number,
+      capacity: data.capacity,
+      section: data.section,
+      shape: data.shape,
+      status: 'available',
+      is_active: true,
+    });
+    
+    loadTables();
+    setShowAddModal(false);
+  };
+
+  // Update table
+  const updateTable = async (tableId: string, data: { number: string; capacity: number; section: string; shape: string }) => {
+    await supabase.from('tables').update(data).eq('id', tableId);
+    loadTables();
+    setShowAddModal(false);
+    setEditingTable(null);
+  };
+
+  // Delete table
+  const deleteTable = async (tableId: string) => {
+    if (!confirm('Bu masayı silmek istediğinize emin misiniz?')) return;
+    await supabase.from('tables').update({ is_active: false }).eq('id', tableId);
+    loadTables();
+    setSelectedTable(null);
+  };
+
+  // Computed
+  const sections = ['all', ...Array.from(new Set(tables.map(t => t.section).filter(Boolean)))];
+  const filteredTables = selectedSection === 'all' ? tables : tables.filter(t => t.section === selectedSection);
+  
+  const stats = {
+    available: tables.filter(t => getRealStatus(t) === 'available').length,
+    occupied: tables.filter(t => getRealStatus(t) === 'occupied').length,
+    reserved: tables.filter(t => getRealStatus(t) === 'reserved').length,
+    cleaning: tables.filter(t => getRealStatus(t) === 'cleaning').length,
+  };
+
+  // ===========================================
+  // RENDER - Loading & Error States
+  // ===========================================
+  if (!currentVenue) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+          <p className="text-gray-500">Lütfen bir mekan seçin</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  // ===========================================
+  // RENDER - Main Content
+  // ===========================================
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Masa Yönetimi</h1>
+          <p className="text-gray-500">{currentVenue.name} • {tables.length} masa</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => { loadTables(); loadOrders(); loadReservations(); }} 
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-700"
+          >
+            <RefreshCw className="w-4 h-4" /> Yenile
+          </button>
+          <button 
+            onClick={() => { setEditingTable(null); setShowAddModal(true); }} 
+            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium"
+          >
+            <Plus className="w-4 h-4" /> Masa Ekle
+          </button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        {Object.entries(stats).map(([key, value]) => {
+          const config = statusConfig[key as keyof typeof statusConfig];
+          return (
+            <div key={key} className={`${config.bg} border-2 ${config.border} rounded-xl p-4`}>
+              <p className={`font-medium ${config.text}`}>{config.label}</p>
+              <p className={`text-3xl font-bold ${config.text}`}>{value}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Section Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {sections.map(section => (
+          <button
+            key={section}
+            onClick={() => setSelectedSection(section)}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              selectedSection === section ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {section === 'all' ? 'Tümü' : section} ({section === 'all' ? tables.length : tables.filter(t => t.section === section).length})
+          </button>
+        ))}
+      </div>
+
+      {/* Tables Grid */}
+      {filteredTables.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-xl">
+          <Armchair className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">Henüz masa eklenmemiş</p>
+          <button onClick={() => setShowAddModal(true)} className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg">
+            + İlk Masayı Ekle
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {filteredTables.map(table => {
+            const realStatus = getRealStatus(table);
+            const config = statusConfig[realStatus];
+            const order = getTableOrder(table.number);
+            const tableReservations = getTableReservations(table.number);
+            
+            return (
+              <button
+                key={table.id}
+                onClick={() => setSelectedTable(table)}
+                className={`${config.bg} border-2 ${config.border} rounded-xl p-4 text-left transition-all hover:scale-105 hover:shadow-lg relative`}
+              >
+                {/* Order badge */}
+                {order && (
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                    <Receipt className="w-3 h-3 text-white" />
+                  </div>
+                )}
+                
+                {/* Reservation count badge */}
+                {tableReservations.length > 0 && (
+                  <div className="absolute -top-2 -left-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">{tableReservations.length}</span>
+                  </div>
+                )}
+                
+                {/* MASA NUMARASI - BÜYÜK */}
+                <p className={`text-3xl font-bold ${config.text}`}>{table.number}</p>
+                <p className="text-sm text-gray-500">{table.section}</p>
+                
+                {/* Kapasite */}
+                <div className="flex items-center gap-1 mt-2 text-gray-500">
+                  <Users className="w-4 h-4" />
+                  <span className="text-sm">{table.capacity} kişilik</span>
+                </div>
+                
+                {/* Occupied - Customer name */}
+                {realStatus === 'occupied' && table.customer_name && (
+                  <p className="text-sm font-medium text-red-700 mt-1 truncate">{table.customer_name}</p>
+                )}
+                
+                {/* Reserved - Reservation preview */}
+                {tableReservations.length > 0 && (
+                  <div className="mt-1 text-xs text-amber-700">
+                    <p className="font-medium">{tableReservations[0].time} - {tableReservations[0].customer_name}</p>
+                    {tableReservations.length > 1 && (
+                      <p className="text-amber-600">+{tableReservations.length - 1} daha</p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Status badge */}
+                <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${config.badge} text-white`}>
+                  {config.label}
+                </span>
+                
+                {/* Order total */}
+                {order && (
+                  <p className="mt-1 text-sm font-bold text-orange-600">₺{order.total?.toLocaleString()}</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Table Detail Modal */}
+      {selectedTable && (
+        <TableDetailModal
+          table={selectedTable}
+          order={getTableOrder(selectedTable.number)}
+          reservations={getTableReservations(selectedTable.number)}
+          realStatus={getRealStatus(selectedTable)}
+          onClose={() => setSelectedTable(null)}
+          onStatusChange={(status) => updateTableStatus(selectedTable.id, status)}
+          onSeatCustomer={(guestCount, customerName) => seatCustomer(selectedTable.id, guestCount, customerName)}
+          onEdit={() => { setEditingTable(selectedTable); setShowAddModal(true); setSelectedTable(null); }}
+          onDelete={() => deleteTable(selectedTable.id)}
+          onReservationUpdate={() => { loadReservations(); loadTables(); }}
+        />
+      )}
+
+      {/* Add/Edit Table Modal */}
+      {showAddModal && (
+        <TableFormModal
+          table={editingTable}
+          onSave={(data) => editingTable ? updateTable(editingTable.id, data) : addTable(data)}
+          onClose={() => { setShowAddModal(false); setEditingTable(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ===========================================
+// TABLE DETAIL MODAL
+// ===========================================
+function TableDetailModal({
+  table,
+  order,
+  reservations,
+  realStatus,
+  onClose,
+  onStatusChange,
+  onSeatCustomer,
+  onEdit,
+  onDelete,
+  onReservationUpdate,
+}: {
+  table: TableData;
+  order: OrderData | undefined;
+  reservations: ReservationData[];
+  realStatus: TableData['status'];
+  onClose: () => void;
+  onStatusChange: (status: TableData['status']) => void;
+  onSeatCustomer: (guestCount: number, customerName?: string) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onReservationUpdate: () => void;
+}) {
+  const config = statusConfig[realStatus];
+  const [showSeatForm, setShowSeatForm] = useState(false);
+  const [guestCount, setGuestCount] = useState(2);
+  const [customerName, setCustomerName] = useState('');
+
+  const handleSeatCustomer = () => {
+    onSeatCustomer(guestCount, customerName || undefined);
+    setShowSeatForm(false);
+  };
+
+  // Seat from reservation
+  const seatReservation = async (reservationId: string, res: ReservationData) => {
+    await supabase
+      .from('reservations')
+      .update({ status: 'seated' })
+      .eq('id', reservationId);
+    
+    await supabase
+      .from('tables')
+      .update({ 
+        status: 'occupied',
+        current_guests: res.party_size,
+        customer_name: res.customer_name,
+        seated_at: new Date().toISOString()
+      })
+      .eq('id', table.id);
+    
+    onReservationUpdate();
+    onClose();
+  };
+
+  // ===========================================
+  // DOLU - Sipariş var
+  // ===========================================
+  if (order) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="p-5 border-b flex items-center gap-4">
+            <div className={`w-14 h-14 rounded-xl ${config.badge} flex items-center justify-center`}>
+              <span className="text-white text-xl font-bold">{table.number}</span>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-gray-900">Masa {table.number}</h2>
+              <p className="text-gray-500">{table.section} • {table.capacity} kişilik</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Customer info */}
+            {(table.current_guests || table.customer_name || table.seated_at) && (
+              <div className="bg-purple-50 rounded-xl p-4">
+                <p className="text-sm font-medium text-purple-700 mb-2">👤 Müşteri Bilgileri</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-purple-700">{table.current_guests || '-'}</p>
+                    <p className="text-xs text-purple-500">Kişi</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-purple-700 truncate">{table.customer_name || '-'}</p>
+                    <p className="text-xs text-purple-500">İsim</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-purple-700">{table.seated_at ? formatDuration(table.seated_at) : '-'}</p>
+                    <p className="text-xs text-purple-500">Süre</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Order stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-blue-50 rounded-xl p-3 text-center">
+                <Receipt className="w-5 h-5 text-blue-500 mx-auto mb-1" />
+                <p className="text-lg font-bold text-blue-700">{order.items?.length || 0}</p>
+                <p className="text-xs text-blue-500">Ürün</p>
+              </div>
+              <div className="bg-amber-50 rounded-xl p-3 text-center">
+                <Clock className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                <p className="text-lg font-bold text-amber-700">{formatDuration(order.created_at)}</p>
+                <p className="text-xs text-amber-500">Süre</p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-3 text-center">
+                <span className="text-green-500 text-lg">₺</span>
+                <p className="text-lg font-bold text-green-700">{order.total?.toLocaleString()}</p>
+                <p className="text-xs text-green-500">Toplam</p>
+              </div>
+            </div>
+
+            {/* Order info */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-500">Sipariş No</span>
+                <span className="font-medium text-gray-900">{order.order_number}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Durum</span>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  order.status === 'ready' ? 'bg-green-100 text-green-700' :
+                  order.status === 'preparing' ? 'bg-purple-100 text-purple-700' :
+                  'bg-amber-100 text-amber-700'
+                }`}>
+                  {order.status === 'pending' ? 'Bekliyor' :
+                   order.status === 'confirmed' ? 'Onaylandı' :
+                   order.status === 'preparing' ? 'Hazırlanıyor' :
+                   order.status === 'ready' ? 'Hazır' :
+                   order.status === 'served' ? 'Servis Edildi' : order.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Order items */}
+            {order.items && order.items.length > 0 && (
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Sipariş İçeriği</p>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {order.items.map((item: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">{item.quantity}x {item.name}</span>
+                      <span className="font-medium text-gray-900">₺{(item.price * item.quantity).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="space-y-2">
+              <Link href="/waiter" className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-600">
+                Garson Paneline Git <ExternalLink className="w-4 h-4" />
+              </Link>
+              <button
+                onClick={() => onStatusChange('cleaning')}
+                className="w-full py-3 border-2 border-red-200 text-red-600 rounded-xl font-semibold hover:bg-red-50"
+              >
+                Masayı Kapat / Temizle
+              </button>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-5 border-t flex gap-2">
+            <button onClick={onEdit} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-200">
+              <Edit2 className="w-4 h-4" /> Düzenle
+            </button>
+            <button onClick={onDelete} className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-red-100">
+              <Trash2 className="w-4 h-4" /> Sil
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===========================================
+  // REZERVE - Rezervasyon var
+  // ===========================================
+  if (reservations.length > 0) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          {/* Header - Amber */}
+          <div className="p-5 border-b flex items-center gap-4 bg-amber-50">
+            <div className={`w-14 h-14 rounded-xl ${config.badge} flex items-center justify-center`}>
+              <span className="text-white text-xl font-bold">{table.number}</span>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-gray-900">Masa {table.number}</h2>
+              <p className="text-gray-500">{table.section} • {table.capacity} kişilik</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-amber-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Reservation count */}
+            <div className="bg-amber-50 rounded-xl p-4 text-center">
+              <Calendar className="w-8 h-8 text-amber-600 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-amber-700">{reservations.length}</p>
+              <p className="text-sm text-amber-600">Bugünkü Rezervasyon</p>
+            </div>
+
+            {/* Reservations list */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">📋 Rezervasyonlar</p>
+              {reservations.map((res) => (
+                <div key={res.id} className="bg-white border-2 border-amber-200 rounded-xl p-4">
+                  {/* Time */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-amber-600" />
+                      <span className="text-2xl font-bold text-amber-700">{res.time}</span>
+                    </div>
+                    <span className="text-sm bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                      {getTimeUntilReservation(res.time)}
+                    </span>
+                  </div>
+
+                  {/* Customer details */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="font-medium text-gray-900">{res.customer_name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-gray-400" />
+                      <a href={`tel:${res.customer_phone}`} className="text-blue-600 hover:underline">{res.customer_phone}</a>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-600">{res.party_size} kişi</span>
+                    </div>
+                    {res.notes && (
+                      <div className="flex items-start gap-2">
+                        <MessageSquare className="w-4 h-4 text-gray-400 mt-0.5" />
+                        <span className="text-gray-600 text-sm">{res.notes}</span>
+                      </div>
+                    )}
+                    {res.special_requests && (
+                      <div className="bg-blue-50 rounded-lg p-2 text-sm text-blue-700">
+                        ⭐ {res.special_requests}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Seat button */}
+                  <button
+                    onClick={() => seatReservation(res.id, res)}
+                    className="w-full mt-3 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 flex items-center justify-center gap-2"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Müşteriyi Oturt
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Other actions */}
+            <div className="pt-4 border-t space-y-2">
+              <button
+                onClick={() => setShowSeatForm(true)}
+                className="w-full py-3 bg-purple-500 text-white rounded-xl font-semibold hover:bg-purple-600 flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-5 h-5" />
+                Farklı Müşteri Oturt
+              </button>
+              <button
+                onClick={() => onStatusChange('available')}
+                className="w-full py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50"
+              >
+                Masayı Boşalt
+              </button>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-5 border-t flex gap-2">
+            <button onClick={onEdit} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-200">
+              <Edit2 className="w-4 h-4" /> Düzenle
+            </button>
+            <button onClick={onDelete} className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-red-100">
+              <Trash2 className="w-4 h-4" /> Sil
+            </button>
+          </div>
+
+          {/* Seat Form Modal */}
+          {showSeatForm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setShowSeatForm(false)}>
+              <div className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-5" onClick={e => e.stopPropagation()}>
+                <h3 className="font-bold text-center text-gray-900 text-lg">Farklı Müşteri Oturt</h3>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Kişi Sayısı *</label>
+                  <div className="flex items-center gap-4 justify-center">
+                    <button onClick={() => setGuestCount(Math.max(1, guestCount - 1))} className="w-12 h-12 bg-gray-100 rounded-xl font-bold text-xl border-2 text-gray-700 hover:bg-gray-200">−</button>
+                    <span className="text-3xl font-bold w-12 text-center text-gray-900">{guestCount}</span>
+                    <button onClick={() => setGuestCount(Math.min(table.capacity, guestCount + 1))} className="w-12 h-12 bg-gray-100 rounded-xl font-bold text-xl border-2 text-gray-700 hover:bg-gray-200">+</button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Müşteri Adı</label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Örn: Ali Yılmaz"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => setShowSeatForm(false)} className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">İptal</button>
+                  <button onClick={handleSeatCustomer} className="flex-1 py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600">Oturt</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===========================================
+  // BOŞ veya TEMİZLENİYOR
+  // ===========================================
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-5 border-b flex items-center gap-4">
+          <div className={`w-14 h-14 rounded-xl ${config.badge} flex items-center justify-center`}>
+            <span className="text-white text-xl font-bold">{table.number}</span>
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold text-gray-900">Masa {table.number}</h2>
+            <p className="text-gray-500">{table.section} • {table.capacity} kişilik</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-5">
+          {!showSeatForm ? (
+            <div className="text-center py-4">
+              <Armchair className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg mb-6">Bu masa boş</p>
+
+              <button
+                onClick={() => setShowSeatForm(true)}
+                className="px-6 py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 flex items-center gap-2 mx-auto"
+              >
+                <UserPlus className="w-5 h-5" />
+                Müşteri Oturt
+              </button>
+
+              <div className="mt-6 pt-4 border-t">
+                <p className="text-sm text-gray-500 mb-3">veya durum değiştir:</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {(['available', 'reserved', 'cleaning'] as const).map(status => {
+                    const cfg = statusConfig[status];
+                    const isActive = table.status === status;
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => onStatusChange(status)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                          isActive ? `${cfg.badge} text-white` : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <h3 className="font-bold text-center text-gray-900 text-lg">Müşteri Bilgileri</h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kişi Sayısı *</label>
+                <div className="flex items-center gap-4 justify-center">
+                  <button onClick={() => setGuestCount(Math.max(1, guestCount - 1))} className="w-14 h-14 bg-gray-100 rounded-xl font-bold text-2xl border-2 text-gray-700 hover:bg-gray-200">−</button>
+                  <span className="text-4xl font-bold w-16 text-center text-gray-900">{guestCount}</span>
+                  <button onClick={() => setGuestCount(Math.min(table.capacity, guestCount + 1))} className="w-14 h-14 bg-gray-100 rounded-xl font-bold text-2xl border-2 text-gray-700 hover:bg-gray-200">+</button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2 text-center">Kapasite: {table.capacity}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Müşteri Adı (Opsiyonel)</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Örn: Ali Yılmaz"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowSeatForm(false)} className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">İptal</button>
+                <button onClick={handleSeatCustomer} className="flex-1 py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600">Oturt</button>
+              </div>
+            </div>
+          )}
+
+          {!showSeatForm && (
+            <div className="flex gap-2 mt-6 pt-4 border-t">
+              <button onClick={onEdit} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-200">
+                <Edit2 className="w-4 h-4" /> Düzenle
+              </button>
+              <button onClick={onDelete} className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-red-100">
+                <Trash2 className="w-4 h-4" /> Sil
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================
+// TABLE FORM MODAL (Add/Edit)
+// ===========================================
+function TableFormModal({
+  table,
+  onSave,
+  onClose,
+}: {
+  table: TableData | null;
+  onSave: (data: { number: string; capacity: number; section: string; shape: string }) => void;
+  onClose: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    number: table?.number || '',
+    capacity: table?.capacity || 4,
+    section: table?.section || 'İç Mekan',
+    shape: table?.shape || 'square',
+  });
+
+  const sections = ['İç Mekan', 'Bahçe', 'Teras', 'VIP', 'Bar'];
+  const shapes = [{ id: 'square', icon: '⬜' }, { id: 'round', icon: '⭕' }, { id: 'rectangle', icon: '▬' }];
+
+  const handleSubmit = () => {
+    if (!formData.number.trim()) {
+      alert('Masa numarası gerekli');
+      return;
+    }
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">{table ? 'Masa Düzenle' : 'Yeni Masa'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Masa No</label>
+              <input
+                type="text"
+                value={formData.number}
+                onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                className="w-full px-4 py-3 border-2 rounded-xl text-gray-900 bg-white focus:border-orange-500 focus:outline-none"
+                placeholder="1, VIP1..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Kapasite</label>
+              <input
+                type="number"
+                value={formData.capacity}
+                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
+                className="w-full px-4 py-3 border-2 rounded-xl text-gray-900 bg-white focus:border-orange-500 focus:outline-none"
+                min={1}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Bölüm</label>
+            <select
+              value={formData.section}
+              onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+              className="w-full px-4 py-3 border-2 rounded-xl text-gray-900 bg-white focus:border-orange-500 focus:outline-none"
+            >
+              {sections.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Şekil</label>
+            <div className="flex gap-3">
+              {shapes.map(shape => (
+                <button
+                  key={shape.id}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, shape: shape.id })}
+                  className={`flex-1 p-4 rounded-xl border-2 text-2xl transition-all ${
+                    formData.shape === shape.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {shape.icon}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 border-t flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 border-2 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">İptal</button>
+          <button onClick={handleSubmit} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600">{table ? 'Güncelle' : 'Ekle'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}

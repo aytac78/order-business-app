@@ -1,338 +1,443 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useVenueStore, useTableStore, Table } from '@/stores';
-import { PanelHeader } from '@/components/panels/PanelHeader';
+import { useState, useEffect, useCallback } from 'react';
+import { useVenueStore } from '@/stores';
+import { useTranslations } from 'next-intl';
+import { supabase } from '@/lib/supabase';
 import {
-  UtensilsCrossed,
-  Users,
-  Clock,
-  AlertCircle,
-  Bell,
-  Plus,
-  ChevronRight,
-  Coffee,
-  Utensils,
-  ShoppingBag,
-  Check,
-  MessageSquare,
-  Timer
+  Users, Clock, Utensils, AlertCircle, Loader2, RefreshCw,
+  Plus, X, Bell, CreditCard, ChefHat, Coffee, CheckCircle,
+  Phone, Calendar, ArrowRight, Merge, Split
 } from 'lucide-react';
 
-interface WaiterOrder {
+interface TableData {
   id: string;
-  tableNumber: string;
-  tableId: string;
-  items: { name: string; quantity: number; status: 'pending' | 'preparing' | 'ready' }[];
-  total: number;
-  status: 'active' | 'ready' | 'waiting_payment';
-  createdAt: string;
-  notes?: string;
+  number: string;
+  capacity: number;
+  section: string;
+  status: 'available' | 'occupied' | 'reserved' | 'cleaning';
 }
 
-const demoOrders: WaiterOrder[] = [
-  {
-    id: '1',
-    tableNumber: '5',
-    tableId: '5',
-    items: [
-      { name: 'Izgara Levrek', quantity: 2, status: 'preparing' },
-      { name: 'Karides Güveç', quantity: 1, status: 'pending' },
-      { name: 'Humus', quantity: 2, status: 'ready' }
-    ],
-    total: 890,
-    status: 'active',
-    createdAt: '19:30'
-  },
-  {
-    id: '2',
-    tableNumber: '3',
-    tableId: '3',
-    items: [
-      { name: 'Pizza Margherita', quantity: 1, status: 'ready' },
-      { name: 'Caesar Salata', quantity: 1, status: 'ready' }
-    ],
-    total: 340,
-    status: 'ready',
-    createdAt: '19:45'
-  },
-  {
-    id: '3',
-    tableNumber: '8',
-    tableId: '8',
-    items: [
-      { name: 'Biftek', quantity: 2, status: 'ready' },
-      { name: 'Şarap', quantity: 1, status: 'ready' },
-      { name: 'Patates Püresi', quantity: 2, status: 'ready' }
-    ],
-    total: 1250,
-    status: 'waiting_payment',
-    createdAt: '19:00',
-    notes: 'Hesap istendi'
-  }
-];
+interface OrderData {
+  id: string;
+  table_number: string;
+  status: string;
+  total: number;
+  items: any[];
+  created_at: string;
+}
+
+interface ReservationData {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  time: string;
+  party_size: number;
+  table_number: string;
+  status: string;
+}
 
 export default function WaiterPage() {
   const { currentVenue } = useVenueStore();
-  const { tables } = useTableStore();
-  const [orders, setOrders] = useState<WaiterOrder[]>(demoOrders);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const [displayTime, setDisplayTime] = useState<string>('--:--:--');
-  const [selectedSection, setSelectedSection] = useState<string>('all');
-  const [showTableModal, setShowTableModal] = useState(false);
+  const t = useTranslations('waiter');
+  const tTables = useTranslations('tables');
+  const tOrders = useTranslations('orders');
+  const tCommon = useTranslations('common');
+
+  const [tables, setTables] = useState<TableData[]>([]);
+  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [reservations, setReservations] = useState<ReservationData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
+  const [activeSection, setActiveSection] = useState<string>('all');
+
+  // Status config
+  const statusConfig = {
+    available: { label: tTables('available'), bg: 'bg-green-500', border: 'border-green-400' },
+    occupied: { label: tTables('occupied'), bg: 'bg-red-500', border: 'border-red-400' },
+    reserved: { label: tTables('reserved'), bg: 'bg-amber-500', border: 'border-amber-400' },
+    cleaning: { label: tTables('cleaning'), bg: 'bg-blue-500', border: 'border-blue-400' },
+  };
+
+  // Section translations
+  const sectionTranslations: Record<string, string> = {
+    'Bahçe': tTables('garden'),
+    'İç Mekan': tTables('indoor'),
+    'Dış Mekan': tTables('outdoor'),
+    'Teras': tTables('terrace'),
+    'VIP': tTables('vip'),
+  };
+
+  const translateSection = (section: string) => sectionTranslations[section] || section;
+
+  const loadData = useCallback(async () => {
+    if (!currentVenue?.id) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const [tablesRes, ordersRes, reservationsRes] = await Promise.all([
+      supabase.from('tables').select('*').eq('venue_id', currentVenue.id).eq('is_active', true).order('number'),
+      supabase.from('orders').select('*').eq('venue_id', currentVenue.id).in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served']).not('table_number', 'is', null),
+      supabase.from('reservations').select('*').eq('venue_id', currentVenue.id).eq('date', today).in('status', ['pending', 'confirmed'])
+    ]);
+
+    if (tablesRes.data) setTables(tablesRes.data);
+    if (ordersRes.data) setOrders(ordersRes.data);
+    if (reservationsRes.data) setReservations(reservationsRes.data);
+    setLoading(false);
+  }, [currentVenue?.id]);
 
   useEffect(() => {
-    setMounted(true);
-    const updateTime = () => {
-      setDisplayTime(new Date().toLocaleTimeString('tr-TR'));
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    loadData();
+  }, [loadData]);
 
-  const sections = ['all', ...new Set(tables.map(t => t.section))];
-  const filteredTables = selectedSection === 'all' 
-    ? tables 
-    : tables.filter(t => t.section === selectedSection);
+  // Real-time subscription
+  useEffect(() => {
+    if (!currentVenue?.id) return;
 
-  const getTableStatusColor = (status: string) => {
-    switch (status) {
-      case 'available': return 'bg-green-500';
-      case 'occupied': return 'bg-red-500';
-      case 'reserved': return 'bg-amber-500';
-      case 'cleaning': return 'bg-blue-500';
-      default: return 'bg-gray-500';
-    }
+    const channel = supabase
+      .channel('waiter-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `venue_id=eq.${currentVenue.id}` }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${currentVenue.id}` }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations', filter: `venue_id=eq.${currentVenue.id}` }, loadData)
+      .subscribe();
+
+    return () => { channel.unsubscribe(); };
+  }, [currentVenue?.id, loadData]);
+
+  const getTableOrder = (tableNumber: string) => orders.find(o => o.table_number === tableNumber);
+  const getTableReservations = (tableNumber: string) => reservations.filter(r => r.table_number === tableNumber);
+
+  const getRealStatus = (table: TableData): 'available' | 'occupied' | 'reserved' | 'cleaning' => {
+    const order = getTableOrder(table.number);
+    const tableReservations = getTableReservations(table.number);
+    if (order) return 'occupied';
+    if (tableReservations.length > 0) return 'reserved';
+    return table.status;
   };
 
-  const getTableStatusText = (status: string) => {
-    switch (status) {
-      case 'available': return 'Boş';
-      case 'occupied': return 'Dolu';
-      case 'reserved': return 'Rezerve';
-      case 'cleaning': return 'Temizlik';
-      default: return status;
-    }
+  const sections = ['all', ...Array.from(new Set(tables.map(t => t.section)))];
+  const filteredTables = activeSection === 'all' ? tables : tables.filter(t => t.section === activeSection);
+
+  // Stats
+  const stats = {
+    available: tables.filter(t => getRealStatus(t) === 'available').length,
+    occupied: tables.filter(t => getRealStatus(t) === 'occupied').length,
+    reserved: tables.filter(t => getRealStatus(t) === 'reserved').length,
+    totalOrders: orders.length,
+    totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0),
   };
 
-  const activeOrders = orders.filter(o => o.status === 'active');
-  const readyOrders = orders.filter(o => o.status === 'ready');
-  const paymentOrders = orders.filter(o => o.status === 'waiting_payment');
+  const handleStatusChange = async (tableId: string, newStatus: TableData['status']) => {
+    await supabase.from('tables').update({ status: newStatus }).eq('id', tableId);
+    loadData();
+  };
 
-  if (!mounted) {
+  if (!currentVenue) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Yükleniyor...</div>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <p className="text-gray-400">{tCommon('selectVenue')}</p>
+        </div>
       </div>
     );
   }
 
-  if (!currentVenue) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Mekan Seçimi Gerekli</h2>
-          <p className="text-gray-400">Garson paneli için lütfen bir mekan seçin.</p>
-        </div>
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white -m-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
-      <PanelHeader
-        title="Garson Paneli"
-        subtitle={displayTime}
-        icon={<UtensilsCrossed className="w-8 h-8" />}
-        iconBgColor="text-blue-500"
-        soundEnabled={soundEnabled}
-        onSoundToggle={() => setSoundEnabled(!soundEnabled)}
-        showSound={true}
-      >
-        {/* Stats */}
-        <div className="flex items-center gap-6 bg-gray-800 rounded-xl px-6 py-3">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-500">{activeOrders.length}</p>
-            <p className="text-xs text-gray-400">Aktif</p>
-          </div>
-          <div className="w-px h-8 bg-gray-700" />
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-500">{readyOrders.length}</p>
-            <p className="text-xs text-gray-400">Hazır</p>
-          </div>
-          <div className="w-px h-8 bg-gray-700" />
-          <div className="text-center">
-            <p className="text-2xl font-bold text-amber-500">{paymentOrders.length}</p>
-            <p className="text-xs text-gray-400">Ödeme</p>
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
+          <p className="text-gray-400">{tables.length} {tTables('tableCount')}</p>
         </div>
-      </PanelHeader>
+        <button
+          onClick={loadData}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          {tCommon('refresh')}
+        </button>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sol: Masa Haritası */}
-        <div className="lg:col-span-2 bg-gray-800/50 rounded-2xl p-4">
-          {/* Section Tabs */}
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-            {sections.map(section => (
-              <button
-                key={section}
-                onClick={() => setSelectedSection(section)}
-                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                  selectedSection === section
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                {section === 'all' ? 'Tümü' : section}
-              </button>
-            ))}
-          </div>
-
-          {/* Tables Grid */}
-          <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
-            {filteredTables.map(table => (
-              <button
-                key={table.id}
-                onClick={() => {
-                  // Masa detay modal
-                }}
-                className={`aspect-square rounded-xl p-2 flex flex-col items-center justify-center transition-all hover:scale-105 ${
-                  table.status === 'available' 
-                    ? 'bg-green-600/20 border-2 border-green-500 hover:bg-green-600/30' 
-                    : table.status === 'occupied'
-                      ? 'bg-red-600/20 border-2 border-red-500 hover:bg-red-600/30'
-                      : table.status === 'reserved'
-                        ? 'bg-amber-600/20 border-2 border-amber-500 hover:bg-amber-600/30'
-                        : 'bg-blue-600/20 border-2 border-blue-500 hover:bg-blue-600/30'
-                }`}
-              >
-                <span className="text-lg font-bold">{table.number}</span>
-                <span className="text-xs text-gray-400">{table.capacity} kişi</span>
-                {table.currentOrder && (
-                  <span className="text-xs mt-1 text-amber-400">₺{table.currentOrder.total}</span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Legend */}
-          <div className="flex gap-4 mt-4 pt-4 border-t border-gray-700">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-500" />
-              <span className="text-sm text-gray-400">Boş</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-red-500" />
-              <span className="text-sm text-gray-400">Dolu</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-amber-500" />
-              <span className="text-sm text-gray-400">Rezerve</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-blue-500" />
-              <span className="text-sm text-gray-400">Temizlik</span>
-            </div>
-          </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-green-500/20 border border-green-500/50 rounded-xl p-4">
+          <p className="text-green-400 text-sm">{tTables('available')}</p>
+          <p className="text-2xl font-bold text-white">{stats.available}</p>
         </div>
-
-        {/* Sağ: Aktif Siparişler */}
-        <div className="bg-gray-800/50 rounded-2xl p-4">
-          <h2 className="text-xl font-bold mb-4">Aktif Siparişler</h2>
-          
-          <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
-            {orders.map(order => (
-              <div
-                key={order.id}
-                className={`rounded-xl p-4 ${
-                  order.status === 'ready' 
-                    ? 'bg-green-600/20 border border-green-500' 
-                    : order.status === 'waiting_payment'
-                      ? 'bg-amber-600/20 border border-amber-500'
-                      : 'bg-gray-700'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold">Masa {order.tableNumber}</span>
-                    {order.status === 'ready' && (
-                      <Bell className="w-5 h-5 text-green-400 animate-pulse" />
-                    )}
-                    {order.status === 'waiting_payment' && (
-                      <Timer className="w-5 h-5 text-amber-400" />
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-400">{order.createdAt}</span>
-                </div>
-
-                <div className="space-y-1 mb-3">
-                  {order.items.slice(0, 3).map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm">
-                      <span className={`w-2 h-2 rounded-full ${
-                        item.status === 'ready' ? 'bg-green-500' :
-                        item.status === 'preparing' ? 'bg-purple-500' : 'bg-amber-500'
-                      }`} />
-                      <span className="text-gray-300">{item.quantity}x {item.name}</span>
-                    </div>
-                  ))}
-                  {order.items.length > 3 && (
-                    <span className="text-xs text-gray-500">+{order.items.length - 3} ürün daha</span>
-                  )}
-                </div>
-
-                {order.notes && (
-                  <div className="flex items-center gap-2 text-xs text-amber-400 mb-2">
-                    <MessageSquare className="w-4 h-4" />
-                    {order.notes}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-2 border-t border-gray-600">
-                  <span className="font-bold text-lg">₺{order.total}</span>
-                  <div className="flex gap-2">
-                    {order.status === 'ready' && (
-                      <button className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-medium flex items-center gap-1">
-                        <Check className="w-4 h-4" />
-                        Servis Et
-                      </button>
-                    )}
-                    <button className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-medium flex items-center gap-1">
-                      <Plus className="w-4 h-4" />
-                      Ekle
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {orders.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Utensils className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Aktif sipariş yok</p>
-              </div>
-            )}
-          </div>
+        <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4">
+          <p className="text-red-400 text-sm">{tTables('occupied')}</p>
+          <p className="text-2xl font-bold text-white">{stats.occupied}</p>
+        </div>
+        <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4">
+          <p className="text-amber-400 text-sm">{tTables('reserved')}</p>
+          <p className="text-2xl font-bold text-white">{stats.reserved}</p>
+        </div>
+        <div className="bg-purple-500/20 border border-purple-500/50 rounded-xl p-4">
+          <p className="text-purple-400 text-sm">{tOrders('activeOrders')}</p>
+          <p className="text-2xl font-bold text-white">{stats.totalOrders}</p>
+        </div>
+        <div className="bg-orange-500/20 border border-orange-500/50 rounded-xl p-4">
+          <p className="text-orange-400 text-sm">{tCommon('total')}</p>
+          <p className="text-2xl font-bold text-white">₺{stats.totalRevenue.toFixed(0)}</p>
         </div>
       </div>
 
-      {/* Quick Actions - Bottom Bar */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-3 bg-gray-800 rounded-2xl p-3 shadow-2xl">
-        <button className="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Yeni Sipariş
-        </button>
-        <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold flex items-center gap-2">
-          <Coffee className="w-5 h-5" />
-          Hızlı Sipariş
-        </button>
-        <button className="px-6 py-3 bg-amber-600 hover:bg-amber-500 rounded-xl font-bold flex items-center gap-2">
-          <Bell className="w-5 h-5" />
-          Garson Çağrıları
-        </button>
+      {/* Section Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {sections.map(section => (
+          <button
+            key={section}
+            onClick={() => setActiveSection(section)}
+            className={`px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
+              activeSection === section
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            {section === 'all' ? tTables('allSections') : translateSection(section)}
+          </button>
+        ))}
+      </div>
+
+      {/* Tables Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        {filteredTables.map(table => {
+          const realStatus = getRealStatus(table);
+          const config = statusConfig[realStatus];
+          const order = getTableOrder(table.number);
+          const tableReservations = getTableReservations(table.number);
+
+          return (
+            <div
+              key={table.id}
+              onClick={() => setSelectedTable(table)}
+              className={`relative rounded-xl p-4 cursor-pointer hover:scale-105 transition-all border-2 ${config.border} ${
+                realStatus === 'available' ? 'bg-green-900/30' :
+                realStatus === 'occupied' ? 'bg-red-900/30' :
+                realStatus === 'reserved' ? 'bg-amber-900/30' :
+                'bg-blue-900/30'
+              }`}
+            >
+              {/* Badges */}
+              {tableReservations.length > 0 && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                  {tableReservations.length}
+                </div>
+              )}
+              {order && (
+                <div className="absolute -top-2 -left-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                  <Utensils className="w-3 h-3 text-white" />
+                </div>
+              )}
+
+              <h3 className="text-2xl font-bold text-white">{table.number}</h3>
+              <p className="text-gray-400 text-sm">{translateSection(table.section)}</p>
+              <div className="flex items-center gap-1 text-gray-400 text-sm mt-1">
+                <Users className="w-3 h-3" />
+                <span>{table.capacity}</span>
+              </div>
+
+              {/* Order info */}
+              {order && (
+                <div className="mt-2 text-sm">
+                  <p className="text-orange-400 font-medium">₺{order.total?.toFixed(0)}</p>
+                  <p className="text-gray-500">{order.items?.length || 0} {tCommon('items')}</p>
+                </div>
+              )}
+
+              {/* Reservation info */}
+              {!order && tableReservations[0] && (
+                <div className="mt-2 text-xs text-amber-400">
+                  <p>{tableReservations[0].time} - {tableReservations[0].customer_name}</p>
+                </div>
+              )}
+
+              {/* Status badge */}
+              <div className={`mt-2 inline-block px-2 py-1 ${config.bg} text-white text-xs rounded-full`}>
+                {config.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Table Detail Modal */}
+      {selectedTable && (
+        <TableActionModal
+          table={selectedTable}
+          order={getTableOrder(selectedTable.number)}
+          reservations={getTableReservations(selectedTable.number)}
+          statusConfig={statusConfig}
+          t={t}
+          tTables={tTables}
+          tOrders={tOrders}
+          tCommon={tCommon}
+          translateSection={translateSection}
+          onClose={() => setSelectedTable(null)}
+          onStatusChange={(status) => handleStatusChange(selectedTable.id, status)}
+          onRefresh={loadData}
+        />
+      )}
+    </div>
+  );
+}
+
+// Table Action Modal
+function TableActionModal({
+  table, order, reservations, statusConfig, t, tTables, tOrders, tCommon, translateSection, onClose, onStatusChange, onRefresh
+}: {
+  table: TableData;
+  order?: OrderData;
+  reservations: ReservationData[];
+  statusConfig: any;
+  t: any;
+  tTables: any;
+  tOrders: any;
+  tCommon: any;
+  translateSection: (s: string) => string;
+  onClose: () => void;
+  onStatusChange: (status: TableData['status']) => void;
+  onRefresh: () => void;
+}) {
+  const realStatus = order ? 'occupied' : reservations.length > 0 ? 'reserved' : table.status;
+  const config = statusConfig[realStatus];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-white">{tTables('tableNumber')} {table.number}</h2>
+              <span className={`px-3 py-1 ${config.bg} text-white text-sm rounded-full`}>
+                {config.label}
+              </span>
+            </div>
+            <p className="text-gray-400 mt-1">{translateSection(table.section)} • {table.capacity} {tTables('person')}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Quick Actions */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-400 mb-3">{t('quickActions')}</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {!order && (
+                <button className="flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors">
+                  <Plus className="w-4 h-4" />
+                  {t('takeOrder')}
+                </button>
+              )}
+              {order && (
+                <>
+                  <button className="flex items-center justify-center gap-2 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors">
+                    <Plus className="w-4 h-4" />
+                    {t('addToOrder')}
+                  </button>
+                  <button className="flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors">
+                    <CreditCard className="w-4 h-4" />
+                    {t('requestBill')}
+                  </button>
+                </>
+              )}
+              <button className="flex items-center justify-center gap-2 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition-colors">
+                <Bell className="w-4 h-4" />
+                {t('callWaiter')}
+              </button>
+              {order && (
+                <button className="flex items-center justify-center gap-2 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors">
+                  <Split className="w-4 h-4" />
+                  {t('split')}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Active Order */}
+          {order && (
+            <div className="bg-gray-700/50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-white">{tTables('currentOrder')}</h3>
+                <span className="text-orange-400 font-bold">₺{order.total?.toFixed(2)}</span>
+              </div>
+              <div className="space-y-2">
+                {order.items?.slice(0, 5).map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-300">{item.quantity}x {item.name || item.product_name}</span>
+                    <span className="text-gray-400">₺{((item.price || item.unit_price || 0) * item.quantity).toFixed(0)}</span>
+                  </div>
+                ))}
+                {order.items?.length > 5 && (
+                  <p className="text-xs text-gray-500">+{order.items.length - 5} {tCommon('more')} {tCommon('items')}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Reservations */}
+          {reservations.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-400 mb-2">{tTables('tableReservations')}</h3>
+              <div className="space-y-2">
+                {reservations.map(res => (
+                  <div key={res.id} className="bg-amber-900/30 border border-amber-700 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white font-medium">{res.customer_name}</span>
+                      <span className="text-amber-400">{res.time}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-400 mt-1">
+                      <span><Users className="w-3 h-3 inline mr-1" />{res.party_size}</span>
+                      <span><Phone className="w-3 h-3 inline mr-1" />{res.customer_phone}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Status Change */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-400 mb-2">{tTables('changeStatus')}</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {(['available', 'occupied', 'reserved', 'cleaning'] as const).map(status => (
+                <button
+                  key={status}
+                  onClick={() => onStatusChange(status)}
+                  className={`py-2 px-4 rounded-xl text-sm font-medium transition-colors ${
+                    table.status === status
+                      ? `${statusConfig[status].bg} text-white`
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {statusConfig[status].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
+          >
+            {tCommon('close')}
+          </button>
+        </div>
       </div>
     </div>
   );

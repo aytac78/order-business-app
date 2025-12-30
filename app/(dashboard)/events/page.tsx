@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { useVenueStore } from '@/stores';
 import { supabase } from '@/lib/supabase';
 import {
@@ -50,24 +51,25 @@ interface Event {
 }
 
 const eventTypes = [
-  { id: 'live_music', label: 'Canlı Müzik', icon: Music, color: 'bg-purple-500' },
-  { id: 'dj_night', label: 'DJ Gecesi', icon: Music, color: 'bg-pink-500' },
-  { id: 'special_menu', label: 'Özel Menü', icon: Utensils, color: 'bg-orange-500' },
-  { id: 'wine_tasting', label: 'Şarap Tadımı', icon: Wine, color: 'bg-red-500' },
-  { id: 'party', label: 'Parti', icon: PartyPopper, color: 'bg-yellow-500' },
-  { id: 'comedy', label: 'Stand-up', icon: Mic, color: 'bg-green-500' },
-  { id: 'other', label: 'Diğer', icon: Star, color: 'bg-gray-500' },
+  { id: 'live_music', label: 'types.live_music', icon: Music, color: 'bg-purple-500' },
+  { id: 'dj_night', label: 'types.dj', icon: Music, color: 'bg-pink-500' },
+  { id: 'special_menu', label: 'types.special_menu', icon: Utensils, color: 'bg-orange-500' },
+  { id: 'wine_tasting', label: 'types.wine_tasting', icon: Wine, color: 'bg-red-500' },
+  { id: 'party', label: 'types.party', icon: PartyPopper, color: 'bg-yellow-500' },
+  { id: 'comedy', label: 'types.comedy', icon: Mic, color: 'bg-green-500' },
+  { id: 'other', label: 'types.other', icon: Star, color: 'bg-gray-500' },
 ];
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-  draft: { label: 'Taslak', color: 'text-gray-700', bgColor: 'bg-gray-100' },
-  published: { label: 'Yayında', color: 'text-green-700', bgColor: 'bg-green-100' },
-  cancelled: { label: 'İptal', color: 'text-red-700', bgColor: 'bg-red-100' },
-  completed: { label: 'Tamamlandı', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+  draft: { label: 'draft', color: 'text-gray-700', bgColor: 'bg-gray-100' },
+  published: { label: 'published', color: 'text-green-700', bgColor: 'bg-green-100' },
+  cancelled: { label: 'cancelled', color: 'text-red-700', bgColor: 'bg-red-100' },
+  completed: { label: 'completed', color: 'text-blue-700', bgColor: 'bg-blue-100' },
 };
 
 export default function EventsPage() {
   const { currentVenue } = useVenueStore();
+  const t = useTranslations('events');
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -193,7 +195,7 @@ export default function EventsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Etkinlikler</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
           <p className="text-gray-500">{currentVenue.name} • Halkla İlişkiler</p>
         </div>
         <div className="flex items-center gap-3">
@@ -202,14 +204,14 @@ export default function EventsPage() {
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Yenile
+            {t('refresh')}
           </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
             <Plus className="w-4 h-4" />
-            Yeni Etkinlik
+            {t('addEvent')}
           </button>
         </div>
       </div>
@@ -221,7 +223,7 @@ export default function EventsPage() {
             <Calendar className="w-8 h-8 text-gray-600" />
             <div>
               <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-              <p className="text-sm text-gray-600">Toplam</p>
+              <p className="text-sm text-gray-600">{t('total')}</p>
             </div>
           </div>
         </div>
@@ -230,7 +232,7 @@ export default function EventsPage() {
             <CheckCircle className="w-8 h-8 text-green-600" />
             <div>
               <p className="text-2xl font-bold text-green-700">{stats.published}</p>
-              <p className="text-sm text-green-600">Yayında</p>
+              <p className="text-sm text-green-600">{t('published')}</p>
             </div>
           </div>
         </div>
@@ -239,7 +241,7 @@ export default function EventsPage() {
             <Clock className="w-8 h-8 text-orange-600" />
             <div>
               <p className="text-2xl font-bold text-orange-700">{stats.upcoming}</p>
-              <p className="text-sm text-orange-600">Yaklaşan</p>
+              <p className="text-sm text-orange-600">{t('upcoming')}</p>
             </div>
           </div>
         </div>
@@ -248,7 +250,7 @@ export default function EventsPage() {
             <Users className="w-8 h-8 text-purple-600" />
             <div>
               <p className="text-2xl font-bold text-purple-700">{stats.totalAttendees}</p>
-              <p className="text-sm text-purple-600">Katılımcı</p>
+              <p className="text-sm text-purple-600">{t('attendees')}</p>
             </div>
           </div>
         </div>
@@ -260,7 +262,7 @@ export default function EventsPage() {
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Etkinlik ara..."
+            placeholder={t('search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
@@ -272,10 +274,10 @@ export default function EventsPage() {
           onChange={(e) => setFilterStatus(e.target.value)}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
         >
-          <option value="all">Tüm Durumlar</option>
+          <option value="all">{t('allStatuses')}</option>
           <option value="draft">Taslak</option>
-          <option value="published">Yayında</option>
-          <option value="cancelled">İptal</option>
+          <option value="published">{t('published')}</option>
+          <option value="cancelled">{	('cancel')}</option>
           <option value="completed">Tamamlandı</option>
         </select>
 
@@ -284,9 +286,9 @@ export default function EventsPage() {
           onChange={(e) => setFilterType(e.target.value)}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
         >
-          <option value="all">Tüm Tipler</option>
+          <option value="all">{t('allTypes')}</option>
           {eventTypes.map(type => (
-            <option key={type.id} value={type.id}>{type.label}</option>
+            <option key={type.id} value={type.id}>{t(type.label)}</option>
           ))}
         </select>
       </div>
@@ -316,7 +318,7 @@ export default function EventsPage() {
                   </div>
                 )}
                 <div className={`absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-medium ${config.bgColor} ${config.color}`}>
-                  {config.label}
+                  {t(config.label)}
                 </div>
               </div>
 
@@ -325,7 +327,7 @@ export default function EventsPage() {
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-bold text-gray-900 text-lg">{event.title}</h3>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.color} text-white`}>
-                    {typeInfo.label}
+                    {t(typeInfo.label)}
                   </span>
                 </div>
 
@@ -456,7 +458,7 @@ function AddEventModal({
 
   const handleSubmit = async () => {
     if (!formData.title) {
-      alert('Etkinlik adı zorunludur');
+      alert(t('eventNameRequired'));
       return;
     }
 
@@ -476,7 +478,7 @@ function AddEventModal({
 
     if (error) {
       console.error('Add event error:', error);
-      alert('Etkinlik eklenirken hata oluştu');
+      alert(t('eventError'));
       return;
     }
 
@@ -487,7 +489,7 @@ function AddEventModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-5 border-b flex items-center justify-between sticky top-0 bg-white">
-          <h2 className="text-xl font-bold">Yeni Etkinlik</h2>
+          <h2 className="text-xl font-bold">{t('addEvent')}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
           </button>
@@ -495,7 +497,7 @@ function AddEventModal({
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Etkinlik Adı *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('eventName')} *</label>
             <input
               type="text"
               value={formData.title}
@@ -506,7 +508,7 @@ function AddEventModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('description')}</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -517,21 +519,21 @@ function AddEventModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Etkinlik Tipi</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('eventType')}</label>
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg"
             >
               {eventTypes.map(type => (
-                <option key={type.id} value={type.id}>{type.label}</option>
+                <option key={type.id} value={type.id}>{t(type.label)}</option>
               ))}
             </select>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tarih</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
               <input
                 type="date"
                 value={formData.date}
@@ -540,7 +542,7 @@ function AddEventModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Başlangıç</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
               <input
                 type="time"
                 value={formData.start_time}
@@ -549,7 +551,7 @@ function AddEventModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
               <input
                 type="time"
                 value={formData.end_time}
@@ -561,7 +563,7 @@ function AddEventModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Kapasite</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('capacity')}</label>
               <input
                 type="number"
                 value={formData.capacity}
@@ -570,7 +572,7 @@ function AddEventModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Bilet Fiyatı</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('price')}</label>
               <input
                 type="number"
                 value={formData.ticket_price}
@@ -589,7 +591,7 @@ function AddEventModal({
                 onChange={(e) => setFormData({ ...formData, is_free: e.target.checked })}
                 className="w-4 h-4 rounded"
               />
-              <span className="text-sm">Ücretsiz Etkinlik</span>
+              <span className="text-sm">{	('free')}</span>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -615,7 +617,7 @@ function AddEventModal({
             disabled={isSubmitting}
             className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50"
           >
-            {isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}
+            {isSubmitting ? t('saving') : t('save')}
           </button>
         </div>
       </div>
@@ -658,7 +660,7 @@ function EventDetailModal({
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{event.title}</h2>
               <span className={`inline-block mt-1 px-3 py-1 rounded-full text-sm font-medium ${config.bgColor} ${config.color}`}>
-                {config.label}
+                {t(config.label)}
               </span>
             </div>
             {event.is_free ? (

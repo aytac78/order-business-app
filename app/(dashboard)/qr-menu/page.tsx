@@ -1,87 +1,97 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useVenueStore } from '@/stores';
+import { useTranslations } from 'next-intl';
+import { QRCodeSVG } from 'qrcode.react';
+import { supabase } from '@/lib/supabase';
 import {
-  QrCode,
-  Download,
-  Copy,
-  Eye,
-  Palette,
-  Image,
-  Type,
-  Globe,
-  Smartphone,
-  Settings,
-  Check,
-  RefreshCw,
-  ExternalLink,
-  AlertCircle
+  QrCode, Download, Copy, CheckCircle, AlertCircle, Loader2,
+  RefreshCw, Smartphone, Link2, ExternalLink, Printer, Settings
 } from 'lucide-react';
 
-interface QRSettings {
-  menuUrl: string;
-  primaryColor: string;
-  logoEnabled: boolean;
-  showPrices: boolean;
-  showImages: boolean;
-  showDescriptions: boolean;
-  language: string;
-  theme: 'light' | 'dark' | 'auto';
+interface Table {
+  id: string;
+  number: string;
+  section: string;
 }
 
 export default function QRMenuPage() {
   const { currentVenue } = useVenueStore();
-  const [mounted, setMounted] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'qr' | 'design' | 'settings'>('qr');
-  
-  const [settings, setSettings] = useState<QRSettings>({
-    menuUrl: '',
-    primaryColor: '#f97316',
-    logoEnabled: true,
-    showPrices: true,
-    showImages: true,
-    showDescriptions: true,
-    language: 'tr',
-    theme: 'light'
-  });
+  const t = useTranslations('qrMenu');
+  const tTables = useTranslations('tables');
+  const tCommon = useTranslations('common');
+
+  const [tables, setTables] = useState<Table[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  const loadTables = useCallback(async () => {
+    if (!currentVenue?.id) return;
+
+    const { data } = await supabase
+      .from('tables')
+      .select('id, number, section')
+      .eq('venue_id', currentVenue.id)
+      .eq('is_active', true)
+      .order('section')
+      .order('number');
+
+    if (data) setTables(data);
+    setLoading(false);
+  }, [currentVenue?.id]);
 
   useEffect(() => {
-    setMounted(true);
-    if (currentVenue) {
-      setSettings(prev => ({
-        ...prev,
-        menuUrl: `https://order.app/menu/${currentVenue.slug}`
-      }));
-    }
-  }, [currentVenue]);
+    loadTables();
+  }, [loadTables]);
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(settings.menuUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const getMenuUrl = (tableId?: string) => {
+    const baseUrl = `https://order.tit.app/${currentVenue?.slug || currentVenue?.id}`;
+    return tableId ? `${baseUrl}?table=${tableId}` : baseUrl;
   };
 
-  const handleDownloadQR = () => {
-    // Simulate QR download
-    alert('QR kod indirildi!');
+  const handleCopyLink = (link: string) => {
+    navigator.clipboard.writeText(link);
+    setCopiedLink(link);
+    setTimeout(() => setCopiedLink(null), 2000);
   };
 
-  if (!mounted) {
-    return <div className="animate-pulse bg-gray-100 rounded-2xl h-96" />;
-  }
+  const handleDownloadQR = (tableId?: string, tableName?: string) => {
+    // QR code download logic - would integrate with QR library
+    const link = getMenuUrl(tableId);
+    const filename = tableName ? `qr-masa-${tableName}.png` : 'qr-menu.png';
+    
+    // Create a simple QR placeholder download
+    alert(`QR kodu indirilecek: ${filename}\nLink: ${link}`);
+  };
+
+  const handlePrintAll = () => {
+    alert('Tüm QR kodları yazdırılacak');
+  };
+
+  // Group tables by section
+  const tablesBySection = tables.reduce((acc, table) => {
+    if (!acc[table.section]) acc[table.section] = [];
+    acc[table.section].push(table);
+    return acc;
+  }, {} as Record<string, Table[]>);
 
   if (!currentVenue) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
+      <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-10 h-10 text-amber-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Mekan Seçimi Gerekli</h2>
-          <p className="text-gray-500">QR Menü ayarları için lütfen bir mekan seçin.</p>
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <p className="text-gray-400">{tCommon('selectVenue')}</p>
         </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
@@ -91,273 +101,196 @@ export default function QRMenuPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">QR Menü</h1>
-          <p className="text-gray-500 mt-1">Dijital menünüzü yönetin ve QR kodunuzu özelleştirin</p>
+          <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
+          <p className="text-gray-400">{currentVenue.name}</p>
         </div>
-        <a
-          href={settings.menuUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
-        >
-          <Eye className="w-4 h-4" />
-          Önizleme
-          <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        {[
-          { id: 'qr', label: 'QR Kod', icon: QrCode },
-          { id: 'design', label: 'Tasarım', icon: Palette },
-          { id: 'settings', label: 'Ayarlar', icon: Settings }
-        ].map(tab => (
+        <div className="flex items-center gap-3">
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === tab.id
-                ? 'text-orange-600 border-orange-500'
-                : 'text-gray-500 border-transparent hover:text-gray-700'
-            }`}
+            onClick={loadTables}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
+            <RefreshCw className="w-4 h-4" />
+            {tCommon('refresh')}
           </button>
-        ))}
+          <button
+            onClick={handlePrintAll}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            Tümünü Yazdır
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* QR Code Preview */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">QR Kodunuz</h3>
+      {/* Main QR Code */}
+      <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-6">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          {/* QR Preview */}
+          <div className="w-48 h-48 bg-white rounded-2xl flex items-center justify-center shadow-lg">
+            <QRCodeSVG value={getMenuUrl()} size={128} level="H" />
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 text-center md:text-left">
+            <h2 className="text-2xl font-bold text-white mb-2">Ana Menü QR Kodu</h2>
+            <p className="text-orange-100 mb-4">
+              Bu QR kod ile müşteriler doğrudan menünüze erişebilir
+            </p>
             
-            {/* QR Code Display */}
-            <div className="bg-gray-50 rounded-xl p-8 flex items-center justify-center mb-4">
-              <div className="w-48 h-48 bg-white rounded-lg shadow-sm flex items-center justify-center border-4 border-gray-200">
-                <QrCode className="w-32 h-32 text-gray-800" />
-              </div>
-            </div>
-
-            {/* URL */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Menü URL</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={settings.menuUrl}
-                  readOnly
-                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600"
-                />
-                <button
-                  onClick={handleCopyUrl}
-                  className={`px-3 py-2 rounded-lg transition-colors ${
-                    copied 
-                      ? 'bg-green-100 text-green-600' 
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                  }`}
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Download Buttons */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Link */}
+            <div className="flex items-center gap-2 bg-white/20 rounded-xl p-3 mb-4">
+              <Link2 className="w-5 h-5 text-white" />
+              <span className="flex-1 text-white font-mono text-sm truncate">
+                {getMenuUrl()}
+              </span>
               <button
-                onClick={handleDownloadQR}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium transition-colors"
+                onClick={() => handleCopyLink(getMenuUrl())}
+                className={`p-2 rounded-lg transition-colors ${
+                  copiedLink === getMenuUrl() 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
               >
-                <Download className="w-4 h-4" />
-                PNG
+                {copiedLink === getMenuUrl() ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               </button>
+              <a
+                href={getMenuUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-white/20 text-white rounded-lg hover:bg-white/30"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-3 justify-center md:justify-start">
               <button
-                onClick={handleDownloadQR}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+                onClick={() => handleDownloadQR()}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-orange-600 rounded-xl font-medium hover:bg-orange-50"
               >
                 <Download className="w-4 h-4" />
-                SVG
+                {t('downloadQR')}
+              </button>
+              <button className="flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30">
+                <Settings className="w-4 h-4" />
+                QR Ayarları
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Settings Panel */}
-        <div className="lg:col-span-2">
-          {activeTab === 'qr' && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
-              <h3 className="font-semibold text-gray-900">QR Kod Ayarları</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">QR Boyutu</label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg">
-                    <option>256x256 px</option>
-                    <option>512x512 px</option>
-                    <option>1024x1024 px</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Hata Düzeltme</label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg">
-                    <option>Düşük (%7)</option>
-                    <option>Orta (%15)</option>
-                    <option>Yüksek (%25)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">QR Rengi</label>
-                <div className="flex gap-3">
-                  {['#000000', '#1f2937', '#f97316', '#ef4444', '#3b82f6'].map(color => (
-                    <button
-                      key={color}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                        settings.primaryColor === color ? 'border-orange-500 scale-110' : 'border-gray-200'
-                      }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setSettings({ ...settings, primaryColor: color })}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Image className="w-5 h-5 text-gray-600" />
-                  <div>
-                    <p className="font-medium text-gray-900">Logo Ekle</p>
-                    <p className="text-sm text-gray-500">QR kodun ortasına logo yerleştir</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSettings({ ...settings, logoEnabled: !settings.logoEnabled })}
-                  className={`w-12 h-6 rounded-full transition-colors ${
-                    settings.logoEnabled ? 'bg-orange-500' : 'bg-gray-300'
-                  }`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                    settings.logoEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                  }`} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'design' && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
-              <h3 className="font-semibold text-gray-900">Menü Tasarımı</h3>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tema</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { id: 'light', label: 'Açık' },
-                    { id: 'dark', label: 'Koyu' },
-                    { id: 'auto', label: 'Otomatik' }
-                  ].map(theme => (
-                    <button
-                      key={theme.id}
-                      onClick={() => setSettings({ ...settings, theme: theme.id as any })}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        settings.theme === theme.id 
-                          ? 'border-orange-500 bg-orange-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <p className="font-medium text-gray-900">{theme.label}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Ana Renk</label>
-                <div className="flex gap-3">
-                  {['#f97316', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'].map(color => (
-                    <button
-                      key={color}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                        settings.primaryColor === color ? 'border-gray-900 scale-110' : 'border-gray-200'
-                      }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setSettings({ ...settings, primaryColor: color })}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
-              <h3 className="font-semibold text-gray-900">Görünüm Ayarları</h3>
-              
-              {[
-                { key: 'showPrices', label: 'Fiyatları Göster', desc: 'Ürün fiyatlarını menüde göster', icon: Type },
-                { key: 'showImages', label: 'Görselleri Göster', desc: 'Ürün fotoğraflarını göster', icon: Image },
-                { key: 'showDescriptions', label: 'Açıklamaları Göster', desc: 'Ürün açıklamalarını göster', icon: Type }
-              ].map(item => (
-                <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <item.icon className="w-5 h-5 text-gray-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">{item.label}</p>
-                      <p className="text-sm text-gray-500">{item.desc}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSettings({ ...settings, [item.key]: !settings[item.key as keyof QRSettings] })}
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      settings[item.key as keyof QRSettings] ? 'bg-orange-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                      settings[item.key as keyof QRSettings] ? 'translate-x-6' : 'translate-x-0.5'
-                    }`} />
-                  </button>
-                </div>
-              ))}
-
-              <div className="pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Dil</label>
-                <select 
-                  value={settings.language}
-                  onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg"
-                >
-                  <option value="tr">Türkçe</option>
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                  <option value="ru">Русский</option>
-                </select>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Bugün Tarama', value: '234', change: '+12%' },
-          { label: 'Bu Hafta', value: '1,847', change: '+8%' },
-          { label: 'Toplam Tarama', value: '45,230', change: '' },
-          { label: 'Ort. Oturum Süresi', value: '4:32', change: '+15%' }
-        ].map((stat, i) => (
-          <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
-            <p className="text-sm text-gray-500">{stat.label}</p>
-            <div className="flex items-end justify-between mt-1">
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              {stat.change && (
-                <span className="text-sm text-green-600 font-medium">{stat.change}</span>
-              )}
+      {/* Table QR Codes */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-white">{t('tableQR')}</h2>
+          <p className="text-sm text-gray-400">{tables.length} masa</p>
+        </div>
+
+        {tables.length === 0 ? (
+          <div className="text-center py-8">
+            <QrCode className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">{tTables('noTables')}</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(tablesBySection).map(([section, sectionTables]) => (
+              <div key={section}>
+                <h3 className="text-sm font-medium text-gray-400 mb-3">{section}</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {sectionTables.map(table => (
+                    <div
+                      key={table.id}
+                      className={`bg-gray-700 rounded-xl p-4 text-center cursor-pointer transition-all hover:bg-gray-600 ${
+                        selectedTable === table.id ? 'ring-2 ring-orange-500' : ''
+                      }`}
+                      onClick={() => setSelectedTable(selectedTable === table.id ? null : table.id)}
+                    >
+                      {/* Mini QR */}
+                      <div className="w-16 h-16 bg-white rounded-lg mx-auto mb-2 flex items-center justify-center">
+                        <QrCode className="w-12 h-12 text-gray-800" />
+                      </div>
+                      
+                      <p className="font-medium text-white mb-2">Masa {table.number}</p>
+                      
+                      {/* Actions */}
+                      <div className="flex gap-1 justify-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCopyLink(getMenuUrl(table.id)); }}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            copiedLink === getMenuUrl(table.id)
+                              ? 'bg-green-500 text-white'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                          }`}
+                        >
+                          {copiedLink === getMenuUrl(table.id) ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDownloadQR(table.id, table.number); }}
+                          className="p-1.5 bg-gray-600 text-gray-300 rounded-lg hover:bg-gray-500"
+                        >
+                          <Download className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Preview Section */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">Müşteri Görünümü</h2>
+        <div className="flex items-center gap-6">
+          <div className="w-64 h-[500px] bg-gray-900 rounded-3xl border-4 border-gray-700 overflow-hidden relative">
+            {/* Phone mockup */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-gray-700 rounded-b-xl" />
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <Smartphone className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 text-sm">Menü Önizleme</p>
+                <a
+                  href={getMenuUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl text-sm"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Görüntüle
+                </a>
+              </div>
             </div>
           </div>
-        ))}
+
+          <div className="flex-1">
+            <h3 className="text-white font-medium mb-2">{t('scanToOrder')}</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Müşteriler QR kodu telefonları ile taradığında menünüze yönlendirilir ve sipariş verebilirler.
+            </p>
+            <ul className="space-y-2 text-sm text-gray-400">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                Anlık menü güncellemeleri
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                Masaya özel sipariş takibi
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                Temassız sipariş deneyimi
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                Çoklu dil desteği
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,241 +1,169 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useVenueStore } from '@/stores';
+import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 import {
-  Settings,
-  LayoutDashboard,
-  Grid3X3,
-  ClipboardList,
-  UtensilsCrossed,
-  ChefHat,
-  Users,
-  CreditCard,
-  CalendarCheck,
-  Package,
-  Save,
-  CheckCircle,
-  AlertCircle,
-  Building2,
-  Bell,
-  ToggleLeft,
-  ToggleRight,
-  Info
+  Save, AlertCircle, Loader2, Settings as SettingsIcon,
+  Building, Clock, CreditCard, Bell, Palette, Globe,
+  QrCode, Users, Shield, Database, Trash2, ToggleLeft, ToggleRight
 } from 'lucide-react';
 
-// Panel tanımları
-const PANELS = [
-  { 
-    id: 'dashboard', 
-    name: 'Dashboard', 
-    description: 'Genel bakış ve istatistikler',
-    icon: LayoutDashboard,
-    required: true
-  },
-  { 
-    id: 'tables', 
-    name: 'Masalar', 
-    description: 'Masa yönetimi ve oturma düzeni',
-    icon: Grid3X3,
-    recommended: ['restaurant', 'cafe', 'bar', 'beach_club']
-  },
-  { 
-    id: 'orders', 
-    name: 'Siparişler', 
-    description: 'Sipariş listesi ve takibi',
-    icon: ClipboardList,
-    required: true
-  },
-  { 
-    id: 'waiter', 
-    name: 'Garson Paneli', 
-    description: 'Garsonlar için sipariş alma ekranı',
-    icon: UtensilsCrossed,
-    recommended: ['restaurant', 'beach_club']
-  },
-  { 
-    id: 'kitchen', 
-    name: 'Mutfak', 
-    description: 'Mutfak siparişleri ve hazırlık takibi',
-    icon: ChefHat,
-    recommended: ['restaurant', 'cafe', 'beach_club']
-  },
-  { 
-    id: 'reception', 
-    name: 'Resepsiyon', 
-    description: 'Rezervasyonlar ve müşteri karşılama',
-    icon: Users,
-    recommended: ['restaurant', 'beach_club', 'hotel_restaurant']
-  },
-  { 
-    id: 'pos', 
-    name: 'Kasa / POS', 
-    description: 'Ödeme alma ve hesap kapatma',
-    icon: CreditCard,
-    required: true
-  },
-  { 
-    id: 'stock', 
-    name: 'Stok Yönetimi', 
-    description: 'Stok takibi ve envanter yönetimi',
-    icon: Package,
-    recommended: ['restaurant', 'cafe', 'bar', 'beach_club']
-  },
-  { 
-    id: 'reservations', 
-    name: 'Rezervasyonlar', 
-    description: 'Rezervasyon yönetimi',
-    icon: CalendarCheck,
-    recommended: ['restaurant', 'beach_club', 'hotel_restaurant']
-  },
-];
-
-// İşletme tipi presetleri
-const VENUE_PRESETS: Record<string, { name: string; panels: string[] }> = {
-  coffee_shop: {
-    name: '☕ Kahve Dükkanı / Takeaway',
-    panels: ['dashboard', 'orders', 'pos']
-  },
-  fast_food: {
-    name: '🍔 Fast Food / Quick Service',
-    panels: ['dashboard', 'orders', 'kitchen', 'pos']
-  },
-  restaurant: {
-    name: '🍽️ Restaurant',
-    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'pos', 'stock', 'reservations']
-  },
-  cafe: {
-    name: '🥐 Kafe',
-    panels: ['dashboard', 'tables', 'orders', 'kitchen', 'pos', 'stock']
-  },
-  bar: {
-    name: '🍺 Bar / Pub',
-    panels: ['dashboard', 'tables', 'orders', 'pos', 'stock']
-  },
-  beach_club: {
-    name: '🏖️ Beach Club / Fine Dining',
-    panels: ['dashboard', 'tables', 'orders', 'waiter', 'kitchen', 'reception', 'pos', 'stock', 'reservations']
-  },
-  custom: {
-    name: '⚙️ Özel Ayarlar',
-    panels: []
-  }
-};
-
-interface PanelSettings {
-  dashboard: boolean;
-  tables: boolean;
-  orders: boolean;
-  waiter: boolean;
-  kitchen: boolean;
-  reception: boolean;
-  pos: boolean;
-  stock: boolean;
-  reservations: boolean;
+interface VenueSettings {
+  working_hours: {
+    [key: string]: { is_open: boolean; open: string; close: string };
+  };
+  reservation_enabled: boolean;
+  qr_menu_enabled: boolean;
+  online_ordering_enabled: boolean;
+  min_order_amount?: number;
+  service_charge_percent?: number;
+  tax_rate: number;
+  auto_accept_orders: boolean;
+  notification_sounds: boolean;
+  theme_color: string;
 }
 
-const defaultPanels: PanelSettings = {
-  dashboard: true,
-  tables: true,
-  orders: true,
-  waiter: true,
-  kitchen: true,
-  reception: true,
-  pos: true,
-  stock: true,
-  reservations: true
-};
-
 export default function SettingsPage() {
-  const { currentVenue } = useVenueStore();
-  const [activeTab, setActiveTab] = useState<'panels' | 'general' | 'notifications'>('panels');
-  const [panels, setPanels] = useState<PanelSettings>(defaultPanels);
-  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const { currentVenue, setCurrentVenue } = useVenueStore();
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
 
-  // Load settings from localStorage
-  useEffect(() => {
-    if (currentVenue?.id) {
-      const saved = localStorage.getItem(`venue_panels_${currentVenue.id}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setPanels({ ...defaultPanels, ...parsed.panels });
-          setSelectedPreset(parsed.preset || 'custom');
-        } catch {
-          // ignore
-        }
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('general');
+
+  // Form states
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [currency, setCurrency] = useState('TRY');
+  const [timezone, setTimezone] = useState('Europe/Istanbul');
+
+  // Settings
+  const [settings, setSettings] = useState<VenueSettings>({
+    working_hours: {
+      monday: { is_open: true, open: '09:00', close: '22:00' },
+      tuesday: { is_open: true, open: '09:00', close: '22:00' },
+      wednesday: { is_open: true, open: '09:00', close: '22:00' },
+      thursday: { is_open: true, open: '09:00', close: '22:00' },
+      friday: { is_open: true, open: '09:00', close: '23:00' },
+      saturday: { is_open: true, open: '09:00', close: '23:00' },
+      sunday: { is_open: true, open: '10:00', close: '22:00' },
+    },
+    reservation_enabled: true,
+    qr_menu_enabled: true,
+    online_ordering_enabled: true,
+    min_order_amount: 0,
+    service_charge_percent: 0,
+    tax_rate: 8,
+    auto_accept_orders: false,
+    notification_sounds: true,
+    theme_color: '#f97316',
+  });
+
+  const dayNames = {
+    monday: t('monday'),
+    tuesday: t('tuesday'),
+    wednesday: t('wednesday'),
+    thursday: t('thursday'),
+    friday: t('friday'),
+    saturday: t('saturday'),
+    sunday: t('sunday'),
+  };
+
+  const loadVenue = useCallback(async () => {
+    if (!currentVenue?.id) return;
+
+    const { data } = await supabase
+      .from('venues')
+      .select('*')
+      .eq('id', currentVenue.id)
+      .single();
+
+    if (data) {
+      setName(data.name || '');
+      setPhone(data.phone || '');
+      setEmail(data.email || '');
+      setAddress(data.address || '');
+      setCurrency(data.currency || 'TRY');
+      setTimezone(data.timezone || 'Europe/Istanbul');
+      if (data.settings) {
+        setSettings(prev => ({ ...prev, ...data.settings }));
       }
     }
+    setLoading(false);
   }, [currentVenue?.id]);
 
-  // Apply preset
-  const applyPreset = (presetKey: string) => {
-    setSelectedPreset(presetKey);
-    
-    if (presetKey === 'custom') return;
-    
-    const preset = VENUE_PRESETS[presetKey];
-    if (!preset) return;
+  useEffect(() => {
+    loadVenue();
+  }, [loadVenue]);
 
-    const newPanels: PanelSettings = {
-      dashboard: true,
-      tables: preset.panels.includes('tables'),
-      orders: true,
-      waiter: preset.panels.includes('waiter'),
-      kitchen: preset.panels.includes('kitchen'),
-      reception: preset.panels.includes('reception'),
-      pos: true,
-      stock: preset.panels.includes('stock'),
-      reservations: preset.panels.includes('reservations')
-    };
-
-    setPanels(newPanels);
-  };
-
-  // Toggle single panel
-  const togglePanel = (panelId: string) => {
-    const panel = PANELS.find(p => p.id === panelId);
-    if (panel?.required) return;
-
-    setPanels(prev => ({
-      ...prev,
-      [panelId]: !prev[panelId as keyof PanelSettings]
-    }));
-    setSelectedPreset('custom');
-  };
-
-  // Save settings
-  const saveSettings = async () => {
+  const handleSave = async () => {
     if (!currentVenue?.id) return;
-    
-    setIsSaving(true);
-    
-    // Save to localStorage
-    localStorage.setItem(`venue_panels_${currentVenue.id}`, JSON.stringify({
-      panels,
-      preset: selectedPreset
-    }));
+    setSaving(true);
 
-    // Broadcast to Sidebar
-    window.dispatchEvent(new CustomEvent('panelSettingsChanged', { detail: panels }));
+    const { data, error } = await supabase
+      .from('venues')
+      .update({
+        name,
+        phone,
+        email,
+        address,
+        currency,
+        timezone,
+        settings,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', currentVenue.id)
+      .select()
+      .single();
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (data && !error) {
+      setCurrentVenue({ ...currentVenue, ...data });
+    }
     
-    setIsSaving(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    setSaving(false);
   };
+
+  const updateWorkingHours = (day: string, field: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      working_hours: {
+        ...prev.working_hours,
+        [day]: {
+          ...prev.working_hours[day],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const tabs = [
+    { id: 'general', label: t('general'), icon: Building },
+    { id: 'hours', label: t('workingHours'), icon: Clock },
+    { id: 'ordering', label: t('orderSettings'), icon: QrCode },
+    { id: 'payment', label: t('paymentSettings'), icon: CreditCard },
+    { id: 'notifications', label: t('notifications'), icon: Bell },
+  ];
 
   if (!currentVenue) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <p className="text-gray-400">Lütfen bir mekan seçin</p>
+          <p className="text-gray-400">{tCommon('selectVenue')}</p>
         </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
@@ -245,180 +173,296 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Ayarlar</h1>
-          <p className="text-gray-400">{currentVenue.name} • Sistem ayarları</p>
+          <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
+          <p className="text-gray-400">{currentVenue.name}</p>
         </div>
         <button
-          onClick={saveSettings}
-          disabled={isSaving}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
-            saveSuccess 
-              ? 'bg-green-500 text-white' 
-              : 'bg-orange-500 hover:bg-orange-600 text-white'
-          }`}
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white rounded-xl transition-colors"
         >
-          {saveSuccess ? (
-            <>
-              <CheckCircle className="w-5 h-5" />
-              Kaydedildi!
-            </>
-          ) : (
-            <>
-              <Save className={`w-5 h-5 ${isSaving ? 'animate-spin' : ''}`} />
-              {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
-            </>
-          )}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {tCommon('save')}
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-700 pb-2">
-        {[
-          { id: 'panels', label: 'Panel Yönetimi', icon: Grid3X3 },
-          { id: 'general', label: 'Genel', icon: Building2 },
-          { id: 'notifications', label: 'Bildirimler', icon: Bell },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === tab.id
-                ? 'bg-orange-500/20 text-orange-400'
-                : 'text-gray-400 hover:bg-gray-800'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Panel Management Tab */}
-      {activeTab === 'panels' && (
-        <div className="space-y-6">
-          {/* Info Box */}
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-400 mt-0.5" />
-            <div>
-              <p className="font-semibold text-blue-300">Panel Yönetimi</p>
-              <p className="text-sm text-blue-400">
-                İşletme tipinize göre gereksiz panelleri kapatarak arayüzü sadeleştirebilirsiniz. 
-                Kapatılan paneller sidebar'dan kaldırılır.
-              </p>
+      {/* Content */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        {/* General Settings */}
+        {activeTab === 'general' && (
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-white mb-4">{t('general')}</h2>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('venueName')}</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('phone')}</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('email')}</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('currency')}</label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                >
+                  <option value="TRY">TRY (₺)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('address')}</label>
+                <textarea
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('timezone')}</label>
+                <select
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                >
+                  <option value="Europe/Istanbul">Europe/Istanbul (UTC+3)</option>
+                  <option value="Europe/Rome">Europe/Rome (UTC+1)</option>
+                  <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+                  <option value="Asia/Tehran">Asia/Tehran (UTC+3:30)</option>
+                  <option value="Asia/Jakarta">Asia/Jakarta (UTC+7)</option>
+                  <option value="Asia/Bangkok">Asia/Bangkok (UTC+7)</option>
+                </select>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Preset Selection */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              Hızlı Ayar (İşletme Tipi)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {Object.entries(VENUE_PRESETS).map(([key, preset]) => (
-                <button
-                  key={key}
-                  onClick={() => applyPreset(key)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
-                    selectedPreset === key
-                      ? 'border-orange-500 bg-orange-500/10'
-                      : 'border-gray-700 hover:border-gray-600 bg-gray-900'
-                  }`}
-                >
-                  <p className="font-semibold text-white">{preset.name}</p>
-                  {key !== 'custom' && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {preset.panels.length} panel aktif
-                    </p>
+        {/* Working Hours */}
+        {activeTab === 'hours' && (
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-white mb-4">{t('workingHours')}</h2>
+            
+            <div className="space-y-4">
+              {Object.entries(settings.working_hours).map(([day, hours]) => (
+                <div key={day} className="flex items-center gap-4 p-4 bg-gray-700/50 rounded-xl">
+                  <div className="w-32">
+                    <span className="font-medium text-white">{dayNames[day as keyof typeof dayNames]}</span>
+                  </div>
+                  
+                  <button
+                    onClick={() => updateWorkingHours(day, 'is_open', !hours.is_open)}
+                    className={`p-2 rounded-lg ${hours.is_open ? 'bg-green-500' : 'bg-gray-600'}`}
+                  >
+                    {hours.is_open ? <ToggleRight className="w-5 h-5 text-white" /> : <ToggleLeft className="w-5 h-5 text-white" />}
+                  </button>
+
+                  {hours.is_open ? (
+                    <>
+                      <input
+                        type="time"
+                        value={hours.open}
+                        onChange={(e) => updateWorkingHours(day, 'open', e.target.value)}
+                        className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                      />
+                      <span className="text-gray-400">-</span>
+                      <input
+                        type="time"
+                        value={hours.close}
+                        onChange={(e) => updateWorkingHours(day, 'close', e.target.value)}
+                        className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                      />
+                    </>
+                  ) : (
+                    <span className="text-gray-500">{t('closed')}</span>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </div>
+        )}
 
-          {/* Panel Toggles */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Panel Ayarları
-            </h3>
-            <div className="space-y-3">
-              {PANELS.map(panel => {
-                const isEnabled = panels[panel.id as keyof PanelSettings];
-                const Icon = panel.icon;
+        {/* Ordering Settings */}
+        {activeTab === 'ordering' && (
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-white mb-4">{t('orderSettings')}</h2>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
+                <div>
+                  <p className="font-medium text-white">{t('qrMenuEnabled')}</p>
+                  <p className="text-sm text-gray-400">{t('qrMenuDescription')}</p>
+                </div>
+                <button
+                  onClick={() => setSettings(prev => ({ ...prev, qr_menu_enabled: !prev.qr_menu_enabled }))}
+                  className={`p-2 rounded-lg ${settings.qr_menu_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                >
+                  {settings.qr_menu_enabled ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
+                </button>
+              </div>
 
-                return (
-                  <div
-                    key={panel.id}
-                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                      isEnabled 
-                        ? 'border-green-500/30 bg-green-500/10' 
-                        : 'border-gray-700 bg-gray-900'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        isEnabled ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'
-                      }`}>
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-white">{panel.name}</p>
-                          {panel.required && (
-                            <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
-                              Zorunlu
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-400">{panel.description}</p>
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => togglePanel(panel.id)}
-                      disabled={panel.required}
-                      className={`p-2 rounded-lg transition-colors ${
-                        panel.required ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-700'
-                      }`}
-                    >
-                      {isEnabled ? (
-                        <ToggleRight className="w-10 h-10 text-green-500" />
-                      ) : (
-                        <ToggleLeft className="w-10 h-10 text-gray-500" />
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
+              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
+                <div>
+                  <p className="font-medium text-white">{t('onlineOrderingEnabled')}</p>
+                  <p className="text-sm text-gray-400">{t('onlineOrderingDescription')}</p>
+                </div>
+                <button
+                  onClick={() => setSettings(prev => ({ ...prev, online_ordering_enabled: !prev.online_ordering_enabled }))}
+                  className={`p-2 rounded-lg ${settings.online_ordering_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                >
+                  {settings.online_ordering_enabled ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
+                <div>
+                  <p className="font-medium text-white">{t('reservationsEnabled')}</p>
+                  <p className="text-sm text-gray-400">{t('reservationsDescription')}</p>
+                </div>
+                <button
+                  onClick={() => setSettings(prev => ({ ...prev, reservation_enabled: !prev.reservation_enabled }))}
+                  className={`p-2 rounded-lg ${settings.reservation_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                >
+                  {settings.reservation_enabled ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
+                <div>
+                  <p className="font-medium text-white">{t('autoAcceptOrders')}</p>
+                  <p className="text-sm text-gray-400">{t('autoAcceptDescription')}</p>
+                </div>
+                <button
+                  onClick={() => setSettings(prev => ({ ...prev, auto_accept_orders: !prev.auto_accept_orders }))}
+                  className={`p-2 rounded-lg ${settings.auto_accept_orders ? 'bg-green-500' : 'bg-gray-600'}`}
+                >
+                  {settings.auto_accept_orders ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
+                </button>
+              </div>
+
+              <div className="p-4 bg-gray-700/50 rounded-xl">
+                <label className="block font-medium text-white mb-2">{t('minOrderAmount')}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={settings.min_order_amount || 0}
+                    onChange={(e) => setSettings(prev => ({ ...prev, min_order_amount: parseFloat(e.target.value) || 0 }))}
+                    min="0"
+                    className="w-32 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                  />
+                  <span className="text-gray-400">₺</span>
+                </div>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Active Panels Summary */}
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <p className="text-sm text-gray-400">
-              <span className="font-semibold text-white">Aktif Paneller:</span>{' '}
-              {PANELS.filter(p => panels[p.id as keyof PanelSettings]).map(p => p.name).join(', ')}
-            </p>
+        {/* Payment Settings */}
+        {activeTab === 'payment' && (
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-white mb-4">{t('paymentSettings')}</h2>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="p-4 bg-gray-700/50 rounded-xl">
+                <label className="block font-medium text-white mb-2">{t('taxRate')}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={settings.tax_rate}
+                    onChange={(e) => setSettings(prev => ({ ...prev, tax_rate: parseFloat(e.target.value) || 0 }))}
+                    min="0"
+                    max="100"
+                    className="w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                  />
+                  <span className="text-gray-400">%</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-gray-700/50 rounded-xl">
+                <label className="block font-medium text-white mb-2">{t('serviceCharge')}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={settings.service_charge_percent || 0}
+                    onChange={(e) => setSettings(prev => ({ ...prev, service_charge_percent: parseFloat(e.target.value) || 0 }))}
+                    min="0"
+                    max="100"
+                    className="w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                  />
+                  <span className="text-gray-400">%</span>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* General Tab */}
-      {activeTab === 'general' && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-          <h3 className="font-bold text-white mb-4">Genel Ayarlar</h3>
-          <p className="text-gray-400">Yakında eklenecek...</p>
-        </div>
-      )}
-
-      {/* Notifications Tab */}
-      {activeTab === 'notifications' && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-          <h3 className="font-bold text-white mb-4">Bildirim Ayarları</h3>
-          <p className="text-gray-400">Yakında eklenecek...</p>
-        </div>
-      )}
+        {/* Notification Settings */}
+        {activeTab === 'notifications' && (
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-white mb-4">{t('notifications')}</h2>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
+                <div>
+                  <p className="font-medium text-white">{t('notificationSounds')}</p>
+                  <p className="text-sm text-gray-400">{t('notificationSoundsDescription')}</p>
+                </div>
+                <button
+                  onClick={() => setSettings(prev => ({ ...prev, notification_sounds: !prev.notification_sounds }))}
+                  className={`p-2 rounded-lg ${settings.notification_sounds ? 'bg-green-500' : 'bg-gray-600'}`}
+                >
+                  {settings.notification_sounds ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

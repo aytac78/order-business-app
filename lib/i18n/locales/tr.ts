@@ -46,6 +46,9 @@ export const tr = {
     thisMonth: 'Bu Ay',
     noData: 'Veri bulunamadı',
     noResults: 'Sonuç bulunamadı',
+    viewAll: 'Tümünü Gör',
+    minutes: 'dakika',
+    pieces: 'adet',
   },
   
   nav: {
@@ -87,6 +90,17 @@ export const tr = {
     quickActions: 'Hızlı İşlemler',
     allVenues: 'Tüm Mekanlar',
     selectVenue: 'Mekan Seç',
+    orderCount: 'Sipariş Sayısı',
+    avgOrderValue: 'Ort. Sipariş',
+    totalCustomers: 'Toplam Müşteri',
+    avgWaitTime: 'Ort. Bekleme',
+    occupancy: 'Doluluk',
+    occupancy: 'Doluluk',
+    awaitingApproval: 'Onay Bekliyor',
+    topSelling: 'En Çok Satanlar',
+    processing: 'Hazırlanıyor',
+    new: 'yeni',
+    today: 'Bugün',
   },
 
   tables: {

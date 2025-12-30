@@ -192,7 +192,7 @@ export default function ReceptionTabletPage() {
           >
             <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <button className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400">
+          <button onClick={() => { if(confirm("Çıkış yapmak istediğinize emin misiniz?")) { localStorage.removeItem("order-auth-storage"); window.location.href = "/"; } }} className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400" title="Çıkış">
             <LogOut className="w-5 h-5" />
           </button>
         </div>

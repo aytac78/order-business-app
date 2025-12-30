@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useUIStore, useVenueStore } from '@/stores';
 import {
   LayoutDashboard,
@@ -26,146 +26,79 @@ import {
   Grid3X3,
   ChevronLeft,
   Sparkles,
-  Menu
+  MapPin
 } from 'lucide-react';
-
-// Panel settings interface
-interface PanelSettings {
-  dashboard: boolean;
-  tables: boolean;
-  orders: boolean;
-  waiter: boolean;
-  kitchen: boolean;
-  reception: boolean;
-  pos: boolean;
-  stock: boolean;
-  reservations: boolean;
-}
-
-const defaultPanels: PanelSettings = {
-  dashboard: true,
-  tables: true,
-  orders: true,
-  waiter: true,
-  kitchen: true,
-  reception: true,
-  pos: true,
-  stock: true,
-  reservations: true
-};
-
-// Menu items with panel IDs
-const allMenuItems = [
-  {
-    section: 'Ana Menü',
-    items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, panelId: 'dashboard' },
-      { name: 'Mekanlarım', href: '/venues', icon: Building2, multiVenueOnly: true },
-      { name: 'Hızlı Kayıt', href: '/onboarding', icon: Sparkles },
-    ]
-  },
-  {
-    section: 'Operasyon',
-    items: [
-      { name: 'Masalar', href: '/tables', icon: Grid3X3, panelId: 'tables' },
-      { name: 'Siparişler', href: '/orders', icon: ClipboardList, panelId: 'orders' },
-      { name: 'Garson Paneli', href: '/waiter', icon: UtensilsCrossed, panelId: 'waiter' },
-      { name: 'Mutfak', href: '/kitchen', icon: ChefHat, panelId: 'kitchen' },
-      { name: 'Resepsiyon', href: '/reception', icon: Users, panelId: 'reception' },
-    ]
-  },
-  {
-    section: 'Yönetim',
-    items: [
-      { name: 'Menü', href: '/menu', icon: UtensilsCrossed },
-      { name: 'Etkinlikler', href: '/events', icon: CalendarCheck },
-      { name: 'Rezervasyonlar', href: '/reservations', icon: CalendarCheck, panelId: 'reservations' },
-      { name: 'Kasa/POS', href: '/pos', icon: CreditCard, panelId: 'pos' },
-      { name: 'QR Menü', href: '/qr-menu', icon: QrCode },
-      { name: 'Kuponlar', href: '/coupons', icon: Ticket },
-    ]
-  },
-  {
-    section: 'Stok & Personel',
-    items: [
-      { name: 'Stok Yönetimi', href: '/stock', icon: Package, panelId: 'stock' },
-      { name: 'Stok Uyarıları', href: '/stock-alerts', icon: AlertTriangle, panelId: 'stock' },
-      { name: 'Personel', href: '/staff', icon: Users },
-      { name: 'Vardiyalar', href: '/shifts', icon: Clock },
-      { name: 'Performans', href: '/performance', icon: TrendingUp },
-    ]
-  },
-  {
-    section: 'Analiz & CRM',
-    items: [
-      { name: 'Raporlar', href: '/reports', icon: Receipt },
-      { name: 'Analitik', href: '/analytics', icon: BarChart3 },
-      { name: 'Müşteri CRM', href: '/crm', icon: UserCircle },
-    ]
-  },
-  {
-    section: 'Sistem',
-    items: [
-      { name: 'Ayarlar', href: '/settings', icon: Settings },
-    ]
-  }
-];
+import { PartyPopper } from 'lucide-react';
 
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, sidebarCollapsed, toggleSidebarCollapse } = useUIStore();
-  const { venues, currentVenue } = useVenueStore();
-  const [panelSettings, setPanelSettings] = useState<PanelSettings>(defaultPanels);
+  const { venues } = useVenueStore();
+  const t = useTranslations('nav');
   
   const isMultiVenue = venues.length > 1;
 
-  // Load panel settings from localStorage
-  useEffect(() => {
-    if (currentVenue?.id) {
-      const saved = localStorage.getItem(`venue_panels_${currentVenue.id}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setPanelSettings({ ...defaultPanels, ...parsed.panels });
-        } catch {
-          setPanelSettings(defaultPanels);
-        }
-      } else {
-        setPanelSettings(defaultPanels);
-      }
+  const menuItems = [
+    {
+      section: t('mainMenu'),
+      items: [
+        { name: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
+        { name: t('venues'), href: '/venues', icon: Building2, multiVenueOnly: true },
+        { name: t('quickSetup'), href: '/onboarding', icon: Sparkles },
+      ]
+    },
+    {
+      section: t('operations'),
+      items: [
+        { name: t('tables'), href: '/tables', icon: Grid3X3 },
+        { name: t('orders'), href: '/orders', icon: ClipboardList },
+        { name: t('waiterPanel'), href: '/waiter', icon: UtensilsCrossed },
+        { name: t('kitchen'), href: '/kitchen', icon: ChefHat },
+        { name: t('reception'), href: '/reception', icon: Users },
+      ]
+    },
+    {
+      section: t('communication'),
+      items: [
+        { name: t('hereCustomers'), href: '/here-customers', icon: MapPin },
+      ]
+    },
+    {
+      section: t('management'),
+      items: [
+        { name: t('menu'), href: '/menu', icon: UtensilsCrossed },
+      { name: 'Etkinlikler', href: '/events', icon: PartyPopper },
+        { name: t('reservations'), href: '/reservations', icon: CalendarCheck },
+        { name: t('pos'), href: '/pos', icon: CreditCard },
+        { name: t('qrMenu'), href: '/qr-menu', icon: QrCode },
+        { name: t('coupons'), href: '/coupons', icon: Ticket },
+      ]
+    },
+    {
+      section: t('stockAndStaff'),
+      items: [
+        { name: t('stockManagement'), href: '/stock', icon: Package },
+        { name: t('stockAlerts'), href: '/stock-alerts', icon: AlertTriangle },
+        { name: t('staff'), href: '/staff', icon: Users },
+        { name: t('shifts'), href: '/shifts', icon: Clock },
+        { name: t('performance'), href: '/performance', icon: TrendingUp },
+      ]
+    },
+    {
+      section: t('analysisAndCrm'),
+      items: [
+        { name: t('reports'), href: '/reports', icon: Receipt },
+        { name: t('analytics'), href: '/analytics', icon: BarChart3 },
+        { name: t('customerCrm'), href: '/crm', icon: UserCircle },
+      ]
+    },
+    {
+      section: t('system'),
+      items: [
+        { name: t('settings'), href: '/settings', icon: Settings },
+      ]
     }
-  }, [currentVenue?.id]);
-
-  // Listen for panel settings changes
-  useEffect(() => {
-    const handleSettingsChange = (event: CustomEvent<PanelSettings>) => {
-      setPanelSettings(event.detail);
-    };
-
-    window.addEventListener('panelSettingsChanged', handleSettingsChange as EventListener);
-    return () => {
-      window.removeEventListener('panelSettingsChanged', handleSettingsChange as EventListener);
-    };
-  }, []);
-
-  // Filter menu items based on panel settings
-  const getFilteredMenuItems = () => {
-    return allMenuItems.map(section => ({
-      ...section,
-      items: section.items.filter(item => {
-        // Multi-venue check
-        if (item.multiVenueOnly && !isMultiVenue) return false;
-        
-        // No panelId means always show
-        if (!item.panelId) return true;
-        
-        // Check if panel is enabled
-        return panelSettings[item.panelId as keyof PanelSettings];
-      })
-    })).filter(section => section.items.length > 0); // Remove empty sections
-  };
-
-  const menuItems = getFilteredMenuItems();
+  ];
 
   if (!sidebarOpen) return null;
 
@@ -206,30 +139,32 @@ export function Sidebar() {
               </h3>
             )}
             <div className="space-y-1">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
+              {section.items
+                .filter(item => !item.multiVenueOnly || isMultiVenue)
+                .map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = item.icon;
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
-                      isActive
-                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/20'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                    }`}
-                    title={sidebarCollapsed ? item.name : undefined}
-                  >
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${
-                      isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'
-                    }`} />
-                    {!sidebarCollapsed && (
-                      <span className="text-sm font-medium">{item.name}</span>
-                    )}
-                  </Link>
-                );
-              })}
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
+                        isActive
+                          ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/20'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      }`}
+                      title={sidebarCollapsed ? item.name : undefined}
+                    >
+                      <Icon className={`w-5 h-5 flex-shrink-0 ${
+                        isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'
+                      }`} />
+                      {!sidebarCollapsed && (
+                        <span className="text-sm font-medium">{item.name}</span>
+                      )}
+                    </Link>
+                  );
+                })}
             </div>
           </div>
         ))}
@@ -243,8 +178,8 @@ export function Sidebar() {
               <span className="text-xs font-bold text-white">TiT</span>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">TiT Pay</p>
-              <p className="text-xs text-gray-400">Entegre</p>
+              <p className="text-sm font-medium text-white">{t('titPay')}</p>
+              <p className="text-xs text-gray-400">{t('integrated')}</p>
             </div>
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           </div>
@@ -254,36 +189,26 @@ export function Sidebar() {
   );
 }
 
-// MobileHeader component
+// Mobile Header Component
 export function MobileHeader() {
-  const { currentVenue } = useVenueStore();
   const { toggleSidebar } = useUIStore();
-  const pathname = usePathname();
-
-  const getPageTitle = () => {
-    const routes: Record<string, string> = {
-      '/dashboard': 'Dashboard',
-      '/tables': 'Masalar',
-      '/orders': 'Siparişler',
-      '/waiter': 'Garson Paneli',
-      '/kitchen': 'Mutfak',
-      '/reception': 'Resepsiyon',
-      '/pos': 'Kasa/POS',
-      '/menu': 'Menü',
-      '/reservations': 'Rezervasyonlar',
-      '/stock': 'Stok',
-      '/staff': 'Personel',
-      '/settings': 'Ayarlar',
-    };
-    return routes[pathname] || 'ORDER Business';
-  };
 
   return (
-    <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 text-white flex items-center justify-between px-4 z-40">
-      <button onClick={toggleSidebar} className="p-2 hover:bg-gray-800 rounded-lg">
-        <Menu className="w-6 h-6" />
+    <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-40">
+      <button
+        onClick={toggleSidebar}
+        className="p-2 hover:bg-gray-100 rounded-lg"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
       </button>
-      <span className="font-semibold">{getPageTitle()}</span>
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+          <span className="text-white font-bold text-sm">O</span>
+        </div>
+        <span className="font-bold text-gray-900">ORDER</span>
+      </div>
       <div className="w-10" />
     </header>
   );

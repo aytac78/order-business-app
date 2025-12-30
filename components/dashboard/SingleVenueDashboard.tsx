@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useVenueStore } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
+import { supabase } from '@/lib/supabase';
 import {
   TrendingUp,
   TrendingDown,
@@ -16,49 +17,64 @@ import {
   ChefHat,
   CreditCard,
   ArrowUpRight,
-  ArrowDownRight,
   MoreHorizontal,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
-// Demo data for single venue
-const demoStats = {
-  todayRevenue: 45680,
-  yesterdayRevenue: 42150,
-  todayOrders: 127,
-  yesterdayOrders: 118,
-  activeOrders: 12,
-  avgOrderValue: 360,
-  totalCustomers: 89,
-  newCustomers: 23,
-  occupancyRate: 78,
-  avgWaitTime: 14,
-  pendingReservations: 8,
-  staffOnDuty: 14
-};
+interface DashboardStats {
+  todayRevenue: number;
+  yesterdayRevenue: number;
+  todayOrders: number;
+  yesterdayOrders: number;
+  activeOrders: number;
+  avgOrderValue: number;
+  totalCustomers: number;
+  newCustomers: number;
+  occupancyRate: number;
+  avgWaitTime: number;
+  pendingReservations: number;
+}
 
-const recentOrders = [
-  { id: 'ORD-127', table: '5', amount: 680, status: 'preparing', time: 2 },
-  { id: 'ORD-126', table: '12', amount: 420, status: 'ready', time: 5 },
-  { id: 'ORD-125', table: '3', amount: 890, status: 'served', time: 8 },
-  { id: 'ORD-124', table: '8', amount: 1250, status: 'pending', time: 10 },
-  { id: 'ORD-123', table: 'QR', amount: 340, status: 'confirmed', time: 12 },
-];
+interface RecentOrder {
+  id: string;
+  order_number: string;
+  table_number: string | null;
+  total: number;
+  status: string;
+  created_at: string;
+}
 
-const topProducts = [
-  { name: 'Izgara Levrek', quantity: 34, revenue: 10200 },
-  { name: 'Karides Güveç', quantity: 28, revenue: 7000 },
-  { name: 'Karışık Meze', quantity: 45, revenue: 6750 },
-  { name: 'Rakı (70cl)', quantity: 22, revenue: 6600 },
-  { name: 'Ahtapot Izgara', quantity: 18, revenue: 5400 },
-];
+interface TopProduct {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
 
 export function SingleVenueDashboard() {
   const router = useRouter();
   const { currentVenue } = useVenueStore();
-  const { t, formatCurrency, formatDate, formatTime, locale } = useTranslation();
+  const { t, formatCurrency, locale } = useTranslation();
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const [stats, setStats] = useState<DashboardStats>({
+    todayRevenue: 0,
+    yesterdayRevenue: 0,
+    todayOrders: 0,
+    yesterdayOrders: 0,
+    activeOrders: 0,
+    avgOrderValue: 0,
+    totalCustomers: 0,
+    newCustomers: 0,
+    occupancyRate: 0,
+    avgWaitTime: 0,
+    pendingReservations: 0
+  });
+  
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -67,273 +83,389 @@ export function SingleVenueDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const revenueChange = ((demoStats.todayRevenue - demoStats.yesterdayRevenue) / demoStats.yesterdayRevenue * 100).toFixed(1);
-  const ordersChange = ((demoStats.todayOrders - demoStats.yesterdayOrders) / demoStats.yesterdayOrders * 100).toFixed(1);
+  useEffect(() => {
+    if (currentVenue) {
+      fetchDashboardData();
+    }
+  }, [currentVenue]);
 
-  const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    confirmed: 'bg-blue-100 text-blue-800',
-    preparing: 'bg-purple-100 text-purple-800',
-    ready: 'bg-green-100 text-green-800',
-    served: 'bg-gray-100 text-gray-800',
+  const fetchDashboardData = async () => {
+    if (!currentVenue) return;
+    
+    setLoading(true);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    try {
+      // Bugünkü siparişler
+      const { data: todayOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('venue_id', currentVenue.id)
+        .gte('created_at', today.toISOString());
+
+      // Dünkü siparişler
+      const { data: yesterdayOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('venue_id', currentVenue.id)
+        .gte('created_at', yesterday.toISOString())
+        .lt('created_at', today.toISOString());
+
+      // Aktif siparişler
+      const { data: activeOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('venue_id', currentVenue.id)
+        .in('status', ['pending', 'confirmed', 'preparing', 'ready']);
+
+      // Son siparişler
+      const { data: recent } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('venue_id', currentVenue.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // Bekleyen rezervasyonlar
+      const { data: reservations } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('venue_id', currentVenue.id)
+        .eq('status', 'pending');
+
+      // Müşteri sayısı
+      const { count: customerCount } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .eq('venue_id', currentVenue.id);
+
+      // İstatistikleri hesapla
+      const todayRevenueTotal = todayOrders?.reduce((sum, o) => sum + (o.total || 0), 0) || 0;
+      const yesterdayRevenueTotal = yesterdayOrders?.reduce((sum, o) => sum + (o.total || 0), 0) || 0;
+      const todayOrderCount = todayOrders?.length || 0;
+      const yesterdayOrderCount = yesterdayOrders?.length || 0;
+
+      setStats({
+        todayRevenue: todayRevenueTotal,
+        yesterdayRevenue: yesterdayRevenueTotal,
+        todayOrders: todayOrderCount,
+        yesterdayOrders: yesterdayOrderCount,
+        activeOrders: activeOrders?.length || 0,
+        avgOrderValue: todayOrderCount > 0 ? todayRevenueTotal / todayOrderCount : 0,
+        totalCustomers: customerCount || 0,
+        newCustomers: 0,
+        occupancyRate: 0,
+        avgWaitTime: 0,
+        pendingReservations: reservations?.length || 0
+      });
+
+      setRecentOrders(recent || []);
+
+      // Top ürünleri hesapla (items JSON'dan)
+      const productMap = new Map<string, { quantity: number; revenue: number }>();
+      todayOrders?.forEach(order => {
+        const items = order.items || [];
+        items.forEach((item: any) => {
+          const existing = productMap.get(item.name || item.product_name) || { quantity: 0, revenue: 0 };
+          productMap.set(item.name || item.product_name, {
+            quantity: existing.quantity + (item.quantity || 1),
+            revenue: existing.revenue + ((item.price || item.unit_price || 0) * (item.quantity || 1))
+          });
+        });
+      });
+
+      const topProductsList = Array.from(productMap.entries())
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+
+      setTopProducts(topProductsList);
+
+    } catch (error) {
+      console.error('Dashboard veri yükleme hatası:', error);
+    }
+    
+    setLoading(false);
   };
 
-  // Loading state for hydration
-  if (!mounted || !currentTime) {
-    return (
-      <div className="space-y-6">
-        <div className="animate-pulse bg-gray-100 rounded-2xl h-20" />
-        <div className="grid grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="animate-pulse bg-gray-100 rounded-xl h-28" />
-          ))}
-        </div>
-      </div>
-    );
+  const revenueChange = stats.yesterdayRevenue > 0 
+    ? ((stats.todayRevenue - stats.yesterdayRevenue) / stats.yesterdayRevenue * 100).toFixed(1)
+    : '0';
+  const ordersChange = stats.yesterdayOrders > 0
+    ? ((stats.todayOrders - stats.yesterdayOrders) / stats.yesterdayOrders * 100).toFixed(1)
+    : '0';
+
+  const statusColors: Record<string, string> = {
+    pending: 'bg-yellow-900/50 text-yellow-300',
+    confirmed: 'bg-blue-900/50 text-blue-300',
+    preparing: 'bg-purple-900/50 text-purple-300',
+    ready: 'bg-green-900/50 text-green-300',
+    served: 'bg-gray-700 text-gray-300',
+    completed: 'bg-gray-700 text-gray-300',
+  };
+
+  const statusLabels: Record<string, string> = {
+    pending: 'Bekliyor',
+    confirmed: 'Onaylandı',
+    preparing: 'Hazırlanıyor',
+    ready: 'Hazır',
+    served: 'Servis Edildi',
+    completed: 'Tamamlandı',
+  };
+
+  if (!mounted) {
+    return <div className="animate-pulse bg-gray-800 rounded-2xl h-96" />;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-gray-900 pt-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {currentVenue?.name || t('nav.dashboard')}
+          <h1 className="text-2xl font-bold text-white">
+            {currentVenue?.name || 'Dashboard'}
           </h1>
-          <p className="text-gray-500 mt-1">
-            {currentTime.toLocaleDateString(locale, { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })} • {currentTime.toLocaleTimeString(locale)}
+          <p className="text-gray-400">
+            {currentTime && (
+              <>
+                {currentTime.toLocaleDateString(locale === 'tr' ? 'tr-TR' : 'en-US', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  weekday: 'long'
+                })} • {currentTime.toLocaleTimeString(locale === 'tr' ? 'tr-TR' : 'en-US')}
+              </>
+            )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-xl">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium">{t('common.open')}</span>
-          </div>
-        </div>
+        <button
+          onClick={fetchDashboardData}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? 'Yükleniyor...' : 'Yenile'}
+        </button>
       </div>
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title={t('dashboard.todayRevenue')}
-          value={formatCurrency(demoStats.todayRevenue)}
-          change={parseFloat(revenueChange)}
-          icon={DollarSign}
-          color="green"
+          icon={<DollarSign className="w-6 h-6 text-green-400" />}
+          iconBg="bg-green-900/50"
+          label={t('dashboard.todayRevenue')}
+          value={formatCurrency(stats.todayRevenue)}
+          change={`${parseFloat(revenueChange) >= 0 ? '↗' : '↘'} ${revenueChange}%`}
+          changeColor={parseFloat(revenueChange) >= 0 ? 'text-green-400' : 'text-red-400'}
         />
         <StatCard
-          title={t('dashboard.orderCount')}
-          value={demoStats.todayOrders.toString()}
-          change={parseFloat(ordersChange)}
-          icon={ShoppingBag}
-          color="blue"
+          icon={<ShoppingBag className="w-6 h-6 text-blue-400" />}
+          iconBg="bg-blue-900/50"
+          label={t('dashboard.orderCount')}
+          value={stats.todayOrders.toString()}
+          change={`${parseFloat(ordersChange) >= 0 ? '↗' : '↘'} ${ordersChange}%`}
+          changeColor={parseFloat(ordersChange) >= 0 ? 'text-green-400' : 'text-red-400'}
         />
         <StatCard
-          title={t('dashboard.activeOrders')}
-          value={demoStats.activeOrders.toString()}
-          subtitle={t('dashboard.processing')}
-          icon={Clock}
-          color="orange"
+          icon={<Clock className="w-6 h-6 text-orange-400" />}
+          iconBg="bg-orange-900/50"
+          label={t('dashboard.activeOrders')}
+          value={stats.activeOrders.toString()}
+          subValue={t('dashboard.processing')}
         />
         <StatCard
-          title={t('dashboard.avgOrderValue')}
-          value={formatCurrency(demoStats.avgOrderValue)}
-          icon={CreditCard}
-          color="purple"
+          icon={<CreditCard className="w-6 h-6 text-purple-400" />}
+          iconBg="bg-purple-900/50"
+          label={t('dashboard.avgOrderValue')}
+          value={formatCurrency(stats.avgOrderValue)}
         />
       </div>
 
-      {/* Quick Stats */}
+      {/* Secondary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <QuickStatCard
-          icon={Users}
+        <MiniStatCard
+          icon={<Users className="w-5 h-5 text-blue-400" />}
           label={t('dashboard.totalCustomers')}
-          value={demoStats.totalCustomers}
-          subValue={`+${demoStats.newCustomers} ${t('dashboard.new')}`}
-          t={t}
+          value={stats.totalCustomers.toString()}
         />
-        <QuickStatCard
-          icon={Utensils}
+        <MiniStatCard
+          icon={<Utensils className="w-5 h-5 text-green-400" />}
           label={t('dashboard.occupancy')}
-          value={`%${demoStats.occupancyRate}`}
-          t={t}
+          value={`%${stats.occupancyRate}`}
         />
-        <QuickStatCard
-          icon={Clock}
+        <MiniStatCard
+          icon={<Clock className="w-5 h-5 text-yellow-400" />}
           label={t('dashboard.avgWaitTime')}
-          value={`${demoStats.avgWaitTime} ${t('common.minutes')}`}
-          t={t}
+          value={`${stats.avgWaitTime} dk`}
         />
-        <QuickStatCard
-          icon={CalendarCheck}
+        <MiniStatCard
+          icon={<CalendarCheck className="w-5 h-5 text-purple-400" />}
           label={t('dashboard.pendingReservations')}
-          value={demoStats.pendingReservations}
-          subValue={t('dashboard.awaitingApproval')}
-          t={t}
+          value={stats.pendingReservations.toString()}
         />
       </div>
 
-      {/* Orders and Top Products */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Recent Orders & Top Products */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.recentOrders')}</h2>
+            <h2 className="text-lg font-semibold text-white">{t('dashboard.recentOrders')}</h2>
             <button 
               onClick={() => router.push('/orders')}
-              className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+              className="text-orange-400 hover:text-orange-300 text-sm font-medium"
             >
               {t('common.viewAll')}
             </button>
           </div>
-          <div className="space-y-3">
-            {recentOrders.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-sm font-semibold text-gray-600">
-                    {order.table === 'QR' ? 'QR' : `M${order.table}`}
+          
+          {recentOrders.length === 0 ? (
+            <div className="text-center py-8">
+              <ShoppingBag className="w-12 h-12 text-gray-600 mx-auto mb-2" />
+              <p className="text-gray-500">Henüz sipariş yok</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gray-600 flex items-center justify-center text-sm font-bold text-white">
+                      {order.table_number ? `M${order.table_number}` : 'QR'}
+                    </div>
+                    <div>
+                      <p className="font-medium text-white">{order.order_number || order.id.slice(0, 8)}</p>
+                      <p className="text-sm text-gray-400">
+                        {order.table_number ? `Masa ${order.table_number}` : 'QR Sipariş'} • {getTimeAgo(order.created_at)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{order.id}</p>
-                    <p className="text-sm text-gray-500">
-                      {order.table === 'QR' ? 'QR' : `${t('tables.table')} ${order.table}`} • {order.time} {t('time.minutesAgo')}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${statusColors[order.status] || 'bg-gray-600 text-gray-300'}`}>
+                      {statusLabels[order.status] || order.status}
+                    </span>
+                    <span className="font-semibold text-white">{formatCurrency(order.total || 0)}</span>
+                    <button className="p-1 hover:bg-gray-600 rounded text-gray-400">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                    {t(`orders.status.${order.status}`)}
-                  </span>
-                  <p className="font-semibold text-gray-900">{formatCurrency(order.amount)}</p>
-                  <button className="p-1 hover:bg-gray-200 rounded">
-                    <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Top Products */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.topSelling')}</h2>
-            <span className="text-xs text-gray-400">{t('dashboard.today')}</span>
+            <h2 className="text-lg font-semibold text-white">{t('dashboard.topSelling')}</h2>
+            <span className="text-sm text-gray-400">{t('dashboard.today')}</span>
           </div>
-          <div className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={product.name} className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
-                  index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                  index === 1 ? 'bg-gray-100 text-gray-600' :
-                  index === 2 ? 'bg-orange-100 text-orange-700' :
-                  'bg-gray-50 text-gray-500'
-                }`}>
-                  {index + 1}
+          
+          {topProducts.length === 0 ? (
+            <div className="text-center py-8">
+              <ChefHat className="w-12 h-12 text-gray-600 mx-auto mb-2" />
+              <p className="text-gray-500">Bugün henüz satış yok</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topProducts.map((product, index) => (
+                <div key={product.name} className="flex items-center gap-4">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white ${
+                    index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-600' : 'bg-gray-600'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-white">{product.name}</p>
+                    <p className="text-sm text-gray-400">{product.quantity} {t('common.pieces')}</p>
+                  </div>
+                  <p className="font-semibold text-green-400">{formatCurrency(product.revenue)}</p>
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 text-sm">{product.name}</p>
-                  <p className="text-xs text-gray-500">{product.quantity} {t('common.pieces')}</p>
-                </div>
-                <p className="font-semibold text-gray-900 text-sm">
-                  {formatCurrency(product.revenue)}
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-
-      {/* Alerts Banner */}
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-          <AlertCircle className="w-5 h-5 text-amber-600" />
-        </div>
-        <div className="flex-1">
-          <p className="font-medium text-amber-900">{t('dashboard.stockAlertTitle', { count: 3 })}</p>
-          <p className="text-sm text-amber-700">{t('dashboard.stockAlertDesc')}</p>
-        </div>
-        <button 
-          onClick={() => router.push('/stock')}
-          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          {t('dashboard.checkStock')}
-        </button>
       </div>
     </div>
   );
 }
 
-// Stat Card Component
-interface StatCardProps {
-  title: string;
+function StatCard({ 
+  icon, 
+  iconBg, 
+  label, 
+  value, 
+  change, 
+  changeColor,
+  subValue 
+}: { 
+  icon: React.ReactNode;
+  iconBg: string;
+  label: string;
   value: string;
-  change?: number;
-  subtitle?: string;
-  icon: any;
-  color: 'green' | 'blue' | 'orange' | 'purple';
-}
-
-function StatCard({ title, value, change, subtitle, icon: Icon, color }: StatCardProps) {
-  const colorClasses = {
-    green: 'bg-green-50 text-green-600',
-    blue: 'bg-blue-50 text-blue-600',
-    orange: 'bg-orange-50 text-orange-600',
-    purple: 'bg-purple-50 text-purple-600'
-  };
-
+  change?: string;
+  changeColor?: string;
+  subValue?: string;
+}) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-lg transition-all">
+    <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
       <div className="flex items-start justify-between">
-        <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} flex items-center justify-center`}>
-          <Icon className="w-6 h-6" />
+        <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center`}>
+          {icon}
         </div>
-        {change !== undefined && (
-          <div className={`flex items-center gap-1 text-sm font-medium ${
-            change >= 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {change >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-            <span>{Math.abs(change)}%</span>
-          </div>
+        {change && (
+          <span className={`text-sm font-medium ${changeColor}`}>{change}</span>
         )}
       </div>
-      <div className="mt-4">
-        <p className="text-sm text-gray-500">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-      </div>
+      <p className="text-gray-400 text-sm mt-4">{label}</p>
+      <p className="text-2xl font-bold text-white mt-1">{value}</p>
+      {subValue && <p className="text-sm text-gray-500 mt-1">{subValue}</p>}
     </div>
   );
 }
 
-// Quick Stat Card
-interface QuickStatCardProps {
-  icon: any;
+function MiniStatCard({ 
+  icon, 
+  label, 
+  value,
+  subValue 
+}: { 
+  icon: React.ReactNode;
   label: string;
-  value: string | number;
+  value: string;
   subValue?: string;
-  t: (key: string) => string;
-}
-
-function QuickStatCard({ icon: Icon, label, value, subValue }: QuickStatCardProps) {
+}) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
-      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-        <Icon className="w-5 h-5 text-gray-600" />
-      </div>
-      <div>
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="font-bold text-gray-900">{value}</p>
-        {subValue && <p className="text-xs text-gray-400">{subValue}</p>}
+    <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center">
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs text-gray-400">{label}</p>
+          <p className="text-lg font-bold text-white">{value}</p>
+          {subValue && <p className="text-xs text-gray-500">{subValue}</p>}
+        </div>
       </div>
     </div>
   );
+}
+
+function getTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins < 1) return 'Az önce';
+  if (diffMins < 60) return `${diffMins} dakika önce`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} saat önce`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} gün önce`;
 }

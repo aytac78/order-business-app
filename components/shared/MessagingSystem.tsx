@@ -431,7 +431,7 @@ interface MessagingPanelProps {
 }
 
 export function MessagingPanel({ isOpen, onClose }: MessagingPanelProps) {
-  const [conversations, setConversations] = useState<Conversation[]>(createMockConversations);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'waiting' | 'resolved'>('all');
 
@@ -598,7 +598,7 @@ interface MessageButtonProps {
 }
 
 export function MessageButton({ onClick }: MessageButtonProps) {
-  const [conversations] = useState<Conversation[]>(createMockConversations);
+  const [conversations] = useState<Conversation[]>([]);
   const unreadCount = conversations.reduce(
     (sum, c) => sum + c.messages.filter(m => !m.isRead && m.senderType === 'customer').length, 0
   );

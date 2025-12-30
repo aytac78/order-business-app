@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { Sidebar, MobileHeader } from '@/components/Sidebar';
-import { useUIStore } from '@/stores';
+import { Header } from '@/components/Header';
+import { useUIStore, useVenueStore } from '@/stores';
 import { ProtectedRoute } from '@/components/auth';
-import { UserHeader } from '@/components/auth';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { I18nProvider } from '@/components/I18nProvider';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({
   children,
@@ -13,7 +15,34 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { sidebarCollapsed } = useUIStore();
+  const { currentVenue, currentVenueId, setCurrentVenue, setVenues } = useVenueStore();
   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const fetchVenues = async () => {
+      const { data, error } = await supabase
+        .from('venues')
+        .select('*')
+        .eq('is_active', true);
+
+      if (!error && data && data.length > 0) {
+        setVenues(data);
+        
+        if (!currentVenue && currentVenueId) {
+          const existingVenue = data.find(v => v.id === currentVenueId);
+          if (existingVenue) {
+            setCurrentVenue(existingVenue);
+          } else {
+            setCurrentVenue(data[0]);
+          }
+        } else if (!currentVenue) {
+          setCurrentVenue(data[0]);
+        }
+      }
+    };
+
+    fetchVenues();
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -27,33 +56,31 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute allowedRoles={['owner', 'manager']}>
-      <ThemeProvider>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-          {/* Mobile Header */}
-          <MobileHeader />
-          
-          {/* User Header - Top Right */}
-          <div className="fixed top-2 right-4 z-50 lg:top-4">
-            <UserHeader variant="compact" />
-          </div>
-          
-          {/* Sidebar */}
-          <Sidebar />
-          
-          {/* Main Content */}
-          <main 
-            className={`
-              transition-all duration-300
-              pt-16 lg:pt-0
-              ${isMobile ? 'ml-0' : sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
-            `}
-          >
-            <div className="p-4 lg:p-6">
-              {children}
+      <I18nProvider>
+        <ThemeProvider>
+          <div className="min-h-screen bg-gray-900" style={{ backgroundColor: "#111827" }}>
+            <MobileHeader />
+            
+            <div className="block">
+              <Header />
             </div>
-          </main>
-        </div>
-      </ThemeProvider>
+            
+            <Sidebar />
+            
+            <main 
+              className={`
+                transition-all duration-300
+                pt-6 lg:pt-20
+                ${isMobile ? 'ml-0 pt-16' : sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
+              `}
+            >
+              <div className="p-4 lg:p-6 bg-gray-900">
+                {children}
+              </div>
+            </main>
+          </div>
+        </ThemeProvider>
+      </I18nProvider>
     </ProtectedRoute>
   );
 }

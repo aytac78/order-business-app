@@ -69,7 +69,7 @@ export function MultiVenueDashboard() {
   useEffect(() => {
     setMounted(true);
     setLastUpdated(new Date());
-    setVenueSummaries(demoVenueSummaries);
+    setVenueSummaries([]);
   }, [setVenueSummaries]);
 
   const handleRefresh = async () => {

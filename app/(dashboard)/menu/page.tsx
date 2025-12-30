@@ -1,744 +1,567 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useVenueStore } from '@/stores';
+import { useTranslations, useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 import {
-  Plus, RefreshCw, Search, Utensils, X, Trash2, ImageIcon,
-  Camera, Upload, Edit, Save, ChevronDown, ChevronRight, Download,
-  Package, Coffee, Wine, Beef, Fish, IceCream, Salad, Soup, Pizza,
-  Loader2
+  Plus, X, Edit2, Trash2, AlertCircle, Loader2, RefreshCw,
+  Image, DollarSign, Clock, Tag, ChevronRight, Eye, EyeOff,
+  GripVertical, Upload, Search, Filter
 } from 'lucide-react';
 
-// Ana kategori grupları
-const mainCategoryGroups = [
-  {
-    id: 'starters',
-    name: 'Başlangıçlar & Mezeler',
-    icon: '🥗',
-    color: 'bg-green-500',
-    subCategories: ['Soğuk Mezeler', 'Sıcak Mezeler', 'Mezeler', 'Beach Bites', 'Paylaşım Tabakları', 'Finger Food / Tapas']
-  },
-  {
-    id: 'salads',
-    name: 'Salatalar',
-    icon: '🥬',
-    color: 'bg-emerald-500',
-    subCategories: ['Salatalar', 'Klasik Salatalar', 'Şef Salataları', 'Proteinli Salatalar']
-  },
-  {
-    id: 'soups',
-    name: 'Çorbalar',
-    icon: '🍲',
-    color: 'bg-amber-500',
-    subCategories: ['Çorbalar', 'Günün Çorbası', 'Klasik Çorbalar']
-  },
-  {
-    id: 'mains',
-    name: 'Ana Yemekler',
-    icon: '🍽️',
-    color: 'bg-red-500',
-    subCategories: ['Et Yemekleri', 'Tavuk Yemekleri', 'Deniz Ürünleri', 'Balıklar', 'Makarnalar', 'Risotto', 'Burgerler', 'Kebaplar', 'Izgara', 'Ana Yemekler']
-  },
-  {
-    id: 'ara',
-    name: 'Ara Sıcaklar',
-    icon: '🥟',
-    color: 'bg-orange-500',
-    subCategories: ['Ara Sıcaklar', 'Hamur İşleri', 'Börekler']
-  },
-  {
-    id: 'pizza',
-    name: 'Pizza',
-    icon: '🍕',
-    color: 'bg-yellow-500',
-    subCategories: ['Pizzalar', 'Klasik Pizzalar', 'Özel Pizzalar']
-  },
-  {
-    id: 'sides',
-    name: 'Yan Ürünler',
-    icon: '🍟',
-    color: 'bg-yellow-600',
-    subCategories: ['Yan Ürünler', 'Garnitürler', 'Soslar', 'Ekstralar']
-  },
-  {
-    id: 'desserts',
-    name: 'Tatlılar',
-    icon: '🍰',
-    color: 'bg-pink-500',
-    subCategories: ['Tatlılar', 'Sütlü Tatlılar', 'Çikolatalı Tatlılar', 'Şerbetli Tatlılar', 'Dondurmalar']
-  },
-  {
-    id: 'hotdrinks',
-    name: 'Sıcak İçecekler',
-    icon: '☕',
-    color: 'bg-amber-700',
-    subCategories: ['Sıcak İçecekler', 'Türk Kahvesi', 'Espresso Bazlı', 'Çaylar', 'Kahveler']
-  },
-  {
-    id: 'colddrinks',
-    name: 'Soğuk İçecekler',
-    icon: '🧊',
-    color: 'bg-cyan-500',
-    subCategories: ['Soğuk İçecekler', 'Su / Soda', 'Meşrubatlar', 'Meyve Suları', 'Smoothie', 'Mocktail']
-  },
-  {
-    id: 'alcohol',
-    name: 'Alkollü İçecekler',
-    icon: '🍺',
-    color: 'bg-purple-500',
-    subCategories: [
-      'Biralar', 'Şaraplar', 'Kokteyller',
-      '↳ Kırmızı Şarap (Kadeh)', '↳ Kırmızı Şarap (Şişe)',
-      '↳ Beyaz Şarap (Kadeh)', '↳ Beyaz Şarap (Şişe)',
-      '↳ Rose (Kadeh)', '↳ Rose (Şişe)',
-      '↳ Şampanya (Kadeh)', '↳ Şampanya (Şişe)',
-      '↳ Rakı (Kadeh)', '↳ Rakı (Şişe)',
-      '↳ Votka (Kadeh)', '↳ Votka (Şişe)',
-      '↳ Cin (Kadeh)', '↳ Cin (Şişe)',
-      '↳ Rom (Kadeh)', '↳ Rom (Şişe)',
-      '↳ Tekila (Kadeh)', '↳ Tekila (Şişe)',
-      '↳ Viski (Kadeh)', '↳ Viski (Şişe)',
-      '↳ Konyak (Kadeh)', '↳ Konyak (Şişe)',
-      '↳ Likör (Kadeh)', '↳ Likör (Şişe)',
-      'Rakı', 'Viski', 'Votka', 'Cin', 'Rom', 'Tekila'
-    ]
-  },
-  {
-    id: 'other',
-    name: 'Diğer',
-    icon: '📦',
-    color: 'bg-gray-500',
-    subCategories: ['Diğer', 'Genel', 'Kategorisiz', '']
-  }
-];
+interface Category {
+  id: string;
+  venue_id: string;
+  name: string;
+  name_en?: string;
+  name_it?: string;
+  description?: string;
+  image_url?: string;
+  sort_order: number;
+  is_active: boolean;
+}
 
-// Ürünün hangi ana gruba ait olduğunu bul
-function getMainGroup(category: string): typeof mainCategoryGroups[0] | null {
-  if (!category) return mainCategoryGroups.find(g => g.id === 'other') || null;
-  
-  for (const group of mainCategoryGroups) {
-    if (group.subCategories.some(sub => 
-      sub.toLowerCase() === category.toLowerCase() ||
-      category.toLowerCase().includes(sub.toLowerCase()) ||
-      sub.toLowerCase().includes(category.toLowerCase())
-    )) {
-      return group;
-    }
-  }
-  return mainCategoryGroups.find(g => g.id === 'other') || null;
+interface Product {
+  id: string;
+  venue_id: string;
+  category_id: string;
+  name: string;
+  name_en?: string;
+  name_it?: string;
+  description?: string;
+  price: number;
+  image_url?: string;
+  is_available: boolean;
+  preparation_time?: number;
+  sort_order: number;
 }
 
 export default function MenuPage() {
   const { currentVenue } = useVenueStore();
-  const [menuItems, setMenuItems] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const t = useTranslations('menu');
+  const locale = useLocale();
 
-  const fetchMenu = useCallback(async () => {
-    setIsLoading(true);
-    let query = supabase.from('menu_items').select('*').order('name');
-    if (currentVenue?.id) {
-      query = query.eq('venue_id', currentVenue.id);
-    }
-    const { data, error } = await query;
-    if (!error) setMenuItems(data || []);
-    setIsLoading(false);
+  const getCategoryName = (category: Category) => {
+    if (locale === 'en' && category.name_en) return category.name_en;
+    if (locale === 'it' && category.name_it) return category.name_it;
+    return category.name;
+  };
+  const tCommon = useTranslations('common');
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const loadData = useCallback(async () => {
+    if (!currentVenue?.id) return;
+
+    const [categoriesRes, productsRes] = await Promise.all([
+      supabase.from('categories').select('*').eq('venue_id', currentVenue.id).order('sort_order'),
+      supabase.from('products').select('*').eq('venue_id', currentVenue.id).order('sort_order')
+    ]);
+
+    if (categoriesRes.data) setCategories(categoriesRes.data);
+    if (productsRes.data) setProducts(productsRes.data);
+    setLoading(false);
   }, [currentVenue?.id]);
 
   useEffect(() => {
-    fetchMenu();
-  }, [fetchMenu]);
+    loadData();
+  }, [loadData]);
 
-  // Ürünleri ana gruplara göre grupla
-  const groupedByMain = menuItems.reduce((acc, item) => {
-    const group = getMainGroup(item.category);
-    const groupId = group?.id || 'other';
-    if (!acc[groupId]) acc[groupId] = [];
-    acc[groupId].push(item);
-    return acc;
-  }, {} as Record<string, any[]>);
+  // Filter products
+  const filteredProducts = products.filter(p => {
+    const matchesCategory = !selectedCategory || p.category_id === selectedCategory;
+    const matchesSearch = !searchQuery || 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-  // Arama filtresi
-  const filteredItems = searchTerm 
-    ? menuItems.filter(item => 
-        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : null;
+  const getCategoryProducts = (categoryId: string) => products.filter(p => p.category_id === categoryId);
 
-  const handleDeleteItem = async (id: string) => {
-    if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
-    await supabase.from('menu_items').delete().eq('id', id);
-    fetchMenu();
+  const handleSaveCategory = async (data: Partial<Category>) => {
+    if (!currentVenue?.id) return;
+
+    if (editingCategory) {
+      await supabase.from('categories').update(data).eq('id', editingCategory.id);
+    } else {
+      await supabase.from('categories').insert({
+        ...data,
+        venue_id: currentVenue.id,
+        sort_order: categories.length,
+        is_active: true
+      });
+    }
+
+    setShowCategoryModal(false);
+    setEditingCategory(null);
+    loadData();
   };
 
-  const handleToggleAvailability = async (id: string, currentStatus: boolean) => {
-    await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id);
-    fetchMenu();
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm(tCommon('confirmDelete'))) return;
+    await supabase.from('categories').delete().eq('id', id);
+    loadData();
   };
 
-  const handleUpdateItem = async (id: string, updates: any) => {
-    await supabase.from('menu_items').update(updates).eq('id', id);
-    fetchMenu();
-    setEditingItem(null);
+  const handleSaveProduct = async (data: Partial<Product>) => {
+    if (!currentVenue?.id) return;
+
+    if (editingProduct) {
+      await supabase.from('products').update(data).eq('id', editingProduct.id);
+    } else {
+      await supabase.from('products').insert({
+        ...data,
+        venue_id: currentVenue.id,
+        sort_order: products.length,
+        is_available: true
+      });
+    }
+
+    setShowProductModal(false);
+    setEditingProduct(null);
+    loadData();
   };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm(tCommon('confirmDelete'))) return;
+    await supabase.from('products').delete().eq('id', id);
+    loadData();
+  };
+
+  const handleToggleAvailability = async (product: Product) => {
+    await supabase.from('products').update({ is_available: !product.is_available }).eq('id', product.id);
+    loadData();
+  };
+
+  if (!currentVenue) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <p className="text-gray-400">{tCommon('selectVenue')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Menü Yönetimi</h1>
-          <p className="text-gray-500 mt-1">{currentVenue?.name || 'Tüm Mekanlar'} • {menuItems.length} ürün</p>
+          <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
+          <p className="text-gray-400">{categories.length} {t('categories')} • {products.length} {t('products')}</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={fetchMenu} className="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50">
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Yenile
-          </button>
-          <a href="/menu/import" className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600">
-            <Download className="w-4 h-4" /> İçe Aktar
-          </a>
-          <button 
-            onClick={() => setEditingItem({})}
-            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadData}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
-            <Plus className="w-4 h-4" /> Ürün Ekle
+            <RefreshCw className="w-4 h-4" />
+            {tCommon('refresh')}
+          </button>
+          <button
+            onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            {t('addCategory')}
+          </button>
+          <button
+            onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            {t('addProduct')}
           </button>
         </div>
       </div>
 
-      {/* Arama */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input 
-          type="text" 
-          placeholder="Ürün veya kategori ara..." 
-          value={searchTerm} 
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-lg" 
-        />
-        {searchTerm && (
-          <button 
-            onClick={() => setSearchTerm('')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
-          >
-            <X className="w-4 h-4 text-gray-400" />
-          </button>
-        )}
+      {/* Search & Filter */}
+      <div className="flex gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={`${tCommon('search')}...`}
+            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+        </div>
+        <select
+          value={selectedCategory || ''}
+          onChange={(e) => setSelectedCategory(e.target.value || null)}
+          className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-xl text-white"
+        >
+          <option value="">{tCommon('all')} {t('categories')}</option>
+          {categories.map(cat => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : searchTerm && filteredItems ? (
-        /* Arama Sonuçları */
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <div className="p-4 bg-gray-50 border-b">
-            <p className="font-medium text-gray-700">"{searchTerm}" için {filteredItems.length} sonuç</p>
-          </div>
-          <div className="divide-y">
-            {filteredItems.map((item: any) => (
-              <MenuItemRow 
-                key={item.id} 
-                item={item} 
-                onEdit={() => setEditingItem(item)}
-                onDelete={handleDeleteItem}
-                onToggle={handleToggleAvailability}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        /* Ana Kategori Grupları */
-        <div className="space-y-3">
-          {mainCategoryGroups.map(group => {
-            const items = groupedByMain[group.id] || [];
-            if (items.length === 0) return null;
-            
-            const isExpanded = expandedGroup === group.id;
-            
-            // Alt kategorilere göre grupla
-            const subGrouped = items.reduce((acc: Record<string, any[]>, item: any) => {
-              const cat = item.category || 'Genel';
-              if (!acc[cat]) acc[cat] = [];
-              acc[cat].push(item);
-              return acc;
-            }, {} as Record<string, any[]>);
+      {/* Content */}
+      <div className="grid lg:grid-cols-4 gap-6">
+        {/* Categories Sidebar */}
+        <div className="lg:col-span-1 space-y-2">
+          <h3 className="text-sm font-medium text-gray-400 mb-3">{t('categories')}</h3>
+          
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={`w-full p-3 rounded-xl text-left transition-colors ${
+              !selectedCategory ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span>{tCommon('all')}</span>
+              <span className="text-sm opacity-70">{products.length}</span>
+            </div>
+          </button>
 
-            return (
-              <div key={group.id} className="bg-white rounded-xl border overflow-hidden">
-                {/* Ana Başlık */}
+          {categories.map(category => (
+            <div
+              key={category.id}
+              className={`group p-3 rounded-xl transition-colors ${
+                selectedCategory === category.id ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
                 <button
-                  onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
-                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  onClick={() => setSelectedCategory(category.id)}
+                  className="flex-1 text-left"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 ${group.color} rounded-xl flex items-center justify-center text-2xl`}>
-                      {group.icon}
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-bold text-gray-900">{group.name}</h2>
-                      <p className="text-sm text-gray-500">{items.length} ürün</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-400">
-                      {Object.keys(subGrouped).length} alt kategori
-                    </span>
-                    {isExpanded ? (
-                      <ChevronDown className="w-5 h-5 text-gray-400" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
-                    )}
-                  </div>
+                  <span>{getCategoryName(category)}</span>
+                  <span className="text-sm opacity-70 ml-2">({getCategoryProducts(category.id).length})</span>
                 </button>
-
-                {/* Alt Kategoriler ve Ürünler */}
-                {isExpanded && (
-                  <div className="border-t">
-                    {(Object.entries(subGrouped) as [string, any[]][]).map(([subCat, subItems]) => (
-                      <div key={subCat} className="border-b last:border-0">
-                        {/* Alt Kategori Başlığı */}
-                        <div className="px-6 py-3 bg-gray-50 flex items-center justify-between">
-                          <span className="font-medium text-gray-700">{subCat}</span>
-                          <span className="text-sm text-gray-500">{subItems.length} ürün</span>
-                        </div>
-                        {/* Ürünler */}
-                        <div className="divide-y">
-                          {subItems.map((item: any) => (
-                            <MenuItemRow 
-                              key={item.id} 
-                              item={item} 
-                              onEdit={() => setEditingItem(item)}
-                              onDelete={handleDeleteItem}
-                              onToggle={handleToggleAvailability}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => { setEditingCategory(category); setShowCategoryModal(true); }}
+                    className="p-1 hover:bg-white/20 rounded"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(category.id)}
+                    className="p-1 hover:bg-white/20 rounded text-red-400"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
-      )}
 
-      {!isLoading && menuItems.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-xl border">
-          <Utensils className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-4">Menü ürünü bulunamadı</p>
-          <div className="flex gap-3 justify-center">
-            <a href="/menu/import" className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600">
-              Menü İçe Aktar
-            </a>
-            <button onClick={() => setEditingItem({})} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
-              Manuel Ekle
-            </button>
-          </div>
-        </div>
-      )}
+        {/* Products Grid */}
+        <div className="lg:col-span-3">
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-12 bg-gray-800/50 rounded-xl">
+              <Tag className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">{tCommon('noData')}</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProducts.map(product => {
+                const category = categories.find(c => c.id === product.category_id);
+                return (
+                  <div
+                    key={product.id}
+                    className={`bg-gray-800 rounded-xl overflow-hidden border border-gray-700 ${
+                      !product.is_available ? 'opacity-60' : ''
+                    }`}
+                  >
+                    {/* Image */}
+                    <div className="h-32 bg-gray-700 relative">
+                      {product.image_url ? (
+                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Image className="w-12 h-12 text-gray-600" />
+                        </div>
+                      )}
+                      {/* Availability badge */}
+                      <button
+                        onClick={() => handleToggleAvailability(product)}
+                        className={`absolute top-2 right-2 p-1.5 rounded-lg ${
+                          product.is_available ? 'bg-green-500' : 'bg-red-500'
+                        }`}
+                      >
+                        {product.is_available ? <Eye className="w-4 h-4 text-white" /> : <EyeOff className="w-4 h-4 text-white" />}
+                      </button>
+                    </div>
 
-      {/* Edit Modal */}
-      {editingItem && (
-        <EditItemModal
-          item={editingItem.id ? editingItem : null}
-          venueId={currentVenue?.id}
-          onSave={async (data) => {
-            if (editingItem.id) {
-              await handleUpdateItem(editingItem.id, data);
-            } else {
-              await supabase.from('menu_items').insert({ ...data, venue_id: currentVenue?.id, is_available: true });
-              fetchMenu();
-            }
-            setEditingItem(null);
-          }}
-          onClose={() => setEditingItem(null)}
-        />
-      )}
-    </div>
-  );
-}
+                    {/* Content */}
+                    <div className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="font-medium text-white">{product.name}</h3>
+                          {category && (
+                            <p className="text-xs text-gray-500">{getCategoryName(category)}</p>
+                          )}
+                        </div>
+                        <p className="text-lg font-bold text-orange-400">₺{product.price}</p>
+                      </div>
+                      
+                      {product.description && (
+                        <p className="text-sm text-gray-400 line-clamp-2 mb-3">{product.description}</p>
+                      )}
 
-// Ürün Satırı
-function MenuItemRow({ item, onEdit, onDelete, onToggle }: {
-  item: any;
-  onEdit: () => void;
-  onDelete: (id: string) => void;
-  onToggle: (id: string, status: boolean) => void;
-}) {
-  return (
-    <div className="px-6 py-3 flex items-center justify-between hover:bg-gray-50 group">
-      <div className="flex items-center gap-4 flex-1">
-        {item.image_url ? (
-          <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />
-        ) : (
-          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-            <ImageIcon className="w-5 h-5 text-gray-400" />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
-          {item.description && (
-            <p className="text-sm text-gray-500 truncate">{item.description}</p>
+                      {product.preparation_time && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
+                          <Clock className="w-3 h-3" />
+                          <span>{product.preparation_time} dk</span>
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setEditingProduct(product); setShowProductModal(true); }}
+                          className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm flex items-center justify-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          {tCommon('edit')}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="py-2 px-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
-      
-      <div className="flex items-center gap-4">
-        <span className="font-bold text-orange-600 text-lg">₺{item.price}</span>
-        
-        <span className={`px-2 py-1 rounded-full text-xs ${
-          item.is_available !== false 
-            ? 'bg-green-100 text-green-700' 
-            : 'bg-red-100 text-red-700'
-        }`}>
-          {item.is_available !== false ? 'Aktif' : 'Pasif'}
-        </span>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={onEdit}
-            className="p-2 hover:bg-blue-50 rounded-lg text-blue-500"
-            title="Düzenle"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onToggle(item.id, item.is_available !== false)}
-            className="p-2 hover:bg-amber-50 rounded-lg text-amber-500"
-            title={item.is_available !== false ? 'Pasife Al' : 'Aktif Et'}
-          >
-            {item.is_available !== false ? '⏸️' : '▶️'}
-          </button>
-          <button
-            onClick={() => onDelete(item.id)}
-            className="p-2 hover:bg-red-50 rounded-lg text-red-500"
-            title="Sil"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      {/* Category Modal */}
+      {showCategoryModal && (
+        <CategoryModal
+          category={editingCategory}
+          t={t}
+          tCommon={tCommon}
+          onClose={() => { setShowCategoryModal(false); setEditingCategory(null); }}
+          onSave={handleSaveCategory}
+        />
+      )}
+
+      {/* Product Modal */}
+      {showProductModal && (
+        <ProductModal
+          product={editingProduct}
+          categories={categories}
+          t={t}
+          tCommon={tCommon}
+          onClose={() => { setShowProductModal(false); setEditingProduct(null); }}
+          onSave={handleSaveProduct}
+        />
+      )}
     </div>
   );
 }
 
-// Düzenleme Modalı - GÖRSEL YÜKLEME ÖZELLİKLİ
-function EditItemModal({ item, venueId, onSave, onClose }: {
-  item: any;
-  venueId?: string;
-  onSave: (data: any) => Promise<void>;
+// Category Modal
+function CategoryModal({
+  category, t, tCommon, onClose, onSave
+}: {
+  category: Category | null;
+  t: any;
+  tCommon: any;
   onClose: () => void;
+  onSave: (data: Partial<Category>) => void;
 }) {
-  const [formData, setFormData] = useState({
-    name: item?.name || '',
-    price: item?.price?.toString() || '',
-    category: item?.category || '',
-    description: item?.description || '',
-    image_url: item?.image_url || '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
-  
-  // Görsel yükleme state'leri
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(item?.image_url || null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState(category?.name || '');
+  const [description, setDescription] = useState(category?.description || '');
 
-  // Kategorileri Supabase'den çek
-  useEffect(() => {
-    async function loadCategories() {
-      if (!venueId) return;
-      const { data } = await supabase
-        .from('menu_categories')
-        .select('name')
-        .eq('venue_id', venueId)
-        .eq('is_active', true)
-        .order('display_order');
-      if (data) {
-        setCategories(data.map(c => c.name));
-      }
-    }
-    loadCategories();
-  }, [venueId]);
-
-  // Dosya yükleme fonksiyonu
-  const handleFileUpload = async (file: File) => {
-    if (!file) return;
-
-    // Dosya boyutu kontrolü (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('Dosya boyutu 5MB\'dan küçük olmalı');
-      return;
-    }
-
-    // Dosya tipi kontrolü
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedTypes.includes(file.type)) {
-      setUploadError('Sadece JPG, PNG, WebP ve GIF dosyaları yüklenebilir');
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadError(null);
-
-    try {
-      // Dosya adı oluştur (benzersiz)
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${venueId || 'general'}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-      // Supabase Storage'a yükle
-      const { error } = await supabase.storage
-        .from('menu-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) {
-        console.error('Upload error:', error);
-        if (error.message.includes('Bucket not found')) {
-          setUploadError('Storage bucket bulunamadı. Supabase Dashboard\'dan "menu-images" bucket\'ı oluşturun.');
-        } else {
-          setUploadError(`Yükleme hatası: ${error.message}`);
-        }
-        return;
-      }
-
-      // Public URL al
-      const { data: { publicUrl } } = supabase.storage
-        .from('menu-images')
-        .getPublicUrl(fileName);
-
-      // Form ve preview güncelle
-      setFormData(prev => ({ ...prev, image_url: publicUrl }));
-      setPreviewUrl(publicUrl);
-      
-    } catch (err: any) {
-      console.error('Upload error:', err);
-      setUploadError('Beklenmeyen bir hata oluştu');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Drag & Drop handler
-  const handleDrop = (e: React.DragEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
-  };
-
-  // File input change handler
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileUpload(file);
-  };
-
-  // Görseli kaldır
-  const handleRemoveImage = () => {
-    setFormData(prev => ({ ...prev, image_url: '' }));
-    setPreviewUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.price) return;
-    
-    setIsSubmitting(true);
-    await onSave({
-      name: formData.name,
-      price: parseFloat(formData.price),
-      category: formData.category || null,
-      description: formData.description || null,
-      image_url: formData.image_url || null,
-    });
-    setIsSubmitting(false);
+    onSave({ name, description });
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-bold">{item ? 'Ürünü Düzenle' : 'Yeni Ürün Ekle'}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-md">
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
+            {category ? t('editCategory') : t('addCategory')}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {/* Görsel Yükleme Alanı */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Ürün Görseli</label>
-            
-            {previewUrl ? (
-              <div className="relative">
-                <img 
-                  src={previewUrl} 
-                  alt="Önizleme" 
-                  className="w-full h-48 object-cover rounded-xl border"
-                />
-                <div className="absolute top-2 right-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 bg-white/90 hover:bg-white rounded-lg shadow text-blue-600"
-                    title="Değiştir"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRemoveImage}
-                    className="p-2 bg-white/90 hover:bg-white rounded-lg shadow text-red-600"
-                    title="Kaldır"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div
-                onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => fileInputRef.current?.click()}
-                className={`
-                  border-2 border-dashed rounded-xl p-6 text-center cursor-pointer
-                  transition-colors hover:border-orange-400 hover:bg-orange-50
-                  ${isUploading ? 'border-orange-400 bg-orange-50' : 'border-gray-300'}
-                `}
-              >
-                {isUploading ? (
-                  <div className="flex flex-col items-center">
-                    <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-2" />
-                    <p className="text-sm text-gray-600">Yükleniyor...</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                      <Upload className="w-6 h-6 text-orange-500" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">
-                      Görsel yüklemek için tıklayın veya sürükleyin
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      JPG, PNG, WebP, GIF • Max 5MB
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-
-            {uploadError && (
-              <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                <X className="w-4 h-4" />
-                {uploadError}
-              </p>
-            )}
-
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const url = prompt('Görsel URL\'si girin:');
-                  if (url) {
-                    setFormData(prev => ({ ...prev, image_url: url }));
-                    setPreviewUrl(url);
-                  }
-                }}
-                className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
-              >
-                <ImageIcon className="w-4 h-4" />
-                URL ile ekle
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ürün Adı *</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('categoryName')}</label>
             <input
               type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
               required
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fiyat (₺) *</label>
-            <input
-              type="number"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="">Seçin...</option>
-              {categories.map((cat, index) => (
-              <option key={`${cat}-${index}`} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{tCommon('description')}</label>
             <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
             />
           </div>
-
           <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 border rounded-lg hover:bg-gray-50"
+              className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
-              İptal
+              {tCommon('cancel')}
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isUploading}
-              className="flex-1 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Kaydediliyor...
-                </>
-              ) : (
-                'Kaydet'
-              )}
+              {tCommon('save')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Product Modal
+function ProductModal({
+  product, categories, t, tCommon, onClose, onSave
+}: {
+  product: Product | null;
+  categories: Category[];
+  t: any;
+  tCommon: any;
+  onClose: () => void;
+  onSave: (data: Partial<Product>) => void;
+}) {
+  const [name, setName] = useState(product?.name || '');
+  const [description, setDescription] = useState(product?.description || '');
+  const [price, setPrice] = useState(product?.price?.toString() || '');
+  const [categoryId, setCategoryId] = useState(product?.category_id || categories[0]?.id || '');
+  const [preparationTime, setPreparationTime] = useState(product?.preparation_time?.toString() || '');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      name,
+      description,
+      price: parseFloat(price),
+      category_id: categoryId,
+      preparation_time: preparationTime ? parseInt(preparationTime) : undefined
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800">
+          <h2 className="text-xl font-bold text-white">
+            {product ? t('editProduct') : t('addProduct')}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('productName')}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('productDescription')}</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('categories')}</label>
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+              required
+            >
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">{t('productPrice')} (₺)</label>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                step="0.01"
+                min="0"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">{t('preparationTime')} (dk)</label>
+              <input
+                type="number"
+                value={preparationTime}
+                onChange={(e) => setPreparationTime(e.target.value)}
+                min="0"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
+            >
+              {tCommon('cancel')}
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
+            >
+              {tCommon('save')}
             </button>
           </div>
         </form>

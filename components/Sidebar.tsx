@@ -2,103 +2,83 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
 import { useUIStore, useVenueStore } from '@/stores';
 import {
-  LayoutDashboard,
-  UtensilsCrossed,
-  ChefHat,
-  Users,
-  CalendarCheck,
-  Receipt,
-  BarChart3,
-  Package,
-  Clock,
-  UserCircle,
-  TrendingUp,
-  AlertTriangle,
-  QrCode,
-  Ticket,
-  Settings,
-  Building2,
-  CreditCard,
-  ClipboardList,
-  Grid3X3,
-  ChevronLeft,
-  Sparkles,
-  MapPin
+  LayoutDashboard, UtensilsCrossed, ChefHat, Users, CalendarCheck,
+  Receipt, BarChart3, Package, Clock, UserCircle, TrendingUp,
+  AlertTriangle, QrCode, Ticket, Settings, Building2, CreditCard,
+  ClipboardList, Grid3X3, ChevronLeft, Sparkles, MapPin, Menu, X
 } from 'lucide-react';
 import { PartyPopper } from 'lucide-react';
 
+const menuItems = [
+  {
+    section: 'ANA MENÜ',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Mekanlarım', href: '/venues', icon: Building2, multiVenueOnly: true },
+      { name: 'Hızlı Kayıt', href: '/onboarding', icon: Sparkles },
+    ]
+  },
+  {
+    section: 'OPERASYON',
+    items: [
+      { name: 'Masalar', href: '/tables', icon: Grid3X3 },
+      { name: 'Siparişler', href: '/orders', icon: ClipboardList },
+      { name: 'Garson Paneli', href: '/waiter', icon: UtensilsCrossed },
+      { name: 'Mutfak', href: '/kitchen', icon: ChefHat },
+      { name: 'Resepsiyon', href: '/reception', icon: Users },
+    ]
+  },
+  {
+    section: 'İLETİŞİM',
+    items: [
+      { name: 'Buradaki Müşteriler', href: '/here-customers', icon: MapPin },
+    ]
+  },
+  {
+    section: 'YÖNETİM',
+    items: [
+      { name: 'Menü', href: '/menu', icon: UtensilsCrossed },
+      { name: 'Etkinlikler', href: '/events', icon: PartyPopper },
+      { name: 'Rezervasyonlar', href: '/reservations', icon: CalendarCheck },
+      { name: 'Kasa/POS', href: '/pos', icon: CreditCard },
+      { name: 'QR Menü', href: '/qr-menu', icon: QrCode },
+      { name: 'Kuponlar', href: '/coupons', icon: Ticket },
+    ]
+  },
+  {
+    section: 'STOK & PERSONEL',
+    items: [
+      { name: 'Stok Yönetimi', href: '/stock', icon: Package },
+      { name: 'Stok Uyarıları', href: '/stock-alerts', icon: AlertTriangle },
+      { name: 'Personel', href: '/staff', icon: Users },
+      { name: 'Vardiyalar', href: '/shifts', icon: Clock },
+      { name: 'Performans', href: '/performance', icon: TrendingUp },
+    ]
+  },
+  {
+    section: 'ANALİZ & CRM',
+    items: [
+      { name: 'Raporlar', href: '/reports', icon: Receipt },
+      { name: 'Analitik', href: '/analytics', icon: BarChart3 },
+      { name: 'Müşteri CRM', href: '/crm', icon: UserCircle },
+    ]
+  },
+  {
+    section: 'SİSTEM',
+    items: [
+      { name: 'Ayarlar', href: '/settings', icon: Settings },
+    ]
+  }
+];
+
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarOpen, sidebarCollapsed, toggleSidebarCollapse } = useUIStore();
+  const { sidebarOpen, sidebarCollapsed, toggleSidebarCollapse, setSidebarOpen } = useUIStore();
   const { venues } = useVenueStore();
-  const t = useTranslations('nav');
   
   const isMultiVenue = venues.length > 1;
-
-  const menuItems = [
-    {
-      section: t('mainMenu'),
-      items: [
-        { name: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
-        { name: t('venues'), href: '/venues', icon: Building2, multiVenueOnly: true },
-        { name: t('quickSetup'), href: '/onboarding', icon: Sparkles },
-      ]
-    },
-    {
-      section: t('operations'),
-      items: [
-        { name: t('tables'), href: '/tables', icon: Grid3X3 },
-        { name: t('orders'), href: '/orders', icon: ClipboardList },
-        { name: t('waiterPanel'), href: '/waiter', icon: UtensilsCrossed },
-        { name: t('kitchen'), href: '/kitchen', icon: ChefHat },
-        { name: t('reception'), href: '/reception', icon: Users },
-      ]
-    },
-    {
-      section: t('communication'),
-      items: [
-        { name: t('hereCustomers'), href: '/here-customers', icon: MapPin },
-      ]
-    },
-    {
-      section: t('management'),
-      items: [
-        { name: t('menu'), href: '/menu', icon: UtensilsCrossed },
-      { name: 'Etkinlikler', href: '/events', icon: PartyPopper },
-        { name: t('reservations'), href: '/reservations', icon: CalendarCheck },
-        { name: t('pos'), href: '/pos', icon: CreditCard },
-        { name: t('qrMenu'), href: '/qr-menu', icon: QrCode },
-        { name: t('coupons'), href: '/coupons', icon: Ticket },
-      ]
-    },
-    {
-      section: t('stockAndStaff'),
-      items: [
-        { name: t('stockManagement'), href: '/stock', icon: Package },
-        { name: t('stockAlerts'), href: '/stock-alerts', icon: AlertTriangle },
-        { name: t('staff'), href: '/staff', icon: Users },
-        { name: t('shifts'), href: '/shifts', icon: Clock },
-        { name: t('performance'), href: '/performance', icon: TrendingUp },
-      ]
-    },
-    {
-      section: t('analysisAndCrm'),
-      items: [
-        { name: t('reports'), href: '/reports', icon: Receipt },
-        { name: t('analytics'), href: '/analytics', icon: BarChart3 },
-        { name: t('customerCrm'), href: '/crm', icon: UserCircle },
-      ]
-    },
-    {
-      section: t('system'),
-      items: [
-        { name: t('settings'), href: '/settings', icon: Settings },
-      ]
-    }
-  ];
 
   if (!sidebarOpen) return null;
 
@@ -129,8 +109,8 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Menu - Scrollable */}
-      <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+      {/* Menu */}
+      <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-3">
         {menuItems.map((section) => (
           <div key={section.section} className="mb-6">
             {!sidebarCollapsed && (
@@ -170,7 +150,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
+      {/* TiT Pay Footer */}
       {!sidebarCollapsed && (
         <div className="p-4 border-t border-gray-800">
           <div className="flex items-center gap-3 px-3 py-2 bg-gray-800/50 rounded-lg">
@@ -178,8 +158,8 @@ export function Sidebar() {
               <span className="text-xs font-bold text-white">TiT</span>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">{t('titPay')}</p>
-              <p className="text-xs text-gray-400">{t('integrated')}</p>
+              <p className="text-sm font-medium text-white">TiT Pay</p>
+              <p className="text-xs text-gray-400">Entegre</p>
             </div>
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           </div>
@@ -189,27 +169,23 @@ export function Sidebar() {
   );
 }
 
-// Mobile Header Component
 export function MobileHeader() {
-  const { toggleSidebar } = useUIStore();
-
+  const { sidebarOpen, setSidebarOpen } = useUIStore();
+  
   return (
-    <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-40">
+    <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 border-b border-gray-800 z-40 flex items-center px-4">
       <button
-        onClick={toggleSidebar}
-        className="p-2 hover:bg-gray-100 rounded-lg"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="p-2 text-white"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 ml-2">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-          <span className="text-white font-bold text-sm">O</span>
+          <Sparkles className="w-5 h-5 text-white" />
         </div>
-        <span className="font-bold text-gray-900">ORDER</span>
+        <span className="font-bold text-white">ORDER Business</span>
       </div>
-      <div className="w-10" />
-    </header>
+    </div>
   );
 }

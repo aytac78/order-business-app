@@ -1,376 +1,579 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useVenueStore } from '@/stores';
 import { supabase } from '@/lib/supabase';
 import {
-  Users, Utensils, AlertCircle, Loader2, RefreshCw,
-  Plus, X, CreditCard, CheckCircle, Minus,
-  Phone, Search, ShoppingCart
+  Users,
+  Clock,
+  Bell,
+  CheckCircle,
+  AlertCircle,
+  Plus,
+  Minus,
+  X,
+  Search,
+  Volume2,
+  VolumeX,
+  RefreshCw,
+  ShoppingCart,
+  Send,
+  CreditCard,
+  UserPlus,
+  Phone,
+  Calendar,
+  MessageSquare,
+  AlertTriangle,
+  Utensils,
+  Coffee
 } from 'lucide-react';
 
+// =============================================
+// TYPE DEFINITIONS - Supabase Şemasına Uygun
+// =============================================
 interface TableData {
   id: string;
+  venue_id: string;
   number: string;
+  name: string | null;
   capacity: number;
   section: string;
   status: 'available' | 'occupied' | 'reserved' | 'cleaning';
-  current_guests?: number;
-}
-
-interface OrderData {
-  id: string;
-  table_number: string;
-  table_id: string;
-  status: string;
-  total: number;
-  items: any[];
+  shape: string;
+  position_x: number;
+  position_y: number;
+  qr_code: string;
+  is_active: boolean;
   created_at: string;
-  guest_count?: number;
+  current_guests: number;
+  customer_name: string | null;
+  seated_at: string | null;
 }
 
-interface ReservationData {
+interface OrderItem {
+  product_id: string;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+  total_price: number;
+  notes: string;
+  status: string;
+}
+
+interface Order {
   id: string;
+  venue_id: string;
+  table_id: string | null;
+  table_number: string;
+  order_number: string;
+  type: string;
+  status: string;
+  subtotal: number;
+  tax: number;
+  service_charge: number;
+  discount: number;
+  total: number;
+  payment_status: string;
+  payment_method: string | null;
+  notes: string | null;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  items: OrderItem[];
+}
+
+interface Reservation {
+  id: string;
+  venue_id: string;
   customer_name: string;
   customer_phone: string;
+  customer_email: string | null;
+  date: string;
   time: string;
   party_size: number;
-  table_number: string;
+  table_number: string | null;
   status: string;
+  notes: string | null;
+  special_requests: string | null;
+  created_at: string;
 }
 
-interface CategoryData {
+interface WaiterCall {
   id: string;
+  venue_id: string;
+  table_id: string;
+  type: string;
+  status: string;
+  created_at: string;
+}
+
+interface Product {
+  id: string;
+  venue_id: string;
+  category_id: string;
+  name: string;
+  price: number;
+  description: string | null;
+  image_url: string | null;
+  is_available: boolean;
+}
+
+interface Category {
+  id: string;
+  venue_id: string;
   name: string;
   sort_order: number;
 }
 
-interface ProductData {
-  id: string;
+interface CartItem {
+  product_id: string;
   name: string;
   price: number;
-  category_id: string;
-  is_available: boolean;
-  image_url?: string;
-}
-
-interface CartItem {
-  product: ProductData;
   quantity: number;
-  notes?: string;
+  notes: string;
 }
 
+// =============================================
+// HELPER FUNCTIONS
+// =============================================
+const formatTime = (timeStr: string): string => {
+  if (!timeStr) return '';
+  // "14:30:00" -> "14:30"
+  return timeStr.substring(0, 5);
+};
+
+const formatDateTime = (dateStr: string): string => {
+  try {
+    return new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+};
+
+const formatCurrency = (amount: number): string => {
+  if (isNaN(amount)) return '₺0';
+  return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const generateOrderNumber = (): string => {
+  return `ORD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+};
+
+// =============================================
+// STATUS CONFIGS
+// =============================================
+const tableStatusConfig: Record<string, { label: string; color: string; bg: string }> = {
+  available: { label: 'Müsait', color: 'text-green-400', bg: 'bg-green-500/20 border-green-500/50' },
+  occupied: { label: 'Dolu', color: 'text-red-400', bg: 'bg-red-500/20 border-red-500/50' },
+  reserved: { label: 'Rezerve', color: 'text-amber-400', bg: 'bg-amber-500/20 border-amber-500/50' },
+  cleaning: { label: 'Temizleniyor', color: 'text-blue-400', bg: 'bg-blue-500/20 border-blue-500/50' },
+};
+
+const orderStatusConfig: Record<string, { label: string; color: string; bg: string }> = {
+  pending: { label: 'Bekliyor', color: 'text-amber-400', bg: 'bg-amber-500/20' },
+  confirmed: { label: 'Onaylandı', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+  preparing: { label: 'Hazırlanıyor', color: 'text-purple-400', bg: 'bg-purple-500/20' },
+  ready: { label: 'Hazır', color: 'text-green-400', bg: 'bg-green-500/20' },
+  served: { label: 'Servis Edildi', color: 'text-gray-400', bg: 'bg-gray-500/20' },
+  completed: { label: 'Tamamlandı', color: 'text-gray-400', bg: 'bg-gray-500/20' },
+  cancelled: { label: 'İptal', color: 'text-red-400', bg: 'bg-red-500/20' },
+};
+
+const waiterCallTypes: Record<string, string> = {
+  waiter: '🙋 Garson Çağrısı',
+  bill: '💳 Hesap İsteniyor',
+  help: '❓ Yardım',
+};
+
+// =============================================
+// MAIN COMPONENT
+// =============================================
 export default function WaiterPage() {
   const { currentVenue } = useVenueStore();
-  const router = useRouter();
-
-  const [tables, setTables] = useState<TableData[]>([]);
-  const [orders, setOrders] = useState<OrderData[]>([]);
-  const [reservations, setReservations] = useState<ReservationData[]>([]);
-  const [categories, setCategories] = useState<CategoryData[]>([]);
-  const [products, setProducts] = useState<ProductData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
-  const [activeSection, setActiveSection] = useState<string>('all');
   
-  // Order Modal State
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showGuestModal, setShowGuestModal] = useState(false);
-  const [guestTable, setGuestTable] = useState<TableData | null>(null);
-  const [orderTable, setOrderTable] = useState<TableData | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Data states
+  const [tables, setTables] = useState<TableData[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  
+  // UI states
+  const [selectedSection, setSelectedSection] = useState<string>('Tümü');
+  const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Cleaning timer refs
+  const cleaningTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  // Status config
-  const statusConfig = {
-    available: { label: 'Müsait', bg: 'bg-green-500', border: 'border-green-400' },
-    occupied: { label: 'Dolu', bg: 'bg-red-500', border: 'border-red-400' },
-    reserved: { label: 'Rezerveli', bg: 'bg-amber-500', border: 'border-amber-400' },
-    cleaning: { label: 'Temizleniyor', bg: 'bg-blue-500', border: 'border-blue-400' },
-  };
-
-  const loadData = useCallback(async () => {
+  // =============================================
+  // DATA LOADING FUNCTIONS
+  // =============================================
+  const loadTables = useCallback(async () => {
     if (!currentVenue?.id) return;
-
-    const today = new Date().toISOString().split('T')[0];
-
-    const [tablesRes, ordersRes, reservationsRes, categoriesRes, productsRes] = await Promise.all([
-      supabase.from('tables').select('*').eq('venue_id', currentVenue.id).eq('is_active', true).order('number'),
-      supabase.from('orders').select('*').eq('venue_id', currentVenue.id).in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served']).not('table_number', 'is', null),
-      supabase.from('reservations').select('*').eq('venue_id', currentVenue.id).eq('date', today).in('status', ['pending', 'confirmed']),
-      supabase.from('categories').select('*').eq('venue_id', currentVenue.id).eq('is_active', true).order('sort_order'),
-      supabase.from('products').select('*').eq('venue_id', currentVenue.id).eq('is_available', true).order('sort_order')
-    ]);
-
-    if (tablesRes.data) setTables(tablesRes.data);
-    if (ordersRes.data) setOrders(ordersRes.data);
-    if (reservationsRes.data) setReservations(reservationsRes.data);
-    if (categoriesRes.data) setCategories(categoriesRes.data);
-    if (productsRes.data) setProducts(productsRes.data);
-    setLoading(false);
+    
+    const { data, error } = await supabase
+      .from('tables')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .eq('is_active', true)
+      .order('number');
+    
+    if (error) {
+      console.error('Tables load error:', error);
+      return;
+    }
+    
+    if (data) setTables(data);
   }, [currentVenue?.id]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const loadOrders = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served'])
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Orders load error:', error);
+      return;
+    }
+    
+    if (data) setOrders(data);
+  }, [currentVenue?.id]);
 
-  // Real-time subscription
+  const loadReservations = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .eq('date', today)
+      .in('status', ['pending', 'confirmed'])
+      .order('time');
+    
+    if (error) {
+      console.error('Reservations load error:', error);
+      return;
+    }
+    
+    if (data) setReservations(data);
+  }, [currentVenue?.id]);
+
+  const loadWaiterCalls = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const { data, error } = await supabase
+      .from('waiter_calls')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Waiter calls load error:', error);
+      return;
+    }
+    
+    if (data) setWaiterCalls(data);
+  }, [currentVenue?.id]);
+
+  const loadProducts = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .eq('is_available', true)
+      .order('name');
+    
+    if (error) {
+      console.error('Products load error:', error);
+      return;
+    }
+    
+    if (data) setProducts(data);
+  }, [currentVenue?.id]);
+
+  const loadCategories = useCallback(async () => {
+    if (!currentVenue?.id) return;
+    
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('venue_id', currentVenue.id)
+      .order('sort_order');
+    
+    if (error) {
+      console.error('Categories load error:', error);
+      return;
+    }
+    
+    if (data) setCategories(data);
+  }, [currentVenue?.id]);
+
+  const loadAllData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      loadTables(),
+      loadOrders(),
+      loadReservations(),
+      loadWaiterCalls(),
+      loadProducts(),
+      loadCategories(),
+    ]);
+    setLoading(false);
+  }, [loadTables, loadOrders, loadReservations, loadWaiterCalls, loadProducts, loadCategories]);
+
+  // =============================================
+  // REAL-TIME SUBSCRIPTIONS
+  // =============================================
   useEffect(() => {
     if (!currentVenue?.id) return;
 
     const channel = supabase
-      .channel('waiter-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `venue_id=eq.${currentVenue.id}` }, loadData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${currentVenue.id}` }, loadData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations', filter: `venue_id=eq.${currentVenue.id}` }, loadData)
+      .channel(`waiter-panel-${currentVenue.id}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${currentVenue.id}` },
+        (payload) => {
+          console.log('Order change:', payload);
+          loadOrders();
+          if (payload.eventType === 'INSERT' && soundEnabled) {
+            playSound();
+          }
+          if (payload.eventType === 'UPDATE' && (payload.new as Order).status === 'ready' && soundEnabled) {
+            playSound();
+          }
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'tables', filter: `venue_id=eq.${currentVenue.id}` },
+        () => {
+          console.log('Table change');
+          loadTables();
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'reservations', filter: `venue_id=eq.${currentVenue.id}` },
+        () => {
+          console.log('Reservation change');
+          loadReservations();
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'waiter_calls', filter: `venue_id=eq.${currentVenue.id}` },
+        (payload) => {
+          console.log('Waiter call:', payload);
+          loadWaiterCalls();
+          if (payload.eventType === 'INSERT' && soundEnabled) {
+            playSound();
+          }
+        }
+      )
       .subscribe();
 
-    return () => { channel.unsubscribe(); };
-  }, [currentVenue?.id, loadData]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentVenue?.id, loadOrders, loadTables, loadReservations, loadWaiterCalls, soundEnabled]);
 
-  const getTableOrder = (tableNumber: string) => orders.find(o => o.table_number === tableNumber);
-  const getTableReservations = (tableNumber: string) => reservations.filter(r => r.table_number === tableNumber);
+  // Initial data load
+  useEffect(() => {
+    if (currentVenue?.id) {
+      loadAllData();
+    }
+  }, [currentVenue?.id, loadAllData]);
 
-  const getRealStatus = (table: TableData): 'available' | 'occupied' | 'reserved' | 'cleaning' => {
-    const order = getTableOrder(table.number);
-    const tableReservations = getTableReservations(table.number);
-    if (order) return 'occupied';
-    if (tableReservations.length > 0) return 'reserved';
+  // Clock update
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // =============================================
+  // CLEANING TIMER - 5 dakika sonra otomatik müsait
+  // =============================================
+  useEffect(() => {
+    tables.forEach(table => {
+      if (table.status === 'cleaning' && !cleaningTimers.current.has(table.id)) {
+        const timer = setTimeout(async () => {
+          await supabase
+            .from('tables')
+            .update({ 
+              status: 'available', 
+              current_guests: 0, 
+              customer_name: null,
+              seated_at: null 
+            })
+            .eq('id', table.id);
+          cleaningTimers.current.delete(table.id);
+          loadTables();
+        }, 5 * 60 * 1000); // 5 dakika
+        
+        cleaningTimers.current.set(table.id, timer);
+      } else if (table.status !== 'cleaning' && cleaningTimers.current.has(table.id)) {
+        clearTimeout(cleaningTimers.current.get(table.id));
+        cleaningTimers.current.delete(table.id);
+      }
+    });
+
+    return () => {
+      cleaningTimers.current.forEach(timer => clearTimeout(timer));
+    };
+  }, [tables, loadTables]);
+
+  // =============================================
+  // SOUND
+  // =============================================
+  const playSound = () => {
+    try {
+      const audio = new Audio('/sounds/notification.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(() => {});
+    } catch {}
+  };
+
+  // =============================================
+  // COMPUTED VALUES
+  // =============================================
+  const sections = ['Tümü', ...Array.from(new Set(tables.map(t => t.section).filter(Boolean)))];
+  
+  const filteredTables = selectedSection === 'Tümü' 
+    ? tables 
+    : tables.filter(t => t.section === selectedSection);
+
+  const getTableOrders = (tableNumber: string): Order[] => 
+    orders.filter(o => o.table_number === tableNumber && !['completed', 'cancelled'].includes(o.status));
+
+  const getTableReservation = (tableNumber: string): Reservation | undefined =>
+    reservations.find(r => r.table_number === tableNumber);
+
+  // Gerçek masa durumunu hesapla
+  const getEffectiveStatus = (table: TableData): string => {
+    // Müşteri adı veya kişi sayısı varsa DOLU kabul et
+    if (table.customer_name || (table.current_guests && table.current_guests > 0)) {
+      return 'occupied';
+    }
+    // Aktif sipariş varsa DOLU
+    const tableOrders = getTableOrders(table.number);
+    if (tableOrders.length > 0) {
+      return 'occupied';
+    }
     return table.status;
   };
 
-  const sections = ['all', ...Array.from(new Set(tables.map(t => t.section)))];
-  const filteredTables = activeSection === 'all' ? tables : tables.filter(t => t.section === activeSection);
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const preparingOrders = orders.filter(o => o.status === 'preparing');
+  const readyOrders = orders.filter(o => o.status === 'ready');
 
-  // Stats
-  const stats = {
-    available: tables.filter(t => getRealStatus(t) === 'available').length,
-    occupied: tables.filter(t => getRealStatus(t) === 'occupied').length,
-    reserved: tables.filter(t => getRealStatus(t) === 'reserved').length,
-    totalOrders: orders.length,
-    totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0),
-  };
-
-  const handleStatusChange = async (tableId: string, newStatus: TableData['status']) => {
-    await supabase.from('tables').update({ status: newStatus }).eq('id', tableId);
-    loadData();
-    setSelectedTable(null);
-  };
-
-  // Order Functions
-  const openOrderModal = (table: TableData) => {
-    setOrderTable(table);
-    setCart([]);
-    setActiveCategory('all');
-    setSearchQuery('');
-    setShowOrderModal(true);
-    setSelectedTable(null);
-  };
-
-  const handleGetBill = (table: TableData) => {
-    // POS sayfasına yönlendir, masa bilgisiyle
-    const order = getTableOrder(table.number);
-    if (order) {
-      // LocalStorage'a seçili hesap bilgisini kaydet
-      localStorage.setItem('selectedPosTable', JSON.stringify({
-        tableId: table.id,
-        tableNumber: table.number,
-        orderId: order.id,
-        total: order.total
-      }));
+  // =============================================
+  // ACTIONS
+  // =============================================
+  const updateTableStatus = async (tableId: string, newStatus: string) => {
+    const updateData: Partial<TableData> = { status: newStatus as TableData['status'] };
+    
+    // Müsait yapılırsa müşteri bilgilerini temizle
+    if (newStatus === 'available') {
+      updateData.current_guests = 0;
+      updateData.customer_name = null;
+      updateData.seated_at = null;
     }
-    router.push('/pos');
-  };
-
-  const openGuestModal = (table: TableData) => {
-    setGuestTable(table);
-    setShowGuestModal(true);
-    setSelectedTable(null);
-  };
-
-  const handleUpdateGuests = async (tableId: string, guestCount: number) => {
-    // Masa kişi sayısını güncelle
-    await supabase
+    
+    const { error } = await supabase
       .from('tables')
-      .update({ current_guests: guestCount })
+      .update(updateData)
       .eq('id', tableId);
     
-    // Eğer sipariş varsa, siparişe de kaydet
-    const table = tables.find(t => t.id === tableId);
-    if (table) {
-      const order = getTableOrder(table.number);
-      if (order) {
-        await supabase
-          .from('orders')
-          .update({ guest_count: guestCount })
-          .eq('id', order.id);
-      }
+    if (error) {
+      console.error('Table status update error:', error);
+      alert('Masa durumu güncellenemedi');
+      return;
     }
     
-    setShowGuestModal(false);
-    loadData();
+    loadTables();
+    setSelectedTable(null);
   };
 
-  const addToCart = (product: ProductData) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item => 
-          item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === productId);
-      if (existing && existing.quantity > 1) {
-        return prev.map(item =>
-          item.product.id === productId
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        );
-      }
-      return prev.filter(item => item.product.id !== productId);
-    });
-  };
-
-  const getCartTotal = () => cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const getCartCount = () => cart.reduce((sum, item) => sum + item.quantity, 0);
-
-  const submitOrder = async () => {
-    if (!orderTable || !currentVenue || cart.length === 0) return;
-
-    setIsSubmitting(true);
-
-    try {
-      // Generate order number
-      const orderNumber = `ORD-${Date.now().toString().slice(-6)}`;
-      const subtotal = getCartTotal();
-      const taxRate = currentVenue.settings?.tax_rate || 10;
-      const tax = subtotal * (taxRate / 100);
-      const total = subtotal + tax;
-
-      // Create order
-      const { data: newOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          venue_id: currentVenue.id,
-          table_id: orderTable.id,
-          table_number: orderTable.number,
-          order_number: orderNumber,
-          type: 'dine_in',
-          status: 'pending',
-          subtotal,
-          tax,
-          service_charge: 0,
-          discount: 0,
-          total,
-          payment_status: 'pending',
-          items: cart.map(item => ({
-            product_id: item.product.id,
-            product_name: item.product.name,
-            quantity: item.quantity,
-            unit_price: item.product.price,
-            total_price: item.product.price * item.quantity,
-            notes: item.notes || '',
-            status: 'pending'
-          })),
-          priority: 'normal'
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Update table status
-      await supabase
-        .from('tables')
-        .update({ status: 'occupied' })
-        .eq('id', orderTable.id);
-
-      // Close modal and refresh
-      setShowOrderModal(false);
-      setCart([]);
-      loadData();
-      
-      alert(`Sipariş oluşturuldu: ${orderNumber}`);
-    } catch (error) {
-      console.error('Order error:', error);
-      alert('Sipariş oluşturulurken hata oluştu');
-    } finally {
-      setIsSubmitting(false);
+  const addGuestToTable = async (table: TableData) => {
+    const newGuestCount = (table.current_guests || 0) + 1;
+    
+    const { error } = await supabase
+      .from('tables')
+      .update({ 
+        current_guests: newGuestCount,
+        status: 'occupied'
+      })
+      .eq('id', table.id);
+    
+    if (error) {
+      console.error('Add guest error:', error);
+      alert('Kişi eklenemedi');
+      return;
     }
+    
+    loadTables();
+    // Modal'ı güncelle
+    setSelectedTable(prev => prev ? { ...prev, current_guests: newGuestCount, status: 'occupied' } : null);
   };
 
-  const addToExistingOrder = async (order: OrderData) => {
-    if (cart.length === 0) return;
-
-    setIsSubmitting(true);
-
-    try {
-      const newItems = cart.map(item => ({
-        product_id: item.product.id,
-        product_name: item.product.name,
-        quantity: item.quantity,
-        unit_price: item.product.price,
-        total_price: item.product.price * item.quantity,
-        notes: item.notes || '',
-        status: 'pending'
-      }));
-
-      const updatedItems = [...(order.items || []), ...newItems];
-      const subtotal = updatedItems.reduce((sum, item) => sum + item.total_price, 0);
-      const taxRate = currentVenue?.settings?.tax_rate || 10;
-      const tax = subtotal * (taxRate / 100);
-      const total = subtotal + tax;
-
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          items: updatedItems,
-          subtotal,
-          tax,
-          total,
-          status: 'pending'
-        })
-        .eq('id', order.id);
-
-      if (error) throw error;
-
-      setShowOrderModal(false);
-      setCart([]);
-      loadData();
-      
-      alert('Ürünler siparişe eklendi');
-    } catch (error) {
-      console.error('Add to order error:', error);
-      alert('Ürün eklenirken hata oluştu');
-    } finally {
-      setIsSubmitting(false);
+  const acknowledgeWaiterCall = async (callId: string) => {
+    const { error } = await supabase
+      .from('waiter_calls')
+      .update({ 
+        status: 'acknowledged',
+        acknowledged_at: new Date().toISOString()
+      })
+      .eq('id', callId);
+    
+    if (error) {
+      console.error('Acknowledge call error:', error);
+      return;
     }
+    
+    loadWaiterCalls();
   };
 
-  // Filter products
-  const filteredProducts = products.filter(p => {
-    const matchesCategory = activeCategory === 'all' || p.category_id === activeCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderId);
+    
+    if (error) {
+      console.error('Order status update error:', error);
+      alert('Sipariş durumu güncellenemedi');
+      return;
+    }
+    
+    loadOrders();
+  };
 
+  // =============================================
+  // RENDER - Loading & No Venue States
+  // =============================================
   if (!currentVenue) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <p className="text-gray-400">Lütfen bir mekan seçin</p>
+          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Mekan Seçimi Gerekli</h2>
+          <p className="text-gray-400">Garson paneli için lütfen bir mekan seçin.</p>
         </div>
       </div>
     );
@@ -378,313 +581,510 @@ export default function WaiterPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-12 h-12 text-orange-500 mx-auto mb-4 animate-spin" />
+          <p className="text-white text-xl">Yükleniyor...</p>
+        </div>
       </div>
     );
   }
 
+  // =============================================
+  // RENDER - Main UI
+  // =============================================
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-900 text-white -m-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Garson Paneli</h1>
-          <p className="text-gray-400">{tables.length} Masa</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+            <Utensils className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Garson Paneli</h1>
+            <p className="text-gray-400 text-sm">
+              {currentTime.toLocaleTimeString('tr-TR')} • {currentVenue.name}
+            </p>
+          </div>
         </div>
-        <button
-          onClick={loadData}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Yenile
-        </button>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-green-500/20 border border-green-500/50 rounded-xl p-4">
-          <p className="text-green-400 text-sm">Müsait</p>
-          <p className="text-2xl font-bold text-white">{stats.available}</p>
-        </div>
-        <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4">
-          <p className="text-red-400 text-sm">Dolu</p>
-          <p className="text-2xl font-bold text-white">{stats.occupied}</p>
-        </div>
-        <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4">
-          <p className="text-amber-400 text-sm">Rezerveli</p>
-          <p className="text-2xl font-bold text-white">{stats.reserved}</p>
-        </div>
-        <div className="bg-purple-500/20 border border-purple-500/50 rounded-xl p-4">
-          <p className="text-purple-400 text-sm">Aktif Sipariş</p>
-          <p className="text-2xl font-bold text-white">{stats.totalOrders}</p>
-        </div>
-        <div className="bg-orange-500/20 border border-orange-500/50 rounded-xl p-4">
-          <p className="text-orange-400 text-sm">Toplam</p>
-          <p className="text-2xl font-bold text-white">₺{stats.totalRevenue.toFixed(0)}</p>
-        </div>
-      </div>
+        <div className="flex items-center gap-4">
+          {/* Waiter Calls Alert */}
+          {waiterCalls.length > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-xl animate-pulse">
+              <Bell className="w-5 h-5 text-red-400" />
+              <span className="text-red-400 font-medium">{waiterCalls.length} Çağrı</span>
+            </div>
+          )}
 
-      {/* Section Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {sections.map(section => (
+          {/* Stats */}
+          <div className="flex items-center gap-6 bg-gray-800 rounded-xl px-6 py-3">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-amber-500">{pendingOrders.length}</p>
+              <p className="text-xs text-gray-400">Yeni</p>
+            </div>
+            <div className="w-px h-8 bg-gray-700" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-purple-500">{preparingOrders.length}</p>
+              <p className="text-xs text-gray-400">Hazırlanıyor</p>
+            </div>
+            <div className="w-px h-8 bg-gray-700" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-500">{readyOrders.length}</p>
+              <p className="text-xs text-gray-400">Hazır</p>
+            </div>
+          </div>
+
+          {/* Sound Toggle */}
           <button
-            key={section}
-            onClick={() => setActiveSection(section)}
-            className={`px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
-              activeSection === section
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`p-3 rounded-xl transition-colors ${
+              soundEnabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'
             }`}
           >
-            {section === 'all' ? 'Tüm Bölümler' : section}
+            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </button>
-        ))}
+
+          {/* Refresh */}
+          <button
+            onClick={loadAllData}
+            className="p-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Tables Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        {filteredTables.map(table => {
-          const realStatus = getRealStatus(table);
-          const config = statusConfig[realStatus];
-          const order = getTableOrder(table.number);
-          const tableReservations = getTableReservations(table.number);
-
-          return (
-            <div
-              key={table.id}
-              onClick={() => setSelectedTable(table)}
-              className={`relative rounded-xl p-4 cursor-pointer hover:scale-105 transition-all border-2 ${config.border} ${
-                realStatus === 'available' ? 'bg-green-900/30' :
-                realStatus === 'occupied' ? 'bg-red-900/30' :
-                realStatus === 'reserved' ? 'bg-amber-900/30' :
-                'bg-blue-900/30'
-              }`}
-            >
-              {tableReservations.length > 0 && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  {tableReservations.length}
+      {/* Waiter Calls Banner */}
+      {waiterCalls.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {waiterCalls.map(call => {
+            const callTable = tables.find(t => t.id === call.table_id);
+            return (
+              <div key={call.id} className="flex items-center justify-between p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
+                <div className="flex items-center gap-4">
+                  <Bell className="w-6 h-6 text-red-400 animate-bounce" />
+                  <div>
+                    <p className="font-medium">
+                      Masa {callTable?.number || '?'} - {waiterCallTypes[call.type] || call.type}
+                    </p>
+                    <p className="text-sm text-gray-400">{formatDateTime(call.created_at)}</p>
+                  </div>
                 </div>
-              )}
-              {order && (
-                <div className="absolute -top-2 -left-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                  <Utensils className="w-3 h-3 text-white" />
-                </div>
-              )}
-
-              <h3 className="text-2xl font-bold text-white">{table.number}</h3>
-              <p className="text-gray-400 text-sm">{table.section}</p>
-              <div className="flex items-center gap-1 text-gray-400 text-sm mt-1">
-                <Users className="w-3 h-3" />
-                <span>{table.capacity}</span>
+                <button
+                  onClick={() => acknowledgeWaiterCall(call.id)}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors"
+                >
+                  Tamam
+                </button>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              {order && (
-                <div className="mt-2 text-sm">
-                  <p className="text-orange-400 font-medium">₺{order.total?.toFixed(0)}</p>
-                  <p className="text-gray-500">{order.items?.length || 0} ürün</p>
-                </div>
-              )}
+      <div className="flex gap-6">
+        {/* Left - Tables Grid */}
+        <div className="flex-1">
+          {/* Section Filters */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            {sections.map(section => (
+              <button
+                key={section}
+                onClick={() => setSelectedSection(section)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  selectedSection === section
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                {section}
+              </button>
+            ))}
+          </div>
 
-              {!order && tableReservations[0] && (
-                <div className="mt-2 text-xs text-amber-400">
-                  <p>{tableReservations[0].time} - {tableReservations[0].customer_name}</p>
-                </div>
-              )}
+          {/* Tables Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {filteredTables.map(table => {
+              const tableOrders = getTableOrders(table.number);
+              const reservation = getTableReservation(table.number);
+              const hasReadyOrder = tableOrders.some(o => o.status === 'ready');
+              const totalAmount = tableOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+              const effectiveStatus = getEffectiveStatus(table);
+              const statusConfig = tableStatusConfig[effectiveStatus] || tableStatusConfig.available;
 
-              <div className={`mt-2 inline-block px-2 py-1 ${config.bg} text-white text-xs rounded-full`}>
-                {config.label}
-              </div>
+              return (
+                <button
+                  key={table.id}
+                  onClick={() => setSelectedTable(table)}
+                  className={`relative p-4 rounded-xl border-2 transition-all hover:scale-105 ${statusConfig.bg} ${
+                    hasReadyOrder ? 'ring-2 ring-green-500 animate-pulse' : ''
+                  }`}
+                >
+                  {/* Ready Order Indicator */}
+                  {hasReadyOrder && (
+                    <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center animate-bounce">
+                      <Bell className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+
+                  {/* Table Number */}
+                  <div className="text-3xl font-bold mb-1">{table.number}</div>
+
+                  {/* Section & Capacity */}
+                  <div className="text-xs text-gray-400 mb-2">
+                    {table.section} • {table.capacity} kişilik
+                  </div>
+
+                  {/* Status Badge */}
+                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${statusConfig.color}`}>
+                    {statusConfig.label}
+                  </span>
+
+                  {/* Guest Count */}
+                  {(table.current_guests > 0 || table.customer_name) && (
+                    <div className="flex items-center gap-1 mt-2 text-sm">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span>{table.current_guests || 1} kişi</span>
+                    </div>
+                  )}
+
+                  {/* Customer Name */}
+                  {table.customer_name && (
+                    <div className="mt-1 text-xs text-blue-400 truncate">
+                      👤 {table.customer_name}
+                    </div>
+                  )}
+
+                  {/* Order Total */}
+                  {totalAmount > 0 && (
+                    <div className="mt-2 text-lg font-bold text-orange-400">
+                      {formatCurrency(totalAmount)}
+                    </div>
+                  )}
+
+                  {/* Reservation Info */}
+                  {reservation && (effectiveStatus === 'reserved' || table.status === 'reserved') && (
+                    <div className="mt-2 p-2 bg-amber-500/30 rounded-lg text-xs">
+                      <div className="flex items-center gap-1 text-amber-300">
+                        <Clock className="w-3 h-3" />
+                        <span>{formatTime(reservation.time)}</span>
+                      </div>
+                      <div className="text-amber-200 truncate">
+                        {reservation.customer_name} ({reservation.party_size} kişi)
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Order Count */}
+                  {tableOrders.length > 0 && (
+                    <div className="mt-1 text-xs text-gray-500">
+                      {tableOrders.length} sipariş
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {filteredTables.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <Coffee className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p>Bu bölümde masa bulunamadı</p>
             </div>
-          );
-        })}
+          )}
+        </div>
+
+        {/* Right - Active Orders */}
+        <div className="w-80 flex-shrink-0">
+          <div className="bg-gray-800 rounded-2xl p-4 sticky top-6">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-orange-500" />
+              Aktif Siparişler ({orders.filter(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status)).length})
+            </h2>
+
+            <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
+              {orders
+                .filter(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status))
+                .map(order => {
+                  const statusConf = orderStatusConfig[order.status] || orderStatusConfig.pending;
+                  
+                  return (
+                    <div
+                      key={order.id}
+                      className={`p-3 rounded-xl transition-all ${
+                        order.status === 'ready' 
+                          ? 'bg-green-500/20 border-2 border-green-500 animate-pulse' 
+                          : order.status === 'pending'
+                          ? 'bg-amber-500/20 border border-amber-500/50'
+                          : 'bg-gray-700/50 border border-gray-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold">{order.order_number}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs ${statusConf.bg} ${statusConf.color}`}>
+                          {statusConf.label}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm text-gray-400 mb-1">
+                        Masa {order.table_number}
+                        {order.customer_name && ` • ${order.customer_name}`}
+                      </div>
+                      
+                      <div className="text-xs text-gray-500 mb-2">
+                        {order.items?.slice(0, 2).map((item, i) => (
+                          <span key={i}>
+                            {item.quantity}x {item.product_name}
+                            {i < Math.min((order.items?.length || 0), 2) - 1 ? ', ' : ''}
+                          </span>
+                        ))}
+                        {(order.items?.length || 0) > 2 && ` +${(order.items?.length || 0) - 2}`}
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-orange-400">
+                          {formatCurrency(order.total)}
+                        </span>
+                        
+                        {order.status === 'ready' && (
+                          <button
+                            onClick={() => updateOrderStatus(order.id, 'served')}
+                            className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-medium"
+                          >
+                            Servis Et
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {orders.filter(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status)).length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Aktif sipariş yok</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Table Detail Modal */}
+      {/* Table Action Modal */}
       {selectedTable && (
         <TableActionModal
           table={selectedTable}
-          order={getTableOrder(selectedTable.number)}
-          reservations={getTableReservations(selectedTable.number)}
-          statusConfig={statusConfig}
+          orders={getTableOrders(selectedTable.number)}
+          reservation={getTableReservation(selectedTable.number)}
+          effectiveStatus={getEffectiveStatus(selectedTable)}
           onClose={() => setSelectedTable(null)}
-          onStatusChange={(status) => handleStatusChange(selectedTable.id, status)}
-          onTakeOrder={() => openOrderModal(selectedTable)}
-          onGetBill={() => handleGetBill(selectedTable)}
-          onAddGuest={() => openGuestModal(selectedTable)}
+          onStatusChange={(status) => updateTableStatus(selectedTable.id, status)}
+          onAddGuest={() => addGuestToTable(selectedTable)}
+          onNewOrder={() => setShowNewOrderModal(true)}
         />
       )}
 
-      {/* Guest Modal */}
-      {showGuestModal && guestTable && (
-        <GuestModal
-          table={guestTable}
-          currentGuests={guestTable.current_guests || 0}
-          onUpdate={(count) => handleUpdateGuests(guestTable.id, count)}
-          onClose={() => setShowGuestModal(false)}
-        />
-      )}
-
-      {/* Order Modal */}
-      {showOrderModal && orderTable && (
-        <OrderModal
-          table={orderTable}
-          existingOrder={getTableOrder(orderTable.number)}
+      {/* New Order Modal */}
+      {showNewOrderModal && selectedTable && currentVenue && (
+        <NewOrderModal
+          table={selectedTable}
+          products={products}
           categories={categories}
-          products={filteredProducts}
-          cart={cart}
-          activeCategory={activeCategory}
-          searchQuery={searchQuery}
-          isSubmitting={isSubmitting}
-          onCategoryChange={setActiveCategory}
-          onSearchChange={setSearchQuery}
-          onAddToCart={addToCart}
-          onRemoveFromCart={removeFromCart}
-          onSubmit={submitOrder}
-          onAddToExisting={addToExistingOrder}
-          onClose={() => setShowOrderModal(false)}
-          getCartTotal={getCartTotal}
-          getCartCount={getCartCount}
+          venueId={currentVenue.id}
+          onClose={() => {
+            setShowNewOrderModal(false);
+            setSelectedTable(null);
+          }}
+          onSuccess={() => {
+            setShowNewOrderModal(false);
+            setSelectedTable(null);
+            loadOrders();
+            loadTables();
+          }}
         />
       )}
     </div>
   );
 }
 
-// Table Action Modal
+// =============================================
+// TABLE ACTION MODAL
+// =============================================
 function TableActionModal({
-  table, order, reservations, statusConfig, onClose, onStatusChange, onTakeOrder, onGetBill, onAddGuest
+  table,
+  orders,
+  reservation,
+  effectiveStatus,
+  onClose,
+  onStatusChange,
+  onAddGuest,
+  onNewOrder,
 }: {
   table: TableData;
-  order?: OrderData;
-  reservations: ReservationData[];
-  statusConfig: any;
+  orders: Order[];
+  reservation?: Reservation;
+  effectiveStatus: string;
   onClose: () => void;
-  onStatusChange: (status: TableData['status']) => void;
-  onTakeOrder: () => void;
-  onGetBill: () => void;
+  onStatusChange: (status: string) => void;
   onAddGuest: () => void;
+  onNewOrder: () => void;
 }) {
-  const realStatus = order ? 'occupied' : reservations.length > 0 ? 'reserved' : table.status;
-  const config = statusConfig[realStatus];
+  const totalAmount = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const guestCount = table.current_guests || 0;
+  const statusConfig = tableStatusConfig[effectiveStatus] || tableStatusConfig.available;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-6 border-b border-gray-700 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-white">Masa No {table.number}</h2>
-              <span className={`px-3 py-1 ${config.bg} text-white text-sm rounded-full`}>
-                {config.label}
-              </span>
+          <div className="flex items-center gap-4">
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold ${statusConfig.bg}`}>
+              {table.number}
             </div>
-            <p className="text-gray-400 mt-1">{table.section} • {table.capacity} kişi</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold">Masa {table.number}</h2>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${statusConfig.color} ${statusConfig.bg}`}>
+                  {statusConfig.label}
+                </span>
+              </div>
+              <p className="text-sm text-gray-400">
+                {table.section} • {table.capacity} kişilik
+                {guestCount > 0 && ` • ${guestCount} kişi oturuyor`}
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button 
+            onClick={onClose} 
+            className="p-3 bg-red-600 hover:bg-red-500 rounded-xl transition-colors"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          {/* Quick Actions */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Hızlı İşlemler</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={onTakeOrder}
-                className="flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                {order ? 'Ürün Ekle' : 'Sipariş Al'}
-              </button>
-              <button 
-                onClick={onAddGuest}
-                className="flex items-center justify-center gap-2 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors"
-              >
-                <Users className="w-4 h-4" />
-                Kişi Ekle
-              </button>
-            </div>
-            {order && (
-              <button 
-                onClick={onGetBill}
-                className="w-full mt-2 flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
-              >
-                <CreditCard className="w-4 h-4" />
-                Hesap Al
-              </button>
-            )}
-          </div>
-
-          {/* Active Order */}
-          {order && (
-            <div className="bg-gray-700/50 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium text-white">Mevcut Sipariş</h3>
-                <span className="text-orange-400 font-bold">₺{order.total?.toFixed(2)}</span>
+        <div className="p-6 space-y-6">
+          {/* Customer Info */}
+          {table.customer_name && (
+            <div className="flex items-center gap-3 p-4 bg-blue-500/20 border border-blue-500/50 rounded-xl">
+              <Users className="w-6 h-6 text-blue-400" />
+              <div>
+                <p className="font-medium text-blue-300">{table.customer_name}</p>
+                <p className="text-sm text-gray-400">{guestCount || 1} kişi</p>
               </div>
-              <div className="space-y-2">
-                {order.items?.slice(0, 5).map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-300">{item.quantity}x {item.product_name}</span>
-                    <span className="text-gray-400">₺{item.total_price?.toFixed(0)}</span>
-                  </div>
-                ))}
-                {(order.items?.length || 0) > 5 && (
-                  <p className="text-xs text-gray-500">+{order.items!.length - 5} daha fazla ürün</p>
-                )}
-              </div>
-
             </div>
           )}
 
-          {/* Reservations */}
-          {reservations.length > 0 && (
+          {/* Reservation Info */}
+          {reservation && (
+            <div className="p-4 bg-amber-500/20 border border-amber-500/50 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar className="w-5 h-5 text-amber-400" />
+                <span className="font-medium text-amber-400">Rezervasyon Bilgisi</span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className="text-white font-medium">{formatTime(reservation.time)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-gray-400" />
+                  <span>{reservation.customer_name} - {reservation.party_size} kişi</span>
+                </div>
+                {reservation.customer_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span>{reservation.customer_phone}</span>
+                  </div>
+                )}
+                {reservation.notes && (
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-400">{reservation.notes}</span>
+                  </div>
+                )}
+                {reservation.special_requests && (
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <span className="text-amber-300">{reservation.special_requests}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-400 mb-3">Hızlı İşlemler</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={onNewOrder}
+                className="flex items-center justify-center gap-2 p-4 bg-orange-600 hover:bg-orange-500 rounded-xl font-medium transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                {orders.length > 0 ? 'Ürün Ekle' : 'Sipariş Al'}
+              </button>
+              <button
+                onClick={onAddGuest}
+                className="flex items-center justify-center gap-2 p-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium transition-colors"
+              >
+                <UserPlus className="w-5 h-5" />
+                Kişi Ekle
+              </button>
+              {orders.length > 0 && (
+                <button className="flex items-center justify-center gap-2 p-4 bg-green-600 hover:bg-green-500 rounded-xl font-medium transition-colors col-span-2">
+                  <CreditCard className="w-5 h-5" />
+                  Hesap Al ({formatCurrency(totalAmount)})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Current Orders */}
+          {orders.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Rezervasyonlar</h3>
-              <div className="space-y-2">
-                {reservations.map(res => (
-                  <div key={res.id} className="bg-amber-900/30 border border-amber-700 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-white font-medium">{res.customer_name}</span>
-                      <span className="text-amber-400">{res.time}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-400 mt-1">
-                      <span><Users className="w-3 h-3 inline mr-1" />{res.party_size}</span>
-                      <span><Phone className="w-3 h-3 inline mr-1" />{res.customer_phone}</span>
-                    </div>
+              <h3 className="text-sm font-medium text-gray-400 mb-3">Mevcut Siparişler</h3>
+              <div className="p-4 bg-gray-700/50 rounded-xl space-y-2 max-h-48 overflow-y-auto">
+                {orders.flatMap(order => order.items || []).map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-sm">
+                    <span>{item.quantity}x {item.product_name}</span>
+                    <span className="text-gray-400">{formatCurrency(item.total_price)}</span>
                   </div>
                 ))}
+                <div className="pt-2 border-t border-gray-600 flex justify-between font-bold">
+                  <span>Toplam</span>
+                  <span className="text-orange-400">{formatCurrency(totalAmount)}</span>
+                </div>
               </div>
             </div>
           )}
 
           {/* Status Change */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Durum Değiştir</h3>
+            <h3 className="text-sm font-medium text-gray-400 mb-3">Durum Değiştir</h3>
             <div className="grid grid-cols-2 gap-2">
-              {(['available', 'occupied', 'reserved', 'cleaning'] as const).map(status => (
+              {Object.entries(tableStatusConfig).map(([status, config]) => (
                 <button
                   key={status}
                   onClick={() => onStatusChange(status)}
-                  className={`py-2 px-4 rounded-xl text-sm font-medium transition-colors ${
-                    table.status === status
-                      ? `${statusConfig[status].bg} text-white`
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  className={`p-3 rounded-xl font-medium transition-colors ${
+                    effectiveStatus === status 
+                      ? `${config.bg} ring-2 ring-white/50` 
+                      : 'bg-gray-700 hover:bg-gray-600'
                   }`}
                 >
-                  {statusConfig[status].label}
+                  {config.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Close */}
+          {/* Close Button */}
           <button
             onClick={onClose}
-            className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
+            className="w-full py-4 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold transition-colors"
           >
             Kapat
           </button>
@@ -694,301 +1094,353 @@ function TableActionModal({
   );
 }
 
-// Order Modal
-function OrderModal({
-  table, existingOrder, categories, products, cart, activeCategory, searchQuery, isSubmitting,
-  onCategoryChange, onSearchChange, onAddToCart, onRemoveFromCart, onSubmit, onAddToExisting, onClose,
-  getCartTotal, getCartCount
+// =============================================
+// NEW ORDER MODAL
+// =============================================
+function NewOrderModal({
+  table,
+  products,
+  categories,
+  venueId,
+  onClose,
+  onSuccess,
 }: {
   table: TableData;
-  existingOrder?: OrderData;
-  categories: CategoryData[];
-  products: ProductData[];
-  cart: CartItem[];
-  activeCategory: string;
-  searchQuery: string;
-  isSubmitting: boolean;
-  onCategoryChange: (id: string) => void;
-  onSearchChange: (q: string) => void;
-  onAddToCart: (p: ProductData) => void;
-  onRemoveFromCart: (id: string) => void;
-  onSubmit: () => void;
-  onAddToExisting: (order: OrderData) => void;
+  products: Product[];
+  categories: Category[];
+  venueId: string;
   onClose: () => void;
-  getCartTotal: () => number;
-  getCartCount: () => number;
+  onSuccess: () => void;
 }) {
+  const [customerName, setCustomerName] = useState(table.customer_name || '');
+  const [guestCount, setGuestCount] = useState(table.current_guests || 1);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderNote, setOrderNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const filteredProducts = products.filter(p => {
+    const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory;
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const addToCart = (product: Product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product_id === product.id);
+      if (existing) {
+        return prev.map(item =>
+          item.product_id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { 
+        product_id: product.id, 
+        name: product.name, 
+        price: product.price, 
+        quantity: 1,
+        notes: ''
+      }];
+    });
+  };
+
+  const updateQuantity = (productId: string, delta: number) => {
+    setCart(prev => prev
+      .map(item => item.product_id === productId 
+        ? { ...item, quantity: item.quantity + delta } 
+        : item
+      )
+      .filter(item => item.quantity > 0)
+    );
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const tax = Math.round(cartTotal * 0.08 * 100) / 100;
+  const grandTotal = Math.round((cartTotal + tax) * 100) / 100;
+
+  const handleSubmit = async () => {
+    if (cart.length === 0) {
+      alert('Sepet boş');
+      return;
+    }
+    
+    setSubmitting(true);
+
+    try {
+      // Order items - Supabase şemasına uygun format
+      const orderItems: OrderItem[] = cart.map(item => ({
+        product_id: item.product_id,
+        product_name: item.name,
+        unit_price: item.price,
+        quantity: item.quantity,
+        total_price: item.price * item.quantity,
+        notes: item.notes || '',
+        status: 'pending',
+      }));
+
+      // Create order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          venue_id: venueId,
+          table_id: table.id,
+          table_number: table.number,
+          order_number: generateOrderNumber(),
+          type: 'dine_in',
+          status: 'pending',
+          items: orderItems,
+          subtotal: cartTotal,
+          tax: tax,
+          service_charge: 0,
+          discount: 0,
+          total: grandTotal,
+          payment_status: 'pending',
+          priority: 'normal',
+          customer_name: customerName || null,
+          notes: orderNote || null,
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error('Order create error:', orderError);
+        throw new Error(orderError.message);
+      }
+
+      console.log('Order created:', orderData);
+
+      // Update table status
+      const { error: tableError } = await supabase
+        .from('tables')
+        .update({
+          status: 'occupied',
+          current_guests: guestCount,
+          customer_name: customerName || null,
+          seated_at: new Date().toISOString(),
+        })
+        .eq('id', table.id);
+
+      if (tableError) {
+        console.error('Table update error:', tableError);
+        // Order created but table update failed - continue anyway
+      }
+
+      onSuccess();
+    } catch (error: any) {
+      console.error('Submit error:', error);
+      alert('Sipariş oluşturulamadı: ' + (error.message || 'Bilinmeyen hata'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/80 flex z-50">
-      {/* Left: Products */}
-      <div className="flex-1 flex flex-col bg-gray-900 overflow-hidden">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white">
-              {existingOrder ? 'Siparişe Ekle' : 'Yeni Sipariş'} - Masa {table.number}
-            </h2>
-            <p className="text-gray-400 text-sm">{table.section}</p>
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-orange-600 flex items-center justify-center text-xl font-bold">
+              {table.number}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Masa {table.number} - Yeni Sipariş</h2>
+              <p className="text-sm text-gray-400">{table.section} • {table.capacity} kişilik</p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button 
+            onClick={onClose} 
+            className="p-3 bg-red-600 hover:bg-red-500 rounded-xl transition-colors"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-4 border-b border-gray-800">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Ürün ara..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
-        </div>
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left - Products */}
+          <div className="flex-1 p-6 overflow-y-auto border-r border-gray-700">
+            {/* Customer Info */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Müşteri Adı</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Müşteri adı..."
+                  className="w-full px-4 py-3 bg-gray-700 rounded-xl border border-gray-600 focus:border-orange-500 outline-none text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Kişi Sayısı</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
+                    className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl flex items-center justify-center transition-colors"
+                  >
+                    <Minus className="w-5 h-5" />
+                  </button>
+                  <span className="text-2xl font-bold w-12 text-center">{guestCount}</span>
+                  <button
+                    onClick={() => setGuestCount(guestCount + 1)}
+                    className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl flex items-center justify-center transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
 
-        {/* Categories */}
-        <div className="px-4 py-2 border-b border-gray-800 overflow-x-auto">
-          <div className="flex gap-2">
-            <button
-              onClick={() => onCategoryChange('all')}
-              className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
-                activeCategory === 'all' ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-300'
-              }`}
-            >
-              Tümü
-            </button>
-            {categories.map(cat => (
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Ürün ara..."
+                className="w-full pl-12 pr-4 py-3 bg-gray-700 rounded-xl border border-gray-600 focus:border-orange-500 outline-none text-white"
+              />
+            </div>
+
+            {/* Categories */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
               <button
-                key={cat.id}
-                onClick={() => onCategoryChange(cat.id)}
+                onClick={() => setSelectedCategory('all')}
                 className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
-                  activeCategory === cat.id ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-300'
+                  selectedCategory === 'all' ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                 }`}
               >
-                {cat.name}
+                Tümü
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Products Grid */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {products.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <Utensils className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Ürün bulunamadı</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {products.map(product => {
-                const cartItem = cart.find(item => item.product.id === product.id);
-                return (
-                  <div
-                    key={product.id}
-                    onClick={() => onAddToCart(product)}
-                    className={`relative bg-gray-800 rounded-xl p-4 cursor-pointer hover:bg-gray-700 transition-colors ${
-                      cartItem ? 'ring-2 ring-orange-500' : ''
-                    }`}
-                  >
-                    {cartItem && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                        {cartItem.quantity}
-                      </div>
-                    )}
-                    <h3 className="font-medium text-white mb-1">{product.name}</h3>
-                    <p className="text-orange-400 font-bold">₺{product.price}</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Right: Cart */}
-      <div className="w-96 bg-gray-800 flex flex-col border-l border-gray-700">
-        <div className="p-4 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5 text-orange-500" />
-            <h3 className="font-bold text-white">Sepet ({getCartCount()})</h3>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          {cart.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Sepet boş</p>
-                <p className="text-sm">Ürün eklemek için tıklayın</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map(item => (
-                <div key={item.product.id} className="bg-gray-700/50 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-white">{item.product.name}</h4>
-                    <span className="text-orange-400 font-bold">
-                      ₺{(item.product.price * item.quantity).toFixed(0)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">₺{item.product.price} x {item.quantity}</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onRemoveFromCart(item.product.id); }}
-                        className="w-8 h-8 bg-gray-600 hover:bg-red-600 rounded-lg flex items-center justify-center transition-colors"
-                      >
-                        <Minus className="w-4 h-4 text-white" />
-                      </button>
-                      <span className="text-white font-medium w-6 text-center">{item.quantity}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onAddToCart(item.product); }}
-                        className="w-8 h-8 bg-gray-600 hover:bg-green-600 rounded-lg flex items-center justify-center transition-colors"
-                      >
-                        <Plus className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                    selectedCategory === cat.id ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  {cat.name}
+                </button>
               ))}
             </div>
-          )}
-        </div>
 
-        {/* Cart Footer */}
-        <div className="p-4 border-t border-gray-700 space-y-3">
-          <div className="flex items-center justify-between text-lg">
-            <span className="text-gray-400">Toplam</span>
-            <span className="text-white font-bold">₺{getCartTotal().toFixed(2)}</span>
-          </div>
-          
-          {existingOrder ? (
-            <button
-              onClick={() => onAddToExisting(existingOrder)}
-              disabled={cart.length === 0 || isSubmitting}
-              className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  Siparişe Ekle
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={onSubmit}
-              disabled={cart.length === 0 || isSubmitting}
-              className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Sipariş Oluştur
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Guest Modal - Kişi Sayısı Güncelleme
-function GuestModal({
-  table, currentGuests, onUpdate, onClose
-}: {
-  table: TableData;
-  currentGuests: number;
-  onUpdate: (count: number) => void;
-  onClose: () => void;
-}) {
-  const [guestCount, setGuestCount] = useState(currentGuests || 1);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl w-full max-w-sm">
-        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white">Kişi Sayısı</h2>
-            <p className="text-gray-400 text-sm">Masa {table.number} • Kapasite: {table.capacity}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Counter */}
-          <div className="flex items-center justify-center gap-6">
-            <button
-              onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
-              className="w-14 h-14 bg-gray-700 hover:bg-gray-600 rounded-xl flex items-center justify-center transition-colors"
-            >
-              <Minus className="w-6 h-6 text-white" />
-            </button>
-            <div className="text-center">
-              <p className="text-5xl font-bold text-white">{guestCount}</p>
-              <p className="text-gray-400 text-sm mt-1">kişi</p>
+            {/* Products Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {filteredProducts.map(product => (
+                <button
+                  key={product.id}
+                  onClick={() => addToCart(product)}
+                  className="p-4 bg-gray-700 hover:bg-gray-600 rounded-xl text-left transition-colors"
+                >
+                  <p className="font-medium mb-1 text-white">{product.name}</p>
+                  <p className="text-orange-400 font-bold">{formatCurrency(product.price)}</p>
+                </button>
+              ))}
             </div>
-            <button
-              onClick={() => setGuestCount(Math.min(table.capacity, guestCount + 1))}
-              className="w-14 h-14 bg-gray-700 hover:bg-gray-600 rounded-xl flex items-center justify-center transition-colors"
-            >
-              <Plus className="w-6 h-6 text-white" />
-            </button>
+
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Ürün bulunamadı</p>
+              </div>
+            )}
           </div>
 
-          {/* Quick Select */}
-          <div className="grid grid-cols-4 gap-2">
-            {[1, 2, 3, 4, 5, 6, 7, 8].filter(n => n <= table.capacity).map(num => (
+          {/* Right - Cart */}
+          <div className="w-80 flex-shrink-0 flex flex-col bg-gray-850">
+            <div className="p-4 border-b border-gray-700">
+              <h3 className="font-bold flex items-center gap-2 text-white">
+                <ShoppingCart className="w-5 h-5 text-orange-500" />
+                Sepet ({cart.length})
+              </h3>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {cart.length > 0 ? (
+                <div className="space-y-3">
+                  {cart.map(item => (
+                    <div key={item.product_id} className="p-3 bg-gray-700/50 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-white">{item.name}</span>
+                        <span className="text-orange-400 font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(item.product_id, -1)}
+                          className="w-8 h-8 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center justify-center transition-colors"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="w-8 text-center font-medium">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.product_id, 1)}
+                          className="w-8 h-8 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center justify-center transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Sepet boş</p>
+                  <p className="text-sm">Ürün eklemek için tıklayın</p>
+                </div>
+              )}
+            </div>
+
+            {/* Order Note */}
+            <div className="p-4 border-t border-gray-700">
+              <textarea
+                value={orderNote}
+                onChange={(e) => setOrderNote(e.target.value)}
+                placeholder="Sipariş notu..."
+                className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-sm resize-none text-white placeholder-gray-400"
+                rows={2}
+              />
+            </div>
+
+            {/* Totals & Submit */}
+            <div className="p-4 border-t border-gray-700 bg-gray-800/50">
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Ara Toplam</span>
+                  <span className="text-white">{formatCurrency(cartTotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">KDV (%8)</span>
+                  <span className="text-white">{formatCurrency(tax)}</span>
+                </div>
+                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-700">
+                  <span className="text-white">Toplam</span>
+                  <span className="text-orange-400">{formatCurrency(grandTotal)}</span>
+                </div>
+              </div>
+
               <button
-                key={num}
-                onClick={() => setGuestCount(num)}
-                className={`py-3 rounded-xl font-medium transition-colors ${
-                  guestCount === num 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
+                onClick={handleSubmit}
+                disabled={cart.length === 0 || submitting}
+                className="w-full py-4 bg-orange-600 hover:bg-orange-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
               >
-                {num}
+                {submitting ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Gönderiliyor...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    Siparişi Gönder
+                  </>
+                )}
               </button>
-            ))}
-          </div>
-
-          {/* Warning if over capacity */}
-          {guestCount > table.capacity && (
-            <div className="bg-amber-900/30 border border-amber-600 rounded-xl p-3 text-amber-400 text-sm">
-              ⚠️ Masa kapasitesi aşıldı
             </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
-            >
-              İptal
-            </button>
-            <button
-              onClick={() => onUpdate(guestCount)}
-              className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors"
-            >
-              Kaydet
-            </button>
           </div>
         </div>
       </div>

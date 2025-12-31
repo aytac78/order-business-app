@@ -1,21 +1,35 @@
 // =============================================
 // ORDER - SUPABASE CLIENT CONFIGURATION
-// Bu dosyayı hem Customer hem Business app'e kopyalayın
-// Konum: lib/supabase.ts
+// Singleton pattern - tek client instance
 // =============================================
 
-import { createClient } from '@supabase/supabase-js';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Supabase credentials
 const supabaseUrl = 'https://acckonwumiecauqcusra.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjY2tvbnd1bWllY2F1cWN1c3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4ODgyOTQsImV4cCI6MjA4MjQ2NDI5NH0.j9rl2WExdwZOHaSarfTrxbhlSXAcuHOgTyXqocIgPzo';
 
-// Browser client (for client components)
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+// Singleton instance
+let supabaseInstance: SupabaseClient | null = null;
 
-// Alternative: Basic client (if not using SSR package)
-export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+function getSupabaseClient(): SupabaseClient {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+  }
+  return supabaseInstance;
+}
+
+// Export single instance
+export const supabase = getSupabaseClient();
+
+// Backward compatibility
+export const supabaseClient = supabase;
 
 // =============================================
 // DATABASE TYPES
@@ -150,7 +164,10 @@ export interface Order {
   id: string;
   venue_id: string;
   table_id?: string;
+  table_number?: string;
   customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
   waiter_id?: string;
   order_number: string;
   type: OrderType;
@@ -164,14 +181,11 @@ export interface Order {
   payment_status: PaymentStatus;
   payment_method?: PaymentMethod;
   notes?: string;
+  guest_count?: number;
   priority: 'normal' | 'rush';
+  items?: any[];
   created_at: string;
   updated_at: string;
-  // Joined data
-  items?: OrderItem[];
-  table?: Table;
-  customer?: Profile;
-  waiter?: Profile;
 }
 
 export interface OrderItem {
@@ -199,6 +213,7 @@ export interface Reservation {
   time: string;
   party_size: number;
   table_ids: string[];
+  table_number?: string;
   status: ReservationStatus;
   deposit_amount?: number;
   deposit_paid: boolean;
@@ -219,7 +234,6 @@ export interface TableCall {
   acknowledged_at?: string;
   resolved_at?: string;
   created_at: string;
-  // Joined
   table?: Table;
 }
 
@@ -356,7 +370,6 @@ export function subscribeToNotifications(userId: string, callback: (notification
     .subscribe();
 }
 
-// Customer subscribes to their order status
 export function subscribeToMyOrder(orderId: string, callback: (order: Order) => void) {
   return supabase
     .channel(`my_order:${orderId}`)

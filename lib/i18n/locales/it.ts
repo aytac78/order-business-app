@@ -450,6 +450,78 @@ export const it = {
     completeSetup: 'Completa Configurazione',
   },
 
+
+  events: {
+    title: 'Eventi',
+    addEvent: 'Aggiungi Evento',
+    editEvent: 'Modifica Evento',
+    eventName: 'Nome Evento',
+    eventDate: 'Data',
+    eventTime: 'Ora',
+    eventDescription: 'Descrizione',
+    capacity: 'Capacità',
+    price: 'Prezzo',
+    free: 'Gratuito',
+    upcoming: 'In Arrivo',
+    past: 'Passati',
+    active: 'Attivo',
+    cancelled: 'Annullato',
+    noEvents: 'Nessun evento trovato',
+  },
+
+  here: {
+    title: 'Clienti Qui',
+    customersHere: 'Attualmente Qui',
+    checkedIn: 'Registrato',
+    totalCustomers: 'Clienti Totali',
+    averageTime: 'Tempo Medio',
+    noCustomers: 'Nessun cliente al momento',
+  },
+
+  performance: {
+    title: 'Performance',
+    staffPerformance: 'Performance Staff',
+    orderCount: 'Numero Ordini',
+    revenue: 'Ricavi',
+    averageRating: 'Valutazione Media',
+    topPerformer: 'Miglior Performance',
+    thisWeek: 'Questa Settimana',
+    thisMonth: 'Questo Mese',
+  },
+
+  qrMenu: {
+    title: 'Menu QR',
+    generateQR: 'Genera Codice QR',
+    downloadQR: 'Scarica Codice QR',
+    printQR: 'Stampa Codice QR',
+    tableQR: 'QR Tavolo',
+    menuQR: 'QR Menu',
+    scanToOrder: 'Scansiona per Ordinare',
+    previewMenu: 'Anteprima Menu',
+  },
+
+  stockAlerts: {
+    title: 'Avvisi Scorte',
+    lowStock: 'Scorte Basse',
+    outOfStock: 'Esaurito',
+    expiringSoon: 'In Scadenza',
+    alertCount: 'Numero Avvisi',
+    markResolved: 'Segna Risolto',
+    noAlerts: 'Nessun avviso',
+  },
+
+  waiterCalls: {
+    title: 'Chiamate Cameriere',
+    newCall: 'Nuova Chiamata',
+    pending: 'In Attesa',
+    acknowledged: 'Ricevuto',
+    resolved: 'Risolto',
+    callWaiter: 'Chiama Cameriere',
+    requestBill: 'Richiedi Conto',
+    needHelp: 'Aiuto',
+    noCalls: 'Nessuna chiamata in attesa',
+  },
+
   errors: {
     required: 'Questo campo è obbligatorio',
     invalidEmail: 'Email non valida',

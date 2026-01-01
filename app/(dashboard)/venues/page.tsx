@@ -31,7 +31,7 @@ interface Venue {
 
 export default function VenuesPage() {
   const { venues, setVenues, currentVenue, setCurrentVenue } = useVenueStore();
-  const t = useTranslations('venue');
+  const t = useTranslations('venues');
   const tCommon = useTranslations('common');
 
   const [loading, setLoading] = useState(true);

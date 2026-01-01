@@ -450,6 +450,78 @@ export const fa = {
     completeSetup: 'تکمیل راه‌اندازی',
   },
 
+
+  events: {
+    title: 'رویدادها',
+    addEvent: 'افزودن رویداد',
+    editEvent: 'ویرایش رویداد',
+    eventName: 'نام رویداد',
+    eventDate: 'تاریخ',
+    eventTime: 'زمان',
+    eventDescription: 'توضیحات',
+    capacity: 'ظرفیت',
+    price: 'قیمت',
+    free: 'رایگان',
+    upcoming: 'آینده',
+    past: 'گذشته',
+    active: 'فعال',
+    cancelled: 'لغو شده',
+    noEvents: 'رویدادی یافت نشد',
+  },
+
+  here: {
+    title: 'مشتریان اینجا',
+    customersHere: 'در حال حاضر اینجا',
+    checkedIn: 'ثبت شده',
+    totalCustomers: 'کل مشتریان',
+    averageTime: 'میانگین زمان',
+    noCustomers: 'در حال حاضر مشتری نیست',
+  },
+
+  performance: {
+    title: 'عملکرد',
+    staffPerformance: 'عملکرد کارکنان',
+    orderCount: 'تعداد سفارش',
+    revenue: 'درآمد',
+    averageRating: 'میانگین امتیاز',
+    topPerformer: 'بهترین عملکرد',
+    thisWeek: 'این هفته',
+    thisMonth: 'این ماه',
+  },
+
+  qrMenu: {
+    title: 'منوی QR',
+    generateQR: 'ایجاد کد QR',
+    downloadQR: 'دانلود کد QR',
+    printQR: 'چاپ کد QR',
+    tableQR: 'کد QR میز',
+    menuQR: 'کد QR منو',
+    scanToOrder: 'برای سفارش اسکن کنید',
+    previewMenu: 'پیش نمایش منو',
+  },
+
+  stockAlerts: {
+    title: 'هشدارهای موجودی',
+    lowStock: 'موجودی کم',
+    outOfStock: 'اتمام موجودی',
+    expiringSoon: 'نزدیک به انقضا',
+    alertCount: 'تعداد هشدار',
+    markResolved: 'حل شده',
+    noAlerts: 'هشداری نیست',
+  },
+
+  waiterCalls: {
+    title: 'تماس‌های گارسون',
+    newCall: 'تماس جدید',
+    pending: 'در انتظار',
+    acknowledged: 'دریافت شد',
+    resolved: 'حل شد',
+    callWaiter: 'گارسون صدا بزن',
+    requestBill: 'درخواست صورتحساب',
+    needHelp: 'کمک',
+    noCalls: 'تماسی در انتظار نیست',
+  },
+
   errors: {
     required: 'این فیلد الزامی است',
     invalidEmail: 'ایمیل نامعتبر',

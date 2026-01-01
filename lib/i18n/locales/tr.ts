@@ -52,14 +52,26 @@ export const tr = {
   },
   
   nav: {
+    // Sections
+    mainMenu: 'ANA MENÜ',
+    operation: 'OPERASYON',
+    communication: 'İLETİŞİM',
+    management: 'YÖNETİM',
+    stockAndStaff: 'STOK & PERSONEL',
+    analyticsAndCrm: 'ANALİZ & CRM',
+    system: 'SİSTEM',
+    // Menu items
     dashboard: 'Dashboard',
     venues: 'Mekanlarım',
+    onboarding: 'Hızlı Kayıt',
     tables: 'Masalar',
     orders: 'Siparişler',
     waiter: 'Garson Paneli',
     kitchen: 'Mutfak',
     reception: 'Resepsiyon',
+    hereCustomers: 'Buradaki Müşteriler',
     menu: 'Menü',
+    events: 'Etkinlikler',
     reservations: 'Rezervasyonlar',
     pos: 'Kasa/POS',
     qrMenu: 'QR Menü',
@@ -73,7 +85,6 @@ export const tr = {
     analytics: 'Analitik',
     crm: 'Müşteri CRM',
     settings: 'Ayarlar',
-    onboarding: 'Hızlı Kayıt',
   },
 
   dashboard: {
@@ -457,6 +468,78 @@ export const tr = {
     importFromGoogle: 'Google\'dan Al',
     skipForNow: 'Şimdilik Geç',
     completeSetup: 'Kurulumu Tamamla',
+  },
+
+
+  events: {
+    title: 'Etkinlikler',
+    addEvent: 'Etkinlik Ekle',
+    editEvent: 'Etkinlik Düzenle',
+    eventName: 'Etkinlik Adı',
+    eventDate: 'Tarih',
+    eventTime: 'Saat',
+    eventDescription: 'Açıklama',
+    capacity: 'Kapasite',
+    price: 'Fiyat',
+    free: 'Ücretsiz',
+    upcoming: 'Yaklaşan',
+    past: 'Geçmiş',
+    active: 'Aktif',
+    cancelled: 'İptal',
+    noEvents: 'Etkinlik bulunamadı',
+  },
+
+  here: {
+    title: 'Buradaki Müşteriler',
+    customersHere: 'Şu An Burada',
+    checkedIn: 'Giriş Yaptı',
+    totalCustomers: 'Toplam Müşteri',
+    averageTime: 'Ortalama Süre',
+    noCustomers: 'Şu an müşteri yok',
+  },
+
+  performance: {
+    title: 'Performans',
+    staffPerformance: 'Personel Performansı',
+    orderCount: 'Sipariş Sayısı',
+    revenue: 'Ciro',
+    averageRating: 'Ortalama Puan',
+    topPerformer: 'En İyi Performans',
+    thisWeek: 'Bu Hafta',
+    thisMonth: 'Bu Ay',
+  },
+
+  qrMenu: {
+    title: 'QR Menü',
+    generateQR: 'QR Kod Oluştur',
+    downloadQR: 'QR Kod İndir',
+    printQR: 'QR Kod Yazdır',
+    tableQR: 'Masa QR Kodu',
+    menuQR: 'Menü QR Kodu',
+    scanToOrder: 'Sipariş için Tarayın',
+    previewMenu: 'Menüyü Önizle',
+  },
+
+  stockAlerts: {
+    title: 'Stok Uyarıları',
+    lowStock: 'Düşük Stok',
+    outOfStock: 'Stok Tükendi',
+    expiringSoon: 'Süresi Yaklaşan',
+    alertCount: 'Uyarı Sayısı',
+    markResolved: 'Çözüldü İşaretle',
+    noAlerts: 'Uyarı yok',
+  },
+
+  waiterCalls: {
+    title: 'Garson Çağrıları',
+    newCall: 'Yeni Çağrı',
+    pending: 'Bekliyor',
+    acknowledged: 'Alındı',
+    resolved: 'Çözüldü',
+    callWaiter: 'Garson Çağır',
+    requestBill: 'Hesap İste',
+    needHelp: 'Yardım',
+    noCalls: 'Bekleyen çağrı yok',
   },
 
   errors: {

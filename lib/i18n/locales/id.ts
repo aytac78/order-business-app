@@ -450,6 +450,78 @@ export const id = {
     completeSetup: 'Selesaikan Setup',
   },
 
+
+  events: {
+    title: 'Acara',
+    addEvent: 'Tambah Acara',
+    editEvent: 'Edit Acara',
+    eventName: 'Nama Acara',
+    eventDate: 'Tanggal',
+    eventTime: 'Waktu',
+    eventDescription: 'Deskripsi',
+    capacity: 'Kapasitas',
+    price: 'Harga',
+    free: 'Gratis',
+    upcoming: 'Mendatang',
+    past: 'Lalu',
+    active: 'Aktif',
+    cancelled: 'Dibatalkan',
+    noEvents: 'Tidak ada acara',
+  },
+
+  here: {
+    title: 'Pelanggan di Sini',
+    customersHere: 'Saat Ini di Sini',
+    checkedIn: 'Check In',
+    totalCustomers: 'Total Pelanggan',
+    averageTime: 'Waktu Rata-rata',
+    noCustomers: 'Tidak ada pelanggan saat ini',
+  },
+
+  performance: {
+    title: 'Performa',
+    staffPerformance: 'Performa Staf',
+    orderCount: 'Jumlah Pesanan',
+    revenue: 'Pendapatan',
+    averageRating: 'Rating Rata-rata',
+    topPerformer: 'Performa Terbaik',
+    thisWeek: 'Minggu Ini',
+    thisMonth: 'Bulan Ini',
+  },
+
+  qrMenu: {
+    title: 'Menu QR',
+    generateQR: 'Buat Kode QR',
+    downloadQR: 'Unduh Kode QR',
+    printQR: 'Cetak Kode QR',
+    tableQR: 'QR Meja',
+    menuQR: 'QR Menu',
+    scanToOrder: 'Pindai untuk Pesan',
+    previewMenu: 'Pratinjau Menu',
+  },
+
+  stockAlerts: {
+    title: 'Peringatan Stok',
+    lowStock: 'Stok Rendah',
+    outOfStock: 'Habis',
+    expiringSoon: 'Segera Kadaluarsa',
+    alertCount: 'Jumlah Peringatan',
+    markResolved: 'Tandai Selesai',
+    noAlerts: 'Tidak ada peringatan',
+  },
+
+  waiterCalls: {
+    title: 'Panggilan Pelayan',
+    newCall: 'Panggilan Baru',
+    pending: 'Menunggu',
+    acknowledged: 'Diterima',
+    resolved: 'Selesai',
+    callWaiter: 'Panggil Pelayan',
+    requestBill: 'Minta Tagihan',
+    needHelp: 'Bantuan',
+    noCalls: 'Tidak ada panggilan',
+  },
+
   errors: {
     required: 'Field ini wajib diisi',
     invalidEmail: 'Email tidak valid',

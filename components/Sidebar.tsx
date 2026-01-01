@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUIStore, useVenueStore } from '@/stores';
+import { useTranslation } from '@/lib/i18n/provider';
 import {
   LayoutDashboard, UtensilsCrossed, ChefHat, Users, CalendarCheck,
   Receipt, BarChart3, Package, Clock, UserCircle, TrendingUp,
@@ -11,64 +12,64 @@ import {
 } from 'lucide-react';
 import { PartyPopper } from 'lucide-react';
 
-const menuItems = [
+const getMenuItems = (t: (key: string) => string) => [
   {
-    section: 'ANA MENÜ',
+    section: t('nav.mainMenu'),
     items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Mekanlarım', href: '/venues', icon: Building2, multiVenueOnly: true },
-      { name: 'Hızlı Kayıt', href: '/onboarding', icon: Sparkles },
+      { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
+      { name: t('nav.venues'), href: '/venues', icon: Building2, multiVenueOnly: true },
+      { name: t('nav.onboarding'), href: '/onboarding', icon: Sparkles },
     ]
   },
   {
-    section: 'OPERASYON',
+    section: t('nav.operation'),
     items: [
-      { name: 'Masalar', href: '/tables', icon: Grid3X3 },
-      { name: 'Siparişler', href: '/orders', icon: ClipboardList },
-      { name: 'Garson Paneli', href: '/waiter', icon: UtensilsCrossed },
-      { name: 'Mutfak', href: '/kitchen', icon: ChefHat },
-      { name: 'Resepsiyon', href: '/reception', icon: Users },
+      { name: t('nav.tables'), href: '/tables', icon: Grid3X3 },
+      { name: t('nav.orders'), href: '/orders', icon: ClipboardList },
+      { name: t('nav.waiter'), href: '/waiter', icon: UtensilsCrossed },
+      { name: t('nav.kitchen'), href: '/kitchen', icon: ChefHat },
+      { name: t('nav.reception'), href: '/reception', icon: Users },
     ]
   },
   {
-    section: 'İLETİŞİM',
+    section: t('nav.communication'),
     items: [
-      { name: 'Buradaki Müşteriler', href: '/here-customers', icon: MapPin },
+      { name: t('nav.hereCustomers'), href: '/here-customers', icon: MapPin },
     ]
   },
   {
-    section: 'YÖNETİM',
+    section: t('nav.management'),
     items: [
-      { name: 'Menü', href: '/menu', icon: UtensilsCrossed },
-      { name: 'Etkinlikler', href: '/events', icon: PartyPopper },
-      { name: 'Rezervasyonlar', href: '/reservations', icon: CalendarCheck },
-      { name: 'Kasa/POS', href: '/pos', icon: CreditCard },
-      { name: 'QR Menü', href: '/qr-menu', icon: QrCode },
-      { name: 'Kuponlar', href: '/coupons', icon: Ticket },
+      { name: t('nav.menu'), href: '/menu', icon: UtensilsCrossed },
+      { name: t('nav.events'), href: '/events', icon: PartyPopper },
+      { name: t('nav.reservations'), href: '/reservations', icon: CalendarCheck },
+      { name: t('nav.pos'), href: '/pos', icon: CreditCard },
+      { name: t('nav.qrMenu'), href: '/qr-menu', icon: QrCode },
+      { name: t('nav.coupons'), href: '/coupons', icon: Ticket },
     ]
   },
   {
-    section: 'STOK & PERSONEL',
+    section: t('nav.stockAndStaff'),
     items: [
-      { name: 'Stok Yönetimi', href: '/stock', icon: Package },
-      { name: 'Stok Uyarıları', href: '/stock-alerts', icon: AlertTriangle },
-      { name: 'Personel', href: '/staff', icon: Users },
-      { name: 'Vardiyalar', href: '/shifts', icon: Clock },
-      { name: 'Performans', href: '/performance', icon: TrendingUp },
+      { name: t('nav.stock'), href: '/stock', icon: Package },
+      { name: t('nav.stockAlerts'), href: '/stock-alerts', icon: AlertTriangle },
+      { name: t('nav.staff'), href: '/staff', icon: Users },
+      { name: t('nav.shifts'), href: '/shifts', icon: Clock },
+      { name: t('nav.performance'), href: '/performance', icon: TrendingUp },
     ]
   },
   {
-    section: 'ANALİZ & CRM',
+    section: t('nav.analyticsAndCrm'),
     items: [
-      { name: 'Raporlar', href: '/reports', icon: Receipt },
-      { name: 'Analitik', href: '/analytics', icon: BarChart3 },
-      { name: 'Müşteri CRM', href: '/crm', icon: UserCircle },
+      { name: t('nav.reports'), href: '/reports', icon: Receipt },
+      { name: t('nav.analytics'), href: '/analytics', icon: BarChart3 },
+      { name: t('nav.crm'), href: '/crm', icon: UserCircle },
     ]
   },
   {
-    section: 'SİSTEM',
+    section: t('nav.system'),
     items: [
-      { name: 'Ayarlar', href: '/settings', icon: Settings },
+      { name: t('nav.settings'), href: '/settings', icon: Settings },
     ]
   }
 ];
@@ -77,8 +78,10 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, sidebarCollapsed, toggleSidebarCollapse, setSidebarOpen } = useUIStore();
   const { venues } = useVenueStore();
+  const { t } = useTranslation();
   
   const isMultiVenue = venues.length > 1;
+  const menuItems = getMenuItems(t);
 
   if (!sidebarOpen) return null;
 
@@ -109,8 +112,8 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Menu */}
-      <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-3">
+      {/* Menu - Scrollable */}
+      <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
         {menuItems.map((section) => (
           <div key={section.section} className="mb-6">
             {!sidebarCollapsed && (
@@ -150,7 +153,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* TiT Pay Footer */}
+      {/* Footer */}
       {!sidebarCollapsed && (
         <div className="p-4 border-t border-gray-800">
           <div className="flex items-center gap-3 px-3 py-2 bg-gray-800/50 rounded-lg">
@@ -159,7 +162,7 @@ export function Sidebar() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-white">TiT Pay</p>
-              <p className="text-xs text-gray-400">Entegre</p>
+              <p className="text-xs text-gray-400">{t('common.active')}</p>
             </div>
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           </div>
@@ -169,23 +172,40 @@ export function Sidebar() {
   );
 }
 
-export function MobileHeader() {
+// Mobile Sidebar Toggle Button
+export function MobileSidebarToggle() {
   const { sidebarOpen, setSidebarOpen } = useUIStore();
-  
+
   return (
-    <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 border-b border-gray-800 z-40 flex items-center px-4">
+    <button
+      onClick={() => setSidebarOpen(!sidebarOpen)}
+      className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-800 rounded-lg text-white"
+    >
+      {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+    </button>
+  );
+}
+
+// Mobile Header for dashboard
+export function MobileHeader() {
+  const { setSidebarOpen } = useUIStore();
+  const { t } = useTranslation();
+
+  return (
+    <div className="lg:hidden flex items-center justify-between p-4 bg-gray-900 border-b border-gray-800">
       <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="p-2 text-white"
+        onClick={() => setSidebarOpen(true)}
+        className="p-2 hover:bg-gray-800 rounded-lg text-white"
       >
-        {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        <Menu className="w-6 h-6" />
       </button>
-      <div className="flex items-center gap-2 ml-2">
+      <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
           <Sparkles className="w-5 h-5 text-white" />
         </div>
-        <span className="font-bold text-white">ORDER Business</span>
+        <span className="font-bold text-white">ORDER</span>
       </div>
+      <div className="w-10" />
     </div>
   );
 }

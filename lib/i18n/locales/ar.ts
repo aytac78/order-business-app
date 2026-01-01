@@ -450,6 +450,78 @@ export const ar = {
     completeSetup: 'إكمال الإعداد',
   },
 
+
+  events: {
+    title: 'الفعاليات',
+    addEvent: 'إضافة فعالية',
+    editEvent: 'تعديل فعالية',
+    eventName: 'اسم الفعالية',
+    eventDate: 'التاريخ',
+    eventTime: 'الوقت',
+    eventDescription: 'الوصف',
+    capacity: 'السعة',
+    price: 'السعر',
+    free: 'مجاني',
+    upcoming: 'قادم',
+    past: 'سابق',
+    active: 'نشط',
+    cancelled: 'ملغى',
+    noEvents: 'لا توجد فعاليات',
+  },
+
+  here: {
+    title: 'العملاء هنا',
+    customersHere: 'حالياً هنا',
+    checkedIn: 'مسجل',
+    totalCustomers: 'إجمالي العملاء',
+    averageTime: 'متوسط الوقت',
+    noCustomers: 'لا يوجد عملاء حالياً',
+  },
+
+  performance: {
+    title: 'الأداء',
+    staffPerformance: 'أداء الموظفين',
+    orderCount: 'عدد الطلبات',
+    revenue: 'الإيرادات',
+    averageRating: 'متوسط التقييم',
+    topPerformer: 'الأفضل أداءً',
+    thisWeek: 'هذا الأسبوع',
+    thisMonth: 'هذا الشهر',
+  },
+
+  qrMenu: {
+    title: 'قائمة QR',
+    generateQR: 'إنشاء رمز QR',
+    downloadQR: 'تحميل رمز QR',
+    printQR: 'طباعة رمز QR',
+    tableQR: 'رمز QR للطاولة',
+    menuQR: 'رمز QR للقائمة',
+    scanToOrder: 'امسح للطلب',
+    previewMenu: 'معاينة القائمة',
+  },
+
+  stockAlerts: {
+    title: 'تنبيهات المخزون',
+    lowStock: 'مخزون منخفض',
+    outOfStock: 'نفذ من المخزون',
+    expiringSoon: 'قريب الانتهاء',
+    alertCount: 'عدد التنبيهات',
+    markResolved: 'تم الحل',
+    noAlerts: 'لا توجد تنبيهات',
+  },
+
+  waiterCalls: {
+    title: 'نداءات النادل',
+    newCall: 'نداء جديد',
+    pending: 'قيد الانتظار',
+    acknowledged: 'تم الاستلام',
+    resolved: 'تم الحل',
+    callWaiter: 'نادي النادل',
+    requestBill: 'اطلب الفاتورة',
+    needHelp: 'مساعدة',
+    noCalls: 'لا توجد نداءات',
+  },
+
   errors: {
     required: 'هذا الحقل مطلوب',
     invalidEmail: 'بريد إلكتروني غير صالح',

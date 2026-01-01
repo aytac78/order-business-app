@@ -49,14 +49,26 @@ export const en = {
   },
   
   nav: {
+    // Sections
+    mainMenu: 'MAIN MENU',
+    operation: 'OPERATION',
+    communication: 'COMMUNICATION',
+    management: 'MANAGEMENT',
+    stockAndStaff: 'STOCK & STAFF',
+    analyticsAndCrm: 'ANALYTICS & CRM',
+    system: 'SYSTEM',
+    // Menu items
     dashboard: 'Dashboard',
     venues: 'My Venues',
+    onboarding: 'Quick Setup',
     tables: 'Tables',
     orders: 'Orders',
     waiter: 'Waiter Panel',
     kitchen: 'Kitchen',
     reception: 'Reception',
+    hereCustomers: 'Customers Here',
     menu: 'Menu',
+    events: 'Events',
     reservations: 'Reservations',
     pos: 'POS',
     qrMenu: 'QR Menu',
@@ -70,7 +82,6 @@ export const en = {
     analytics: 'Analytics',
     crm: 'Customer CRM',
     settings: 'Settings',
-    onboarding: 'Quick Setup',
   },
 
   dashboard: {
@@ -448,6 +459,78 @@ export const en = {
     importFromGoogle: 'Import from Google',
     skipForNow: 'Skip for Now',
     completeSetup: 'Complete Setup',
+  },
+
+
+  events: {
+    title: 'Events',
+    addEvent: 'Add Event',
+    editEvent: 'Edit Event',
+    eventName: 'Event Name',
+    eventDate: 'Date',
+    eventTime: 'Time',
+    eventDescription: 'Description',
+    capacity: 'Capacity',
+    price: 'Price',
+    free: 'Free',
+    upcoming: 'Upcoming',
+    past: 'Past',
+    active: 'Active',
+    cancelled: 'Cancelled',
+    noEvents: 'No events found',
+  },
+
+  here: {
+    title: 'Customers Here',
+    customersHere: 'Currently Here',
+    checkedIn: 'Checked In',
+    totalCustomers: 'Total Customers',
+    averageTime: 'Average Time',
+    noCustomers: 'No customers at the moment',
+  },
+
+  performance: {
+    title: 'Performance',
+    staffPerformance: 'Staff Performance',
+    orderCount: 'Order Count',
+    revenue: 'Revenue',
+    averageRating: 'Average Rating',
+    topPerformer: 'Top Performer',
+    thisWeek: 'This Week',
+    thisMonth: 'This Month',
+  },
+
+  qrMenu: {
+    title: 'QR Menu',
+    generateQR: 'Generate QR Code',
+    downloadQR: 'Download QR Code',
+    printQR: 'Print QR Code',
+    tableQR: 'Table QR Code',
+    menuQR: 'Menu QR Code',
+    scanToOrder: 'Scan to Order',
+    previewMenu: 'Preview Menu',
+  },
+
+  stockAlerts: {
+    title: 'Stock Alerts',
+    lowStock: 'Low Stock',
+    outOfStock: 'Out of Stock',
+    expiringSoon: 'Expiring Soon',
+    alertCount: 'Alert Count',
+    markResolved: 'Mark Resolved',
+    noAlerts: 'No alerts',
+  },
+
+  waiterCalls: {
+    title: 'Waiter Calls',
+    newCall: 'New Call',
+    pending: 'Pending',
+    acknowledged: 'Acknowledged',
+    resolved: 'Resolved',
+    callWaiter: 'Call Waiter',
+    requestBill: 'Request Bill',
+    needHelp: 'Need Help',
+    noCalls: 'No pending calls',
   },
 
   errors: {

@@ -28,61 +28,6 @@ export interface CustomerMessage {
   handledAt?: Date;
 }
 
-// ============================================
-// MOCK DATA
-// ============================================
-
-const mockMessages: CustomerMessage[] = [
-  {
-    id: '1',
-    type: 'waiter_call',
-    tableNumber: 'A-5',
-    message: 'Garson çağırıyor',
-    status: 'unread',
-    priority: 'high',
-    createdAt: new Date(Date.now() - 2 * 60000),
-  },
-  {
-    id: '2',
-    type: 'bill_request',
-    tableNumber: 'B-3',
-    customerName: 'Ahmet Y.',
-    message: 'Hesap istiyor',
-    status: 'unread',
-    priority: 'normal',
-    createdAt: new Date(Date.now() - 5 * 60000),
-  },
-  {
-    id: '3',
-    type: 'help',
-    tableNumber: 'C-1',
-    message: 'Menü hakkında soru sormak istiyor',
-    status: 'read',
-    priority: 'low',
-    createdAt: new Date(Date.now() - 10 * 60000),
-  },
-  {
-    id: '4',
-    type: 'complaint',
-    tableNumber: 'A-2',
-    customerName: 'Elif K.',
-    message: 'Sipariş gecikmesi şikayeti',
-    status: 'unread',
-    priority: 'urgent',
-    createdAt: new Date(Date.now() - 1 * 60000),
-  },
-  {
-    id: '5',
-    type: 'order_update',
-    tableNumber: 'T-4',
-    message: 'Siparişe ek isteniyor',
-    status: 'handled',
-    priority: 'normal',
-    createdAt: new Date(Date.now() - 15 * 60000),
-    handledBy: 'Mehmet',
-    handledAt: new Date(Date.now() - 12 * 60000),
-  },
-];
 
 // ============================================
 // HELPER FUNCTIONS

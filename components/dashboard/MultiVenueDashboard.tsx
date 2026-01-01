@@ -22,42 +22,6 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 
-// Demo data
-const demoVenueSummaries: VenueSummary[] = [
-  {
-    venue_id: '1',
-    venue_name: 'ORDER Bodrum Marina',
-    today_revenue: 45680,
-    today_orders: 127,
-    active_orders: 12,
-    pending_reservations: 8,
-    low_stock_items: 3,
-    staff_on_duty: 14,
-    occupancy_rate: 78
-  },
-  {
-    venue_id: '2',
-    venue_name: 'ORDER Yalıkavak',
-    today_revenue: 38420,
-    today_orders: 98,
-    active_orders: 8,
-    pending_reservations: 5,
-    low_stock_items: 1,
-    staff_on_duty: 11,
-    occupancy_rate: 65
-  },
-  {
-    venue_id: '3',
-    venue_name: 'ORDER Türkbükü',
-    today_revenue: 52340,
-    today_orders: 145,
-    active_orders: 15,
-    pending_reservations: 12,
-    low_stock_items: 5,
-    staff_on_duty: 16,
-    occupancy_rate: 92
-  }
-];
 
 export function MultiVenueDashboard() {
   const { venueSummaries, setVenueSummaries, venues } = useVenueStore();

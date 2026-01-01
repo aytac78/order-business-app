@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { Home, LogOut } from 'lucide-react';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
+import { useRouter } from 'next/navigation';
 
 interface HomeButtonProps {
   variant?: 'default' | 'compact';
@@ -10,7 +11,13 @@ interface HomeButtonProps {
 }
 
 export function HomeButton({ variant = 'default', showLogout = true }: HomeButtonProps) {
-  const { logout, user } = useAuth();
+  const { logout, currentStaff } = useAuthStore();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
 
   if (variant === 'compact') {
     return (
@@ -23,7 +30,7 @@ export function HomeButton({ variant = 'default', showLogout = true }: HomeButto
         </Link>
         {showLogout && (
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-all"
           >
             <LogOut className="w-5 h-5" />
@@ -44,7 +51,7 @@ export function HomeButton({ variant = 'default', showLogout = true }: HomeButto
       </Link>
       {showLogout && (
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all flex items-center gap-2"
         >
           <LogOut className="w-5 h-5" />

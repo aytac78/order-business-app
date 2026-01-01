@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Lock, Delete, X, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores';
-import { createClientComponentClient } from '@supabase/ssr';
+import { createBrowserClient } from '@supabase/ssr';
 
 interface Staff { id: string; name: string; role: string; pin_code: string; }
 
@@ -14,7 +14,7 @@ interface PinLoginProps {
 }
 
 export function PinLogin({ venueId, onLogin, onCancel, title = 'Personel Girişi' }: PinLoginProps) {
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   const { login } = useAuthStore();
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);

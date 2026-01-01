@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/lib/auth/AuthContext';
 import { I18nProvider } from '@/lib/i18n/provider';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -28,9 +27,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-zinc-950 text-white antialiased`} style={{ backgroundColor: "#09090b" }}>
         <I18nProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          {children}
         </I18nProvider>
       </body>
     </html>

@@ -417,6 +417,11 @@ export const tr = {
     currency: 'Para Birimi',
     taxRate: 'KDV Oranı',
     serviceCharge: 'Servis Ücreti',
+    // Venue info
+    venueName: 'Mekan Adı',
+    phone: 'Telefon',
+    email: 'E-posta',
+    address: 'Adres',
     // Order settings
     qrMenuEnabled: 'QR Menü Aktif',
     qrMenuDescription: 'Müşteriler QR kod ile menüyü görebilir',

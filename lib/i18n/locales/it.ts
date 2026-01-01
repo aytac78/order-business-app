@@ -49,14 +49,26 @@ export const it = {
   },
   
   nav: {
+    // Sections
+    mainMenu: 'MENU PRINCIPALE',
+    operation: 'OPERAZIONI',
+    communication: 'COMUNICAZIONE',
+    management: 'GESTIONE',
+    stockAndStaff: 'MAGAZZINO & PERSONALE',
+    analyticsAndCrm: 'ANALISI & CRM',
+    system: 'SISTEMA',
+    // Menu items
     dashboard: 'Dashboard',
-    venues: 'I miei locali',
+    venues: 'I Miei Locali',
+    onboarding: 'Configurazione Rapida',
     tables: 'Tavoli',
     orders: 'Ordini',
     waiter: 'Pannello Cameriere',
     kitchen: 'Cucina',
     reception: 'Reception',
+    hereCustomers: 'Clienti Qui',
     menu: 'Menu',
+    events: 'Eventi',
     reservations: 'Prenotazioni',
     pos: 'Cassa/POS',
     qrMenu: 'Menu QR',
@@ -70,7 +82,6 @@ export const it = {
     analytics: 'Analisi',
     crm: 'CRM Clienti',
     settings: 'Impostazioni',
-    onboarding: 'Configurazione Rapida',
   },
 
   dashboard: {

@@ -5,9 +5,9 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Supabase credentials
-const supabaseUrl = 'https://acckonwumiecauqcusra.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjY2tvbnd1bWllY2F1cWN1c3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4ODgyOTQsImV4cCI6MjA4MjQ2NDI5NH0.j9rl2WExdwZOHaSarfTrxbhlSXAcuHOgTyXqocIgPzo';
+// Supabase credentials from environment
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Singleton instance
 let supabaseInstance: SupabaseClient | null = null;

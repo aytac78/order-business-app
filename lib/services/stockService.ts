@@ -1,6 +1,8 @@
 // ============================================
-// STOK VE REÇETE SİSTEMİ - TİPLER VE SERVİSLER
+// STOK VE REÇETE SİSTEMİ - SUPABASE ENTEGRASYONU
 // ============================================
+
+import { supabase } from '@/lib/supabase';
 
 // ============================================
 // TYPES
@@ -42,7 +44,7 @@ export interface Recipe {
   menuItemName: string;
   category: 'kitchen' | 'bar';
   items: RecipeItem[];
-  preparationTime: number; // dakika
+  preparationTime: number;
   instructions?: string;
   isActive: boolean;
 }
@@ -110,451 +112,393 @@ export interface SupplierOrderItem {
 }
 
 // ============================================
-// MOCK DATA - MALZEMELER
+// STOCK SERVICE - SUPABASE CONNECTED
 // ============================================
 
-export const mockIngredients: Ingredient[] = [
-  // MUTFAK - Et
-  { id: 'ing-1', name: 'Dana Kıyma', category: 'meat', unit: 'kg', currentStock: 15, minStock: 10, maxStock: 50, costPerUnit: 280, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-2', name: 'Tavuk Göğsü', category: 'meat', unit: 'kg', currentStock: 8, minStock: 10, maxStock: 40, costPerUnit: 120, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-3', name: 'Kuzu Pirzola', category: 'meat', unit: 'kg', currentStock: 5, minStock: 8, maxStock: 25, costPerUnit: 450, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-4', name: 'Adana Kebap Kıyması', category: 'meat', unit: 'kg', currentStock: 12, minStock: 8, maxStock: 30, costPerUnit: 320, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  
-  // MUTFAK - Sebze
-  { id: 'ing-5', name: 'Domates', category: 'vegetable', unit: 'kg', currentStock: 20, minStock: 15, maxStock: 50, costPerUnit: 25, location: 'storage', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-6', name: 'Soğan', category: 'vegetable', unit: 'kg', currentStock: 25, minStock: 10, maxStock: 40, costPerUnit: 15, location: 'storage', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-7', name: 'Biber (Yeşil)', category: 'vegetable', unit: 'kg', currentStock: 8, minStock: 5, maxStock: 20, costPerUnit: 35, location: 'storage', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-8', name: 'Marul', category: 'vegetable', unit: 'kg', currentStock: 3, minStock: 5, maxStock: 15, costPerUnit: 30, location: 'storage', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-9', name: 'Patates', category: 'vegetable', unit: 'kg', currentStock: 30, minStock: 20, maxStock: 80, costPerUnit: 12, location: 'storage', isActive: true, lastUpdated: new Date() },
-  
-  // MUTFAK - Süt Ürünleri
-  { id: 'ing-10', name: 'Kaşar Peyniri', category: 'dairy', unit: 'kg', currentStock: 6, minStock: 5, maxStock: 20, costPerUnit: 180, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-11', name: 'Beyaz Peynir', category: 'dairy', unit: 'kg', currentStock: 4, minStock: 3, maxStock: 15, costPerUnit: 150, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-12', name: 'Tereyağı', category: 'dairy', unit: 'kg', currentStock: 3, minStock: 2, maxStock: 10, costPerUnit: 250, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-13', name: 'Süt', category: 'dairy', unit: 'lt', currentStock: 20, minStock: 15, maxStock: 50, costPerUnit: 28, location: 'freezer', isActive: true, lastUpdated: new Date() },
-  
-  // MUTFAK - Tahıl
-  { id: 'ing-14', name: 'Pirinç', category: 'grain', unit: 'kg', currentStock: 25, minStock: 15, maxStock: 50, costPerUnit: 45, location: 'storage', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-15', name: 'Un', category: 'grain', unit: 'kg', currentStock: 20, minStock: 10, maxStock: 40, costPerUnit: 25, location: 'storage', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-16', name: 'Bulgur', category: 'grain', unit: 'kg', currentStock: 10, minStock: 5, maxStock: 25, costPerUnit: 35, location: 'storage', isActive: true, lastUpdated: new Date() },
-  
-  // BAR - İçecekler
-  { id: 'ing-20', name: 'Coca Cola', category: 'beverage', unit: 'şişe', currentStock: 48, minStock: 24, maxStock: 120, costPerUnit: 15, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-21', name: 'Fanta', category: 'beverage', unit: 'şişe', currentStock: 36, minStock: 24, maxStock: 96, costPerUnit: 15, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-22', name: 'Ayran', category: 'beverage', unit: 'adet', currentStock: 50, minStock: 30, maxStock: 100, costPerUnit: 8, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-23', name: 'Maden Suyu', category: 'beverage', unit: 'şişe', currentStock: 60, minStock: 40, maxStock: 150, costPerUnit: 10, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-24', name: 'Türk Kahvesi', category: 'beverage', unit: 'kg', currentStock: 2, minStock: 1, maxStock: 5, costPerUnit: 400, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-25', name: 'Çay', category: 'beverage', unit: 'kg', currentStock: 3, minStock: 2, maxStock: 8, costPerUnit: 200, location: 'bar', isActive: true, lastUpdated: new Date() },
-  
-  // BAR - Alkol
-  { id: 'ing-30', name: 'Rakı (Yeni)', category: 'alcohol', unit: 'şişe', currentStock: 10, minStock: 5, maxStock: 30, costPerUnit: 450, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-31', name: 'Bira (Efes)', category: 'alcohol', unit: 'şişe', currentStock: 24, minStock: 20, maxStock: 72, costPerUnit: 45, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-32', name: 'Şarap (Kırmızı)', category: 'alcohol', unit: 'şişe', currentStock: 8, minStock: 6, maxStock: 24, costPerUnit: 180, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-33', name: 'Votka', category: 'alcohol', unit: 'şişe', currentStock: 4, minStock: 3, maxStock: 12, costPerUnit: 350, location: 'bar', isActive: true, lastUpdated: new Date() },
-  
-  // BAR - Meyve
-  { id: 'ing-40', name: 'Limon', category: 'fruit', unit: 'kg', currentStock: 5, minStock: 3, maxStock: 15, costPerUnit: 40, location: 'bar', isActive: true, lastUpdated: new Date() },
-  { id: 'ing-41', name: 'Portakal', category: 'fruit', unit: 'kg', currentStock: 8, minStock: 5, maxStock: 20, costPerUnit: 35, location: 'bar', isActive: true, lastUpdated: new Date() },
-];
+class StockService {
+  private venueId: string | null = null;
 
-// ============================================
-// MOCK DATA - REÇETELER
-// ============================================
-
-export const mockRecipes: Recipe[] = [
-  // MUTFAK REÇETELERİ
-  {
-    id: 'rec-1',
-    menuItemId: 'menu-1',
-    menuItemName: 'Izgara Köfte',
-    category: 'kitchen',
-    items: [
-      { ingredientId: 'ing-1', ingredientName: 'Dana Kıyma', quantity: 0.150, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-6', ingredientName: 'Soğan', quantity: 0.030, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-5', ingredientName: 'Domates', quantity: 0.050, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-7', ingredientName: 'Biber (Yeşil)', quantity: 0.030, unit: 'kg', isOptional: false },
-    ],
-    preparationTime: 15,
-    isActive: true,
-  },
-  {
-    id: 'rec-2',
-    menuItemId: 'menu-2',
-    menuItemName: 'Tavuk Şiş',
-    category: 'kitchen',
-    items: [
-      { ingredientId: 'ing-2', ingredientName: 'Tavuk Göğsü', quantity: 0.200, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-7', ingredientName: 'Biber (Yeşil)', quantity: 0.040, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-5', ingredientName: 'Domates', quantity: 0.040, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-6', ingredientName: 'Soğan', quantity: 0.030, unit: 'kg', isOptional: false },
-    ],
-    preparationTime: 20,
-    isActive: true,
-  },
-  {
-    id: 'rec-3',
-    menuItemId: 'menu-3',
-    menuItemName: 'Adana Kebap',
-    category: 'kitchen',
-    items: [
-      { ingredientId: 'ing-4', ingredientName: 'Adana Kebap Kıyması', quantity: 0.200, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-5', ingredientName: 'Domates', quantity: 0.050, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-7', ingredientName: 'Biber (Yeşil)', quantity: 0.040, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-6', ingredientName: 'Soğan', quantity: 0.050, unit: 'kg', isOptional: false },
-    ],
-    preparationTime: 25,
-    isActive: true,
-  },
-  {
-    id: 'rec-4',
-    menuItemId: 'menu-4',
-    menuItemName: 'Karışık Salata',
-    category: 'kitchen',
-    items: [
-      { ingredientId: 'ing-8', ingredientName: 'Marul', quantity: 0.100, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-5', ingredientName: 'Domates', quantity: 0.080, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-6', ingredientName: 'Soğan', quantity: 0.030, unit: 'kg', isOptional: true },
-    ],
-    preparationTime: 5,
-    isActive: true,
-  },
-  {
-    id: 'rec-5',
-    menuItemId: 'menu-5',
-    menuItemName: 'Pilav',
-    category: 'kitchen',
-    items: [
-      { ingredientId: 'ing-14', ingredientName: 'Pirinç', quantity: 0.100, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-12', ingredientName: 'Tereyağı', quantity: 0.020, unit: 'kg', isOptional: false },
-    ],
-    preparationTime: 20,
-    isActive: true,
-  },
-  {
-    id: 'rec-6',
-    menuItemId: 'menu-6',
-    menuItemName: 'Kaşarlı Pide',
-    category: 'kitchen',
-    items: [
-      { ingredientId: 'ing-15', ingredientName: 'Un', quantity: 0.200, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-10', ingredientName: 'Kaşar Peyniri', quantity: 0.150, unit: 'kg', isOptional: false },
-      { ingredientId: 'ing-12', ingredientName: 'Tereyağı', quantity: 0.030, unit: 'kg', isOptional: false },
-    ],
-    preparationTime: 15,
-    isActive: true,
-  },
-  
-  // BAR REÇETELERİ
-  {
-    id: 'rec-10',
-    menuItemId: 'menu-10',
-    menuItemName: 'Türk Kahvesi',
-    category: 'bar',
-    items: [
-      { ingredientId: 'ing-24', ingredientName: 'Türk Kahvesi', quantity: 0.010, unit: 'kg', isOptional: false },
-    ],
-    preparationTime: 5,
-    isActive: true,
-  },
-  {
-    id: 'rec-11',
-    menuItemId: 'menu-11',
-    menuItemName: 'Çay',
-    category: 'bar',
-    items: [
-      { ingredientId: 'ing-25', ingredientName: 'Çay', quantity: 0.005, unit: 'kg', isOptional: false },
-    ],
-    preparationTime: 3,
-    isActive: true,
-  },
-  {
-    id: 'rec-12',
-    menuItemId: 'menu-12',
-    menuItemName: 'Ayran',
-    category: 'bar',
-    items: [
-      { ingredientId: 'ing-22', ingredientName: 'Ayran', quantity: 1, unit: 'adet', isOptional: false },
-    ],
-    preparationTime: 1,
-    isActive: true,
-  },
-  {
-    id: 'rec-13',
-    menuItemId: 'menu-13',
-    menuItemName: 'Cola',
-    category: 'bar',
-    items: [
-      { ingredientId: 'ing-20', ingredientName: 'Coca Cola', quantity: 1, unit: 'şişe', isOptional: false },
-    ],
-    preparationTime: 1,
-    isActive: true,
-  },
-  {
-    id: 'rec-14',
-    menuItemId: 'menu-14',
-    menuItemName: 'Rakı (Tek)',
-    category: 'bar',
-    items: [
-      { ingredientId: 'ing-30', ingredientName: 'Rakı (Yeni)', quantity: 0.05, unit: 'şişe', isOptional: false },
-    ],
-    preparationTime: 2,
-    isActive: true,
-  },
-  {
-    id: 'rec-15',
-    menuItemId: 'menu-15',
-    menuItemName: 'Bira',
-    category: 'bar',
-    items: [
-      { ingredientId: 'ing-31', ingredientName: 'Bira (Efes)', quantity: 1, unit: 'şişe', isOptional: false },
-    ],
-    preparationTime: 1,
-    isActive: true,
-  },
-];
-
-// ============================================
-// MOCK DATA - TEDARİKÇİLER
-// ============================================
-
-export const mockSuppliers: Supplier[] = [
-  {
-    id: 'sup-1',
-    name: 'Bodrum Et Market',
-    phone: '+90 252 316 1234',
-    email: 'info@bodrummarket.com',
-    categories: ['meat', 'seafood'],
-    deliveryDays: ['Pazartesi', 'Çarşamba', 'Cuma'],
-    minOrderAmount: 500,
-    isActive: true,
-  },
-  {
-    id: 'sup-2',
-    name: 'Taze Sebze Meyve',
-    phone: '+90 252 316 5678',
-    email: 'siparis@tazesebze.com',
-    categories: ['vegetable', 'fruit'],
-    deliveryDays: ['Her gün'],
-    minOrderAmount: 200,
-    isActive: true,
-  },
-  {
-    id: 'sup-3',
-    name: 'İçecek Deposu',
-    phone: '+90 252 316 9012',
-    categories: ['beverage', 'alcohol'],
-    deliveryDays: ['Salı', 'Perşembe', 'Cumartesi'],
-    minOrderAmount: 1000,
-    isActive: true,
-  },
-  {
-    id: 'sup-4',
-    name: 'Süt Ürünleri A.Ş.',
-    phone: '+90 252 316 3456',
-    categories: ['dairy'],
-    deliveryDays: ['Her gün'],
-    minOrderAmount: 300,
-    isActive: true,
-  },
-];
-
-// ============================================
-// STOK SERVİSLERİ
-// ============================================
-
-export class StockService {
-  private ingredients: Ingredient[] = [...mockIngredients];
-  private recipes: Recipe[] = [...mockRecipes];
-  private movements: StockMovement[] = [];
-  private alerts: StockAlert[] = [];
-
-  // Stok kontrolü ve uyarı oluşturma
-  checkStockLevels(): StockAlert[] {
-    const newAlerts: StockAlert[] = [];
-    
-    this.ingredients.forEach(ing => {
-      if (ing.currentStock <= 0) {
-        newAlerts.push({
-          id: `alert-${Date.now()}-${ing.id}`,
-          ingredientId: ing.id,
-          ingredientName: ing.name,
-          currentStock: ing.currentStock,
-          minStock: ing.minStock,
-          alertType: 'critical',
-          isAcknowledged: false,
-          createdAt: new Date(),
-        });
-      } else if (ing.currentStock < ing.minStock) {
-        newAlerts.push({
-          id: `alert-${Date.now()}-${ing.id}`,
-          ingredientId: ing.id,
-          ingredientName: ing.name,
-          currentStock: ing.currentStock,
-          minStock: ing.minStock,
-          alertType: 'low',
-          isAcknowledged: false,
-          createdAt: new Date(),
-        });
-      }
-    });
-
-    this.alerts = newAlerts;
-    return newAlerts;
+  setVenueId(venueId: string) {
+    this.venueId = venueId;
   }
 
-  // Sipariş için stok düşümü
-  processOrder(orderItems: { menuItemId: string; quantity: number }[]): { 
-    success: boolean; 
-    movements: StockMovement[]; 
-    insufficientStock: { ingredientName: string; required: number; available: number }[] 
-  } {
-    const movements: StockMovement[] = [];
-    const insufficientStock: { ingredientName: string; required: number; available: number }[] = [];
+  // Fetch ingredients from Supabase
+  async getIngredients(): Promise<Ingredient[]> {
+    if (!this.venueId) return [];
 
-    // Önce stok yeterliliğini kontrol et
-    for (const item of orderItems) {
-      const recipe = this.recipes.find(r => r.menuItemId === item.menuItemId);
-      if (!recipe) continue;
+    const { data, error } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('venue_id', this.venueId)
+      .order('name');
 
-      for (const recipeItem of recipe.items) {
-        if (recipeItem.isOptional) continue;
-        
-        const ingredient = this.ingredients.find(i => i.id === recipeItem.ingredientId);
-        if (!ingredient) continue;
-
-        const required = recipeItem.quantity * item.quantity;
-        if (ingredient.currentStock < required) {
-          insufficientStock.push({
-            ingredientName: ingredient.name,
-            required,
-            available: ingredient.currentStock,
-          });
-        }
-      }
+    if (error) {
+      console.error('Error fetching ingredients:', error);
+      return [];
     }
 
-    if (insufficientStock.length > 0) {
-      return { success: false, movements: [], insufficientStock };
-    }
+    return (data || []).map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category || 'other',
+      unit: item.unit || 'adet',
+      currentStock: item.current_quantity || 0,
+      minStock: item.min_quantity || 0,
+      maxStock: item.max_quantity || 100,
+      costPerUnit: item.cost_per_unit || 0,
+      location: item.location || 'storage',
+      supplierId: item.supplier_id,
+      barcode: item.barcode,
+      isActive: item.is_active !== false,
+      lastUpdated: new Date(item.last_restocked || item.updated_at),
+      expiryDate: item.expiry_date ? new Date(item.expiry_date) : undefined
+    }));
+  }
 
-    // Stok düşümü yap
-    for (const item of orderItems) {
-      const recipe = this.recipes.find(r => r.menuItemId === item.menuItemId);
-      if (!recipe) continue;
+  async getIngredientsByLocation(location: StockLocation): Promise<Ingredient[]> {
+    const ingredients = await this.getIngredients();
+    return ingredients.filter(i => i.location === location);
+  }
 
-      for (const recipeItem of recipe.items) {
-        const ingredient = this.ingredients.find(i => i.id === recipeItem.ingredientId);
-        if (!ingredient) continue;
+  async getLowStockIngredients(): Promise<Ingredient[]> {
+    if (!this.venueId) return [];
 
-        const quantity = recipeItem.quantity * item.quantity;
-        const previousStock = ingredient.currentStock;
-        ingredient.currentStock -= quantity;
-        ingredient.lastUpdated = new Date();
+    const { data, error } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('venue_id', this.venueId)
+      .lt('current_quantity', supabase.rpc('get_min_quantity'));
 
-        movements.push({
-          id: `mov-${Date.now()}-${ingredient.id}`,
-          ingredientId: ingredient.id,
-          ingredientName: ingredient.name,
-          type: 'out',
+    // Fallback: fetch all and filter
+    const ingredients = await this.getIngredients();
+    return ingredients.filter(i => i.currentStock < i.minStock);
+  }
+
+  // Fetch recipes from Supabase
+  async getRecipes(): Promise<Recipe[]> {
+    if (!this.venueId) return [];
+
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(`
+        *,
+        recipe_ingredients (
+          id,
+          ingredient_id,
           quantity,
-          previousStock,
-          newStock: ingredient.currentStock,
-          reason: `Sipariş: ${recipe.menuItemName} x${item.quantity}`,
-          performedBy: 'Sistem',
-          timestamp: new Date(),
-        });
-      }
+          unit,
+          is_optional,
+          stock_items (name)
+        )
+      `)
+      .eq('venue_id', this.venueId);
+
+    if (error) {
+      console.error('Error fetching recipes:', error);
+      return [];
     }
 
-    this.movements.push(...movements);
-    this.checkStockLevels();
-
-    return { success: true, movements, insufficientStock: [] };
+    return (data || []).map((recipe: any) => ({
+      id: recipe.id,
+      menuItemId: recipe.product_id || recipe.menu_item_id,
+      menuItemName: recipe.name,
+      category: recipe.category || 'kitchen',
+      items: (recipe.recipe_ingredients || []).map((ri: any) => ({
+        ingredientId: ri.ingredient_id,
+        ingredientName: ri.stock_items?.name || 'Bilinmiyor',
+        quantity: ri.quantity,
+        unit: ri.unit,
+        isOptional: ri.is_optional || false
+      })),
+      preparationTime: recipe.preparation_time || 0,
+      instructions: recipe.instructions,
+      isActive: recipe.is_active !== false
+    }));
   }
 
-  // Stok girişi
-  addStock(ingredientId: string, quantity: number, reason: string, performedBy: string): StockMovement | null {
-    const ingredient = this.ingredients.find(i => i.id === ingredientId);
-    if (!ingredient) return null;
+  async getRecipeByMenuItemId(menuItemId: string): Promise<Recipe | undefined> {
+    const recipes = await this.getRecipes();
+    return recipes.find(r => r.menuItemId === menuItemId);
+  }
 
-    const previousStock = ingredient.currentStock;
-    ingredient.currentStock += quantity;
-    ingredient.lastUpdated = new Date();
+  // Fetch suppliers from Supabase
+  async getSuppliers(): Promise<Supplier[]> {
+    if (!this.venueId) return [];
 
-    const movement: StockMovement = {
-      id: `mov-${Date.now()}`,
-      ingredientId: ingredient.id,
-      ingredientName: ingredient.name,
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('venue_id', this.venueId)
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching suppliers:', error);
+      return [];
+    }
+
+    return (data || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      phone: s.phone || '',
+      email: s.email,
+      address: s.address,
+      categories: s.categories || [],
+      minOrderAmount: s.min_order_amount,
+      deliveryDays: s.delivery_days || [],
+      isActive: s.is_active !== false
+    }));
+  }
+
+  // Fetch stock movements from Supabase
+  async getMovements(limit = 50): Promise<StockMovement[]> {
+    if (!this.venueId) return [];
+
+    const { data, error } = await supabase
+      .from('stock_movements')
+      .select(`
+        *,
+        stock_items (name)
+      `)
+      .eq('venue_id', this.venueId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching movements:', error);
+      return [];
+    }
+
+    return (data || []).map((m: any) => ({
+      id: m.id,
+      ingredientId: m.stock_item_id,
+      ingredientName: m.stock_items?.name || 'Bilinmiyor',
+      type: m.type,
+      quantity: m.quantity,
+      previousStock: m.previous_quantity || 0,
+      newStock: m.new_quantity || 0,
+      reason: m.reason || '',
+      orderId: m.order_id,
+      supplierId: m.supplier_id,
+      performedBy: m.performed_by || 'Sistem',
+      timestamp: new Date(m.created_at)
+    }));
+  }
+
+  // Fetch alerts from Supabase
+  async getAlerts(): Promise<StockAlert[]> {
+    const ingredients = await this.getLowStockIngredients();
+    
+    return ingredients.map(ing => ({
+      id: `alert-${ing.id}`,
+      ingredientId: ing.id,
+      ingredientName: ing.name,
+      currentStock: ing.currentStock,
+      minStock: ing.minStock,
+      alertType: ing.currentStock === 0 ? 'critical' : 'low',
+      isAcknowledged: false,
+      createdAt: new Date()
+    }));
+  }
+
+  // Add stock (stok girişi)
+  async addStock(
+    ingredientId: string,
+    quantity: number,
+    reason: string,
+    performedBy: string,
+    supplierId?: string
+  ): Promise<StockMovement | null> {
+    if (!this.venueId) return null;
+
+    // Get current stock
+    const { data: item } = await supabase
+      .from('stock_items')
+      .select('current_quantity, name')
+      .eq('id', ingredientId)
+      .single();
+
+    if (!item) return null;
+
+    const previousStock = item.current_quantity || 0;
+    const newStock = previousStock + quantity;
+
+    // Update stock
+    await supabase
+      .from('stock_items')
+      .update({ 
+        current_quantity: newStock,
+        last_restocked: new Date().toISOString()
+      })
+      .eq('id', ingredientId);
+
+    // Record movement
+    const { data: movement } = await supabase
+      .from('stock_movements')
+      .insert({
+        venue_id: this.venueId,
+        stock_item_id: ingredientId,
+        type: 'in',
+        quantity,
+        previous_quantity: previousStock,
+        new_quantity: newStock,
+        reason,
+        performed_by: performedBy,
+        supplier_id: supplierId
+      })
+      .select()
+      .single();
+
+    return movement ? {
+      id: movement.id,
+      ingredientId,
+      ingredientName: item.name,
       type: 'in',
       quantity,
       previousStock,
-      newStock: ingredient.currentStock,
+      newStock,
       reason,
+      supplierId,
       performedBy,
-      timestamp: new Date(),
-    };
-
-    this.movements.push(movement);
-    this.checkStockLevels();
-
-    return movement;
+      timestamp: new Date()
+    } : null;
   }
 
-  // Fire/Kayıp kaydı
-  recordWaste(ingredientId: string, quantity: number, reason: string, performedBy: string): StockMovement | null {
-    const ingredient = this.ingredients.find(i => i.id === ingredientId);
-    if (!ingredient) return null;
+  // Use stock (stok çıkışı - sipariş için)
+  async useStock(
+    ingredientId: string,
+    quantity: number,
+    reason: string,
+    performedBy: string,
+    orderId?: string
+  ): Promise<StockMovement | null> {
+    if (!this.venueId) return null;
 
-    const previousStock = ingredient.currentStock;
-    ingredient.currentStock -= quantity;
-    ingredient.lastUpdated = new Date();
+    const { data: item } = await supabase
+      .from('stock_items')
+      .select('current_quantity, name')
+      .eq('id', ingredientId)
+      .single();
 
-    const movement: StockMovement = {
-      id: `mov-${Date.now()}`,
-      ingredientId: ingredient.id,
-      ingredientName: ingredient.name,
+    if (!item) return null;
+
+    const previousStock = item.current_quantity || 0;
+    const newStock = Math.max(0, previousStock - quantity);
+
+    await supabase
+      .from('stock_items')
+      .update({ current_quantity: newStock })
+      .eq('id', ingredientId);
+
+    const { data: movement } = await supabase
+      .from('stock_movements')
+      .insert({
+        venue_id: this.venueId,
+        stock_item_id: ingredientId,
+        type: 'out',
+        quantity,
+        previous_quantity: previousStock,
+        new_quantity: newStock,
+        reason,
+        performed_by: performedBy,
+        order_id: orderId
+      })
+      .select()
+      .single();
+
+    return movement ? {
+      id: movement.id,
+      ingredientId,
+      ingredientName: item.name,
+      type: 'out',
+      quantity,
+      previousStock,
+      newStock,
+      reason,
+      orderId,
+      performedBy,
+      timestamp: new Date()
+    } : null;
+  }
+
+  // Record waste (fire)
+  async recordWaste(
+    ingredientId: string,
+    quantity: number,
+    reason: string,
+    performedBy: string
+  ): Promise<StockMovement | null> {
+    if (!this.venueId) return null;
+
+    const { data: item } = await supabase
+      .from('stock_items')
+      .select('current_quantity, name')
+      .eq('id', ingredientId)
+      .single();
+
+    if (!item) return null;
+
+    const previousStock = item.current_quantity || 0;
+    const newStock = Math.max(0, previousStock - quantity);
+
+    await supabase
+      .from('stock_items')
+      .update({ current_quantity: newStock })
+      .eq('id', ingredientId);
+
+    const { data: movement } = await supabase
+      .from('stock_movements')
+      .insert({
+        venue_id: this.venueId,
+        stock_item_id: ingredientId,
+        type: 'waste',
+        quantity,
+        previous_quantity: previousStock,
+        new_quantity: newStock,
+        reason,
+        performed_by: performedBy
+      })
+      .select()
+      .single();
+
+    return movement ? {
+      id: movement.id,
+      ingredientId,
+      ingredientName: item.name,
       type: 'waste',
       quantity,
       previousStock,
-      newStock: ingredient.currentStock,
+      newStock,
       reason,
       performedBy,
-      timestamp: new Date(),
-    };
-
-    this.movements.push(movement);
-    this.checkStockLevels();
-
-    return movement;
+      timestamp: new Date()
+    } : null;
   }
 
-  // Getters
-  getIngredients(): Ingredient[] {
-    return this.ingredients;
-  }
+  // Deduct recipe ingredients from stock
+  async deductRecipeFromStock(
+    recipeId: string,
+    quantity: number,
+    performedBy: string,
+    orderId?: string
+  ): Promise<boolean> {
+    const recipes = await this.getRecipes();
+    const recipe = recipes.find(r => r.id === recipeId);
+    
+    if (!recipe) return false;
 
-  getIngredientsByLocation(location: StockLocation): Ingredient[] {
-    return this.ingredients.filter(i => i.location === location);
-  }
+    for (const item of recipe.items) {
+      if (!item.isOptional) {
+        await this.useStock(
+          item.ingredientId,
+          item.quantity * quantity,
+          `Sipariş: ${recipe.menuItemName} x${quantity}`,
+          performedBy,
+          orderId
+        );
+      }
+    }
 
-  getLowStockIngredients(): Ingredient[] {
-    return this.ingredients.filter(i => i.currentStock < i.minStock);
-  }
-
-  getRecipes(): Recipe[] {
-    return this.recipes;
-  }
-
-  getRecipeByMenuItemId(menuItemId: string): Recipe | undefined {
-    return this.recipes.find(r => r.menuItemId === menuItemId);
-  }
-
-  getMovements(): StockMovement[] {
-    return this.movements;
-  }
-
-  getAlerts(): StockAlert[] {
-    return this.alerts;
+    return true;
   }
 }
 

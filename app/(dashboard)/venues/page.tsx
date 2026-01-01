@@ -300,6 +300,13 @@ export default function VenuesPage() {
                   >
                     {venue.is_active ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                   </button>
+                  <button
+                    onClick={() => handleDelete(venue.id)}
+                    className="p-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg"
+                    title="Sil"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>

@@ -6,7 +6,7 @@ import { Header } from '@/components/Header';
 import { useUIStore, useVenueStore } from '@/stores';
 import { ProtectedRoute } from '@/components/auth';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { I18nProvider } from '@/components/I18nProvider';
+import { I18nProvider } from '@/lib/i18n/provider';
 import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({

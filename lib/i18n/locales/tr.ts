@@ -407,6 +407,8 @@ export const tr = {
     general: 'Genel',
     venue: 'Mekan Bilgileri',
     workingHours: 'Çalışma Saatleri',
+    orderSettings: 'Sipariş Ayarları',
+    paymentSettings: 'Ödeme Ayarları',
     notifications: 'Bildirimler',
     integrations: 'Entegrasyonlar',
     billing: 'Fatura',
@@ -415,6 +417,20 @@ export const tr = {
     currency: 'Para Birimi',
     taxRate: 'KDV Oranı',
     serviceCharge: 'Servis Ücreti',
+    // Order settings
+    qrMenuEnabled: 'QR Menü Aktif',
+    qrMenuDescription: 'Müşteriler QR kod ile menüyü görebilir',
+    onlineOrderingEnabled: 'Online Sipariş Aktif',
+    onlineOrderingDescription: 'Müşteriler online sipariş verebilir',
+    reservationsEnabled: 'Rezervasyon Aktif',
+    reservationsDescription: 'Müşteriler online rezervasyon yapabilir',
+    autoAcceptOrders: 'Otomatik Sipariş Onayı',
+    autoAcceptDescription: 'Siparişler otomatik onaylanır',
+    minOrderAmount: 'Minimum Sipariş Tutarı',
+    // Payment settings
+    cashEnabled: 'Nakit Ödeme',
+    cardEnabled: 'Kredi Kartı',
+    titPayEnabled: 'TiT Pay',
     days: {
       monday: 'Pazartesi',
       tuesday: 'Salı',
@@ -426,6 +442,8 @@ export const tr = {
     },
     open: 'Açık',
     closed: 'Kapalı',
+    save: 'Kaydet',
+    saved: 'Kaydedildi',
   },
 
   venues: {

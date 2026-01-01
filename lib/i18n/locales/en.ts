@@ -153,6 +153,8 @@ export const en = {
     waiter: 'Waiter',
     duration: 'Duration',
     minutes: 'min',
+    viewAll: 'View All',
+    pieces: 'pcs',
   },
 
   kitchen: {

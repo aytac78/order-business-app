@@ -152,6 +152,8 @@ export const ar = {
     quantity: 'الكمية',
     waiter: 'النادل',
     duration: 'المدة',
+    viewAll: 'عرض الكل',
+    pieces: 'قطعة',
     minutes: 'دقيقة',
   },
 

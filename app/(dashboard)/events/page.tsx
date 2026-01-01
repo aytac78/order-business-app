@@ -296,7 +296,8 @@ export default function EventsPage() {
       {/* Events Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredEvents.map(event => {
-          const typeInfo = eventTypes.find(t => t.id === event.type) || eventTypes[eventTypes.length - 1];
+          const t = useTranslations('events');
+  const typeInfo = eventTypes.find(et => et.id === event.type) || eventTypes[eventTypes.length - 1];
           const TypeIcon = typeInfo.icon;
           const config = statusConfig[event.status];
           const isPast = new Date(event.date) < new Date();
@@ -442,6 +443,7 @@ function AddEventModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const t = useTranslations('events');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -635,7 +637,8 @@ function EventDetailModal({
   onClose: () => void;
   onStatusChange: (status: string) => void;
 }) {
-  const typeInfo = eventTypes.find(t => t.id === event.type) || eventTypes[eventTypes.length - 1];
+  const t = useTranslations('events');
+  const typeInfo = eventTypes.find(et => et.id === event.type) || eventTypes[eventTypes.length - 1];
   const config = statusConfig[event.status];
 
   return (

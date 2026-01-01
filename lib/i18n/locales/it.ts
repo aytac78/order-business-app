@@ -152,6 +152,8 @@ export const it = {
     quantity: 'Quantità',
     waiter: 'Cameriere',
     duration: 'Durata',
+    viewAll: 'Vedi Tutto',
+    pieces: 'pezzi',
     minutes: 'min',
   },
 

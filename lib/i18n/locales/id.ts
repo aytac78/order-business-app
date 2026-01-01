@@ -152,6 +152,8 @@ export const id = {
     quantity: 'Jumlah',
     waiter: 'Pelayan',
     duration: 'Durasi',
+    viewAll: 'Lihat Semua',
+    pieces: 'buah',
     minutes: 'menit',
   },
 

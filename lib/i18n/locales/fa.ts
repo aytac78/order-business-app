@@ -152,6 +152,8 @@ export const fa = {
     quantity: 'تعداد',
     waiter: 'پیشخدمت',
     duration: 'مدت',
+    viewAll: 'مشاهده همه',
+    pieces: 'عدد',
     minutes: 'دقیقه',
   },
 

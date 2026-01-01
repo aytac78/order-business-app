@@ -210,7 +210,7 @@ export default function MenuImportPage() {
     
     for (const item of previewData) {
       try {
-        const { error } = await supabase.from('menu_items').insert({
+        const { error } = await supabase.from('products').insert({
           venue_id: selectedVenue,
           name: item.name,
           description: item.description || null,

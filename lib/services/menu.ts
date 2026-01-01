@@ -42,7 +42,7 @@ export const menuService = {
   // Menü ürünlerini getir
   async getItems(venueId: string): Promise<MenuItem[]> {
     const { data, error } = await supabase
-      .from('menu_items')
+      .from('products')
       .select(`
         *,
         category:category_id (name)
@@ -57,7 +57,7 @@ export const menuService = {
   // Kategoriye göre ürünler
   async getItemsByCategory(venueId: string, categoryId: string): Promise<MenuItem[]> {
     const { data, error } = await supabase
-      .from('menu_items')
+      .from('products')
       .select('*')
       .eq('venue_id', venueId)
       .eq('category_id', categoryId)
@@ -71,7 +71,7 @@ export const menuService = {
   // Ürün oluştur
   async createItem(item: Partial<MenuItem>): Promise<MenuItem> {
     const { data, error } = await supabase
-      .from('menu_items')
+      .from('products')
       .insert(item)
       .select()
       .single();
@@ -83,7 +83,7 @@ export const menuService = {
   // Ürün güncelle
   async updateItem(id: string, updates: Partial<MenuItem>): Promise<MenuItem> {
     const { data, error } = await supabase
-      .from('menu_items')
+      .from('products')
       .update(updates)
       .eq('id', id)
       .select()
@@ -96,7 +96,7 @@ export const menuService = {
   // Ürün sil
   async deleteItem(id: string): Promise<void> {
     const { error } = await supabase
-      .from('menu_items')
+      .from('products')
       .delete()
       .eq('id', id);
     
@@ -118,7 +118,7 @@ export const menuService = {
   // Stok durumu güncelle
   async toggleAvailability(id: string, isAvailable: boolean): Promise<MenuItem> {
     const { data, error } = await supabase
-      .from('menu_items')
+      .from('products')
       .update({ is_available: isAvailable })
       .eq('id', id)
       .select()

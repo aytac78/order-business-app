@@ -136,14 +136,14 @@ export default function StaffPage() {
           <p className="text-gray-400">{staff.length} {tCommon('items')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadStaff}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => { setEditingStaff(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
           >
@@ -224,7 +224,7 @@ export default function StaffPage() {
                       </span>
                     </div>
                   </div>
-                  <button
+                  <button type="button"
                     onClick={() => handleToggleActive(staffMember)}
                     className={`p-1.5 rounded-lg ${
                       staffMember.is_active 
@@ -264,14 +264,14 @@ export default function StaffPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button
+                  <button type="button"
                     onClick={() => { setEditingStaff(staffMember); setShowModal(true); }}
                     className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm flex items-center justify-center gap-1"
                   >
                     <Edit2 className="w-3 h-3" />
                     {tCommon('edit')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => handleDelete(staffMember.id)}
                     className="py-2 px-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                   >
@@ -336,7 +336,7 @@ function StaffModal({
           <h2 className="text-xl font-bold text-white">
             {staff ? t('editStaff') : t('addStaff')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -408,14 +408,14 @@ function StaffModal({
             </div>
           </div>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >

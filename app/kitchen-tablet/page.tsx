@@ -166,19 +166,19 @@ export default function KitchenTabletPage() {
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
             className={`p-3 rounded-xl ${soundEnabled ? 'bg-green-600' : 'bg-gray-700'}`}
           >
             {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </button>
-          <button
+          <button type="button"
             onClick={loadOrders}
             className="p-3 bg-gray-700 hover:bg-gray-600 rounded-xl"
           >
             <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => { if(confirm("Çıkış yapmak istediğinize emin misiniz?")) { localStorage.removeItem("order-auth-storage"); window.location.href = "/"; } }} className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400" title="Çıkış">
+          <button type="button" onClick={() => { if(confirm("Çıkış yapmak istediğinize emin misiniz?")) { localStorage.removeItem("order-auth-storage"); window.location.href = "/"; } }} className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400" title="Çıkış">
             <LogOut className="w-5 h-5" />
           </button>
         </div>
@@ -365,7 +365,7 @@ function OrderCard({
             {new Date(order.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
-        <button
+        <button type="button"
           onClick={onAction}
           className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors ${actionColor}`}
         >

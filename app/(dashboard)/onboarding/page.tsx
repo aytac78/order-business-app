@@ -173,7 +173,7 @@ export default function OnboardingPage() {
                 {venueTypes.map(type => {
                   const Icon = type.icon;
                   return (
-                    <button
+                    <button type="button"
                       key={type.id}
                       onClick={() => setVenueData({ ...venueData, type: type.id })}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
@@ -311,7 +311,7 @@ export default function OnboardingPage() {
                   </li>
                 </ul>
               </div>
-              <button
+              <button type="button"
                 onClick={() => router.push('/dashboard')}
                 className="px-8 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold"
               >
@@ -323,7 +323,7 @@ export default function OnboardingPage() {
           {/* Navigation */}
           {step < 4 && (
             <div className="flex justify-between mt-8 pt-6 border-t border-gray-700">
-              <button
+              <button type="button"
                 onClick={handleBack}
                 disabled={step === 1}
                 className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -333,7 +333,7 @@ export default function OnboardingPage() {
               </button>
               
               {step === 3 ? (
-                <button
+                <button type="button"
                   onClick={handleComplete}
                   disabled={!canProceed() || loading}
                   className="flex items-center gap-2 px-6 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white rounded-xl font-medium"
@@ -342,7 +342,7 @@ export default function OnboardingPage() {
                   Tamamla
                 </button>
               ) : (
-                <button
+                <button type="button"
                   onClick={handleNext}
                   disabled={!canProceed()}
                   className="flex items-center gap-2 px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white rounded-xl font-medium"

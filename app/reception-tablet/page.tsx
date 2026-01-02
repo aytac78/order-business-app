@@ -179,20 +179,20 @@ export default function ReceptionTabletPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button
+          <button type="button"
             onClick={() => setShowWalkInModal(true)}
             className="flex items-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 rounded-xl font-bold transition-colors"
           >
             <UserPlus className="w-5 h-5" />
             Walk-in
           </button>
-          <button
+          <button type="button"
             onClick={loadData}
             className="p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-colors"
           >
             <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => { if(confirm("Çıkış yapmak istediğinize emin misiniz?")) { localStorage.removeItem("order-auth-storage"); window.location.href = "/"; } }} className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400" title="Çıkış">
+          <button type="button" onClick={() => { if(confirm("Çıkış yapmak istediğinize emin misiniz?")) { localStorage.removeItem("order-auth-storage"); window.location.href = "/"; } }} className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400" title="Çıkış">
             <LogOut className="w-5 h-5" />
           </button>
         </div>
@@ -260,13 +260,13 @@ export default function ReceptionTabletPage() {
             <div className="flex items-center gap-2">
               {reservation.status === 'pending' && (
                 <>
-                  <button
+                  <button type="button"
                     onClick={() => confirmReservation(reservation.id)}
                     className="p-3 bg-green-500/20 hover:bg-green-500/30 rounded-xl text-green-400"
                   >
                     <CheckCircle className="w-5 h-5" />
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => cancelReservation(reservation.id)}
                     className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400"
                   >
@@ -275,7 +275,7 @@ export default function ReceptionTabletPage() {
                 </>
               )}
               {reservation.status === 'confirmed' && (
-                <button
+                <button type="button"
                   onClick={() => setShowSeatModal(reservation)}
                   className="px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-xl font-bold transition-colors"
                 >
@@ -344,7 +344,7 @@ function SeatModal({
             <h2 className="text-xl font-bold text-white">Masa Seç</h2>
             <p className="text-gray-400">{reservation.customer_name} • {reservation.party_size} kişi</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg text-gray-400">✕</button>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg text-gray-400">✕</button>
         </div>
 
         <div className="p-5 max-h-[60vh] overflow-y-auto">
@@ -354,7 +354,7 @@ function SeatModal({
                 <h3 className="text-sm font-medium text-gray-400 mb-3">{section}</h3>
                 <div className="grid grid-cols-4 gap-3">
                   {availableTables.filter(t => t.section === section).map(table => (
-                    <button
+                    <button type="button"
                       key={table.id}
                       onClick={() => onSeat(table.id)}
                       className="p-4 bg-green-500/20 hover:bg-green-500/40 border-2 border-green-500/50 rounded-xl text-center transition-colors"
@@ -376,7 +376,7 @@ function SeatModal({
         </div>
 
         <div className="p-5 border-t border-gray-700">
-          <button
+          <button type="button"
             onClick={onClose}
             className="w-full py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white"
           >
@@ -421,7 +421,7 @@ function WalkInModal({
             <h2 className="text-xl font-bold text-white">Walk-in Müşteri</h2>
             <p className="text-gray-400">Rezervasyonsuz misafir</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg text-gray-400">✕</button>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg text-gray-400">✕</button>
         </div>
 
         <div className="p-5 space-y-6 max-h-[60vh] overflow-y-auto">
@@ -429,14 +429,14 @@ function WalkInModal({
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Kişi Sayısı</label>
             <div className="flex items-center gap-4">
-              <button
+              <button type="button"
                 onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
                 className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl text-xl font-bold"
               >
                 -
               </button>
               <span className="text-4xl font-bold text-white w-20 text-center">{guestCount}</span>
-              <button
+              <button type="button"
                 onClick={() => setGuestCount(guestCount + 1)}
                 className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl text-xl font-bold"
               >
@@ -470,7 +470,7 @@ function WalkInModal({
                   <p className="text-xs text-gray-500 mb-2">{section}</p>
                   <div className="grid grid-cols-5 gap-2">
                     {availableTables.filter(t => t.section === section).map(table => (
-                      <button
+                      <button type="button"
                         key={table.id}
                         onClick={() => setSelectedTable(table.id)}
                         className={`p-3 rounded-xl text-center transition-all ${
@@ -496,13 +496,13 @@ function WalkInModal({
         </div>
 
         <div className="p-5 border-t border-gray-700 flex gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium"
           >
             İptal
           </button>
-          <button
+          <button type="button"
             onClick={handleSeat}
             disabled={!selectedTable}
             className="flex-1 py-3 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold"

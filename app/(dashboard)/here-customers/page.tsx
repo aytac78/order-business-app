@@ -253,7 +253,7 @@ export default function HereCustomersPage() {
           <h1 className="text-2xl font-bold text-white">HERE Müşteriler</h1>
           <p className="text-gray-400">Yakınlarınızdaki müşterilere ulaşın</p>
         </div>
-        <button
+        <button type="button"
           onClick={handleRefresh}
           disabled={isLoading}
           className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors disabled:opacity-50"
@@ -317,7 +317,7 @@ export default function HereCustomersPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Yakındaki Müşteriler</h2>
             {nearbyCustomers.length > 0 && (
-              <button
+              <button type="button"
                 onClick={handleSelectAll}
                 className="text-sm text-orange-400 hover:text-orange-300"
               >
@@ -390,7 +390,7 @@ export default function HereCustomersPage() {
         <div className="bg-gray-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Promosyonlar</h2>
-            <button
+            <button type="button"
               onClick={() => setShowPromotionModal(true)}
               className="p-2 bg-orange-500/20 hover:bg-orange-500/30 rounded-lg transition-colors"
             >
@@ -424,7 +424,7 @@ export default function HereCustomersPage() {
                       <span>{promo.sentCount} gönderildi</span>
                       <span>{promo.redeemedCount} kullanıldı</span>
                     </div>
-                    <button
+                    <button type="button"
                       onClick={() => handleSendPromotion(promo.id)}
                       disabled={selectedCustomers.length === 0 || sendingPromotion || !promo.isActive}
                       className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"

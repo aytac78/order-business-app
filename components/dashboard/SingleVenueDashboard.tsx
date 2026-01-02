@@ -241,7 +241,7 @@ export function SingleVenueDashboard() {
             )}
           </p>
         </div>
-        <button
+        <button type="button"
           onClick={fetchDashboardData}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
@@ -314,7 +314,7 @@ export function SingleVenueDashboard() {
         <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">{t('dashboard.recentOrders')}</h2>
-            <button 
+            <button type="button" 
               onClick={() => router.push('/orders')}
               className="text-orange-400 hover:text-orange-300 text-sm font-medium"
             >
@@ -347,7 +347,7 @@ export function SingleVenueDashboard() {
                       {statusLabels[order.status] || order.status}
                     </span>
                     <span className="font-semibold text-white">{formatCurrency(order.total || 0)}</span>
-                    <button className="p-1 hover:bg-gray-600 rounded text-gray-400">
+                    <button type="button" className="p-1 hover:bg-gray-600 rounded text-gray-400">
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
                   </div>

@@ -161,7 +161,7 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
           <p className="text-gray-400">{orders.length} {t('title').toLowerCase()}</p>
         </div>
-        <button
+        <button type="button"
           onClick={loadOrders}
           className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
         >
@@ -366,7 +366,7 @@ function OrderDetailModal({
               {order.table_number && <span>• {t('dineIn')} #{order.table_number}</span>}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -436,7 +436,7 @@ function OrderDetailModal({
               <h3 className="text-sm font-medium text-gray-400 mb-3">{t('orderDetails')}</h3>
               <div className="grid grid-cols-2 gap-2">
                 {statusFlow.slice(currentIndex + 1, currentIndex + 3).map(nextStatus => (
-                  <button
+                  <button type="button"
                     key={nextStatus}
                     onClick={() => onStatusChange(nextStatus)}
                     className={`py-3 px-4 ${statusConfig[nextStatus].color} text-white rounded-xl font-medium hover:opacity-90 transition-opacity`}
@@ -448,7 +448,7 @@ function OrderDetailModal({
                     {nextStatus === 'completed' && t('completeOrder')}
                   </button>
                 ))}
-                <button
+                <button type="button"
                   onClick={() => onStatusChange('cancelled')}
                   className="py-3 px-4 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors"
                 >
@@ -460,11 +460,11 @@ function OrderDetailModal({
 
           {/* Print & Close */}
           <div className="flex gap-3">
-            <button className="flex-1 py-3 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 flex items-center justify-center gap-2">
+            <button type="button" className="flex-1 py-3 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 flex items-center justify-center gap-2">
               <Printer className="w-4 h-4" />
               {t('printOrder')}
             </button>
-            <button
+            <button type="button"
               onClick={onClose}
               className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600"
             >

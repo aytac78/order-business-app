@@ -54,7 +54,7 @@ export default function MessagesPage() {
           schema: 'public', 
           table: 'messages' 
         }, (payload) => {
-          console.log('Message change:', payload)
+          // console.log('Message change:', payload)
           if (selectedConv) {
             loadMessages(selectedConv.id)
           }
@@ -240,7 +240,7 @@ export default function MessagesPage() {
             </div>
           ) : (
             filteredConversations.map(conv => (
-              <button 
+              <button type="button" 
                 key={conv.id} 
                 onClick={() => selectConversation(conv)} 
                 className={`w-full p-4 flex items-center gap-3 text-left border-b border-gray-700/50 transition-colors ${
@@ -293,11 +293,11 @@ export default function MessagesPage() {
               </div>
               <div className="flex items-center gap-2">
                 {selectedConv.order_id && (
-                  <button className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors">
+                  <button type="button" className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors">
                     <ShoppingBag className="w-5 h-5" />
                   </button>
                 )}
-                <button 
+                <button type="button" 
                   onClick={() => setSelectedConv(null)}
                   className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors md:hidden"
                 >
@@ -366,7 +366,7 @@ export default function MessagesPage() {
                   placeholder="Mesajınızı yazın..." 
                   className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 outline-none focus:border-orange-500" 
                 />
-                <button 
+                <button type="button" 
                   onClick={sendMessage} 
                   disabled={sending || !newMessage.trim()} 
                   className="px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center gap-2 transition-colors"

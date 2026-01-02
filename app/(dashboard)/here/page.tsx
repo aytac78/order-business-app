@@ -145,7 +145,7 @@ export default function HerePage() {
           </p>
         </div>
 
-        <button
+        <button type="button"
           onClick={fetchCheckedInUsers}
           disabled={isLoading}
           className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50"
@@ -263,7 +263,7 @@ export default function HerePage() {
                   </div>
                 </div>
 
-                <button
+                <button type="button"
                   className="flex items-center gap-2 px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                   onClick={() => {
                     // TODO: Open message modal

@@ -172,7 +172,7 @@ export default function POSTabletPage() {
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <button onClick={() => { localStorage.removeItem('order-auth-storage'); window.location.href = '/' }} className="p-2 bg-red-600 hover:bg-red-700 rounded-xl">
+              <button type="button" onClick={() => { localStorage.removeItem('order-auth-storage'); window.location.href = '/' }} className="p-2 bg-red-600 hover:bg-red-700 rounded-xl">
                 Çıkış
               </button>
               <div>
@@ -180,7 +180,7 @@ export default function POSTabletPage() {
                 <p className="text-xs text-gray-400">{currentTime.toLocaleTimeString('tr-TR')}</p>
               </div>
             </div>
-            <button onClick={loadOrders} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-xl">
+            <button type="button" onClick={loadOrders} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-xl">
               <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
@@ -214,7 +214,7 @@ export default function POSTabletPage() {
         {/* Orders List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {filteredOrders.map(order => (
-            <button
+            <button type="button"
               key={order.id}
               onClick={() => setSelectedOrder(order)}
               className={`w-full p-4 rounded-xl text-left transition-all ${
@@ -268,7 +268,7 @@ export default function POSTabletPage() {
                     {' • '}{selectedOrder.items.length} kalem
                   </p>
                 </div>
-                <button onClick={() => setSelectedOrder(null)} className="p-2 hover:bg-gray-700 rounded-xl">
+                <button type="button" onClick={() => setSelectedOrder(null)} className="p-2 hover:bg-gray-700 rounded-xl">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -326,19 +326,19 @@ export default function POSTabletPage() {
 
               {/* Actions */}
               <div className="grid grid-cols-3 gap-3">
-                <button
+                <button type="button"
                   onClick={() => setShowDiscount(true)}
                   className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium flex items-center justify-center gap-2"
                 >
                   <Percent className="w-5 h-5" /> İndirim
                 </button>
-                <button
+                <button type="button"
                   onClick={() => setShowSplit(true)}
                   className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium flex items-center justify-center gap-2"
                 >
                   <Split className="w-5 h-5" /> Böl
                 </button>
-                <button className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium flex items-center justify-center gap-2">
+                <button type="button" className="py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium flex items-center justify-center gap-2">
                   <Printer className="w-5 h-5" /> Yazdır
                 </button>
               </div>
@@ -364,7 +364,7 @@ export default function POSTabletPage() {
           {selectedOrder ? (
             <div className="space-y-3">
               {paymentMethods.map(method => (
-                <button
+                <button type="button"
                   key={method.id}
                   onClick={() => setShowPayment(true)}
                   className={`w-full p-4 ${method.color} hover:opacity-90 rounded-xl font-medium flex items-center gap-3 transition-all`}
@@ -441,7 +441,7 @@ function PaymentModal({ order, onPay, onClose }: { order: Order; onPay: (method:
             <h2 className="text-xl font-bold">Ödeme Al</h2>
             <p className="text-gray-400">{order.order_number}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-xl">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-700 rounded-xl">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -456,7 +456,7 @@ function PaymentModal({ order, onPay, onClose }: { order: Order; onPay: (method:
           {/* Method Selection */}
           <div className="grid grid-cols-3 gap-2">
             {paymentMethods.map(m => (
-              <button
+              <button type="button"
                 key={m.id}
                 onClick={() => setMethod(m.id)}
                 className={`p-3 rounded-xl text-center transition-all ${
@@ -482,7 +482,7 @@ function PaymentModal({ order, onPay, onClose }: { order: Order; onPay: (method:
               />
               <div className="grid grid-cols-6 gap-2 mt-3">
                 {quickAmounts.map(amount => (
-                  <button
+                  <button type="button"
                     key={amount}
                     onClick={() => setCashReceived(amount.toString())}
                     className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"
@@ -511,7 +511,7 @@ function PaymentModal({ order, onPay, onClose }: { order: Order; onPay: (method:
           )}
 
           {/* Pay Button */}
-          <button
+          <button type="button"
             onClick={() => onPay(method, method === 'cash' ? cashAmount : order.total)}
             disabled={method === 'cash' && cashAmount < order.total}
             className="w-full py-4 bg-green-500 hover:bg-green-400 disabled:bg-gray-600 rounded-xl font-bold flex items-center justify-center gap-2"
@@ -534,16 +534,16 @@ function DiscountModal({ subtotal, currentDiscount, onApply, onClose }: { subtot
       <div className="bg-gray-800 rounded-2xl w-full max-w-sm">
         <div className="p-6 border-b border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-bold">İndirim Uygula</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-xl">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-700 rounded-xl">
             <X className="w-5 h-5" />
           </button>
         </div>
         <div className="p-6 space-y-4">
           <div className="flex bg-gray-700 rounded-xl p-1">
-            <button onClick={() => setType('percent')} className={`flex-1 py-2 rounded-lg ${type === 'percent' ? 'bg-orange-500' : ''}`}>
+            <button type="button" onClick={() => setType('percent')} className={`flex-1 py-2 rounded-lg ${type === 'percent' ? 'bg-orange-500' : ''}`}>
               Yüzde (%)
             </button>
-            <button onClick={() => setType('amount')} className={`flex-1 py-2 rounded-lg ${type === 'amount' ? 'bg-orange-500' : ''}`}>
+            <button type="button" onClick={() => setType('amount')} className={`flex-1 py-2 rounded-lg ${type === 'amount' ? 'bg-orange-500' : ''}`}>
               Tutar (₺)
             </button>
           </div>
@@ -556,15 +556,15 @@ function DiscountModal({ subtotal, currentDiscount, onApply, onClose }: { subtot
           {type === 'percent' && (
             <div className="grid grid-cols-6 gap-2">
               {quickPercents.map(p => (
-                <button key={p} onClick={() => setValue(p.toString())} className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
+                <button type="button" key={p} onClick={() => setValue(p.toString())} className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">
                   %{p}
                 </button>
               ))}
             </div>
           )}
           <div className="flex gap-3">
-            <button onClick={() => onApply(type, 0)} className="flex-1 py-3 bg-gray-700 rounded-xl">Kaldır</button>
-            <button onClick={() => onApply(type, parseFloat(value) || 0)} className="flex-1 py-3 bg-orange-500 rounded-xl">Uygula</button>
+            <button type="button" onClick={() => onApply(type, 0)} className="flex-1 py-3 bg-gray-700 rounded-xl">Kaldır</button>
+            <button type="button" onClick={() => onApply(type, parseFloat(value) || 0)} className="flex-1 py-3 bg-orange-500 rounded-xl">Uygula</button>
           </div>
         </div>
       </div>
@@ -581,7 +581,7 @@ function SplitModal({ total, onClose }: { total: number; onClose: () => void }) 
       <div className="bg-gray-800 rounded-2xl w-full max-w-sm">
         <div className="p-6 border-b border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-bold">Hesabı Böl</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-xl">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-700 rounded-xl">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -591,15 +591,15 @@ function SplitModal({ total, onClose }: { total: number; onClose: () => void }) 
             <p className="text-3xl font-bold">₺{total.toLocaleString('tr-TR')}</p>
           </div>
           <div className="flex items-center justify-center gap-4">
-            <button onClick={() => setSplitCount(Math.max(2, splitCount - 1))} className="w-12 h-12 bg-gray-700 rounded-xl text-xl">-</button>
+            <button type="button" onClick={() => setSplitCount(Math.max(2, splitCount - 1))} className="w-12 h-12 bg-gray-700 rounded-xl text-xl">-</button>
             <span className="text-4xl font-bold w-16 text-center">{splitCount}</span>
-            <button onClick={() => setSplitCount(splitCount + 1)} className="w-12 h-12 bg-gray-700 rounded-xl text-xl">+</button>
+            <button type="button" onClick={() => setSplitCount(splitCount + 1)} className="w-12 h-12 bg-gray-700 rounded-xl text-xl">+</button>
           </div>
           <div className="bg-orange-500/20 rounded-xl p-4 text-center">
             <p className="text-orange-400">Kişi Başı</p>
             <p className="text-3xl font-bold text-orange-500">₺{perPerson.toLocaleString('tr-TR')}</p>
           </div>
-          <button onClick={onClose} className="w-full py-3 bg-orange-500 rounded-xl font-bold">Tamam</button>
+          <button type="button" onClick={onClose} className="w-full py-3 bg-orange-500 rounded-xl font-bold">Tamam</button>
         </div>
       </div>
     </div>

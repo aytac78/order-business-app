@@ -155,14 +155,14 @@ export default function StockPage() {
           <p className="text-gray-400">{items.length} {tCommon('items')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadItems}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => { setEditingItem(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
           >
@@ -295,20 +295,20 @@ export default function StockPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button
+                          <button type="button"
                             onClick={() => { setRestockingItem(item); setShowRestockModal(true); }}
                             className="p-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg"
                             title={t('restock')}
                           >
                             <TrendingUp className="w-4 h-4" />
                           </button>
-                          <button
+                          <button type="button"
                             onClick={() => { setEditingItem(item); setShowModal(true); }}
                             className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button
+                          <button type="button"
                             onClick={() => handleDelete(item.id)}
                             className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                           >
@@ -393,7 +393,7 @@ function StockItemModal({
           <h2 className="text-xl font-bold text-white">
             {item ? t('editItem') : t('addItem')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -501,14 +501,14 @@ function StockItemModal({
             </div>
           </div>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >
@@ -544,7 +544,7 @@ function RestockModal({
       <div className="bg-gray-800 rounded-2xl w-full max-w-sm">
         <div className="p-6 border-b border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">{t('restock')}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -572,14 +572,14 @@ function RestockModal({
             </div>
           )}
           <div className="flex gap-3">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600"
             >

@@ -171,21 +171,21 @@ export default function MenuPage() {
           <p className="text-gray-400">{categories.length} {t('categories')} • {products.length} {t('products')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadData}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-colors"
           >
             <Plus className="w-4 h-4" />
             {t('addCategory')}
           </button>
-          <button
+          <button type="button"
             onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
           >
@@ -225,7 +225,7 @@ export default function MenuPage() {
         <div className="lg:col-span-1 space-y-2">
           <h3 className="text-sm font-medium text-gray-400 mb-3">{t('categories')}</h3>
           
-          <button
+          <button type="button"
             onClick={() => setSelectedCategory(null)}
             className={`w-full p-3 rounded-xl text-left transition-colors ${
               !selectedCategory ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -245,7 +245,7 @@ export default function MenuPage() {
               }`}
             >
               <div className="flex items-center justify-between">
-                <button
+                <button type="button"
                   onClick={() => setSelectedCategory(category.id)}
                   className="flex-1 text-left"
                 >
@@ -253,13 +253,13 @@ export default function MenuPage() {
                   <span className="text-sm opacity-70 ml-2">({getCategoryProducts(category.id).length})</span>
                 </button>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
+                  <button type="button"
                     onClick={() => { setEditingCategory(category); setShowCategoryModal(true); }}
                     className="p-1 hover:bg-white/20 rounded"
                   >
                     <Edit2 className="w-3 h-3" />
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => handleDeleteCategory(category.id)}
                     className="p-1 hover:bg-white/20 rounded text-red-400"
                   >
@@ -299,7 +299,7 @@ export default function MenuPage() {
                         </div>
                       )}
                       {/* Availability badge */}
-                      <button
+                      <button type="button"
                         onClick={() => handleToggleAvailability(product)}
                         className={`absolute top-2 right-2 p-1.5 rounded-lg ${
                           product.is_available ? 'bg-green-500' : 'bg-red-500'
@@ -334,14 +334,14 @@ export default function MenuPage() {
 
                       {/* Actions */}
                       <div className="flex gap-2">
-                        <button
+                        <button type="button"
                           onClick={() => { setEditingProduct(product); setShowProductModal(true); }}
                           className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm flex items-center justify-center gap-1"
                         >
                           <Edit2 className="w-3 h-3" />
                           {tCommon('edit')}
                         </button>
-                        <button
+                        <button type="button"
                           onClick={() => handleDeleteProduct(product.id)}
                           className="py-2 px-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                         >
@@ -408,7 +408,7 @@ function CategoryModal({
           <h2 className="text-xl font-bold text-white">
             {category ? t('editCategory') : t('addCategory')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -433,14 +433,14 @@ function CategoryModal({
             />
           </div>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >
@@ -488,7 +488,7 @@ function ProductModal({
           <h2 className="text-xl font-bold text-white">
             {product ? t('editProduct') : t('addProduct')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -550,14 +550,14 @@ function ProductModal({
             </div>
           </div>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >

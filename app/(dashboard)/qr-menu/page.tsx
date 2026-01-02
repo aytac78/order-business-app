@@ -105,14 +105,14 @@ export default function QRMenuPage() {
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadTables}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={handlePrintAll}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors"
           >
@@ -143,7 +143,7 @@ export default function QRMenuPage() {
               <span className="flex-1 text-white font-mono text-sm truncate">
                 {getMenuUrl()}
               </span>
-              <button
+              <button type="button"
                 onClick={() => handleCopyLink(getMenuUrl())}
                 className={`p-2 rounded-lg transition-colors ${
                   copiedLink === getMenuUrl() 
@@ -165,14 +165,14 @@ export default function QRMenuPage() {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-              <button
+              <button type="button"
                 onClick={() => handleDownloadQR()}
                 className="flex items-center gap-2 px-4 py-2 bg-white text-orange-600 rounded-xl font-medium hover:bg-orange-50"
               >
                 <Download className="w-4 h-4" />
                 {t('downloadQR')}
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30">
+              <button type="button" className="flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30">
                 <Settings className="w-4 h-4" />
                 QR Ayarları
               </button>
@@ -216,7 +216,7 @@ export default function QRMenuPage() {
                       
                       {/* Actions */}
                       <div className="flex gap-1 justify-center">
-                        <button
+                        <button type="button"
                           onClick={(e) => { e.stopPropagation(); handleCopyLink(getMenuUrl(table.id)); }}
                           className={`p-1.5 rounded-lg transition-colors ${
                             copiedLink === getMenuUrl(table.id)
@@ -226,7 +226,7 @@ export default function QRMenuPage() {
                         >
                           {copiedLink === getMenuUrl(table.id) ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         </button>
-                        <button
+                        <button type="button"
                           onClick={(e) => { e.stopPropagation(); handleDownloadQR(table.id, table.number); }}
                           className="p-1.5 bg-gray-600 text-gray-300 rounded-lg hover:bg-gray-500"
                         >

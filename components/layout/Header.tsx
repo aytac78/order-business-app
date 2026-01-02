@@ -55,7 +55,7 @@ export function Header() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-1 md:gap-2">
-        <button className="p-2 hover:bg-gray-100 rounded-lg hidden md:flex">
+        <button type="button" className="p-2 hover:bg-gray-100 rounded-lg hidden md:flex">
           <HelpCircle className="w-5 h-5 text-gray-600" />
         </button>
         
@@ -70,13 +70,13 @@ export function Header() {
               <p className="text-sm font-medium text-gray-900">{currentStaff.name}</p>
               <p className="text-xs text-gray-500">{roleLabels[currentStaff.role] || currentStaff.role}</p>
             </div>
-            <button 
+            <button type="button" 
               className="w-8 h-8 md:w-9 md:h-9 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold hover:bg-orange-600"
               title={currentStaff.name}
             >
               {currentStaff.name.charAt(0)}
             </button>
-            <button
+            <button type="button"
               onClick={handleLogout}
               className="p-2 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-600 transition-colors"
               title="Çıkış Yap"

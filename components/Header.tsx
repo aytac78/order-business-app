@@ -69,7 +69,7 @@ export function Header() {
 
       <header className={`fixed top-0 right-0 h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-6 z-[101] transition-all ${sidebarCollapsed ? 'left-20' : 'left-64'}`}>
         <div className="flex items-center gap-4">
-          <button 
+          <button type="button" 
             onClick={toggleSidebar} 
             className="p-2 hover:bg-gray-800 rounded-lg lg:hidden text-gray-400 hover:text-white transition-colors"
           >
@@ -77,7 +77,7 @@ export function Header() {
           </button>
           
           <div className="relative">
-            <button 
+            <button type="button" 
               onClick={() => {
                 setShowVenueDropdown(!showVenueDropdown);
                 setShowNotifications(false);
@@ -99,7 +99,7 @@ export function Header() {
               <div className="absolute top-full left-0 mt-2 w-72 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-[102]">
                 <div className="p-2 max-h-80 overflow-y-auto">
                   {venues.length > 0 ? venues.map((venue: any) => (
-                    <button 
+                    <button type="button" 
                       key={venue.id} 
                       onClick={() => handleVenueChange(venue)} 
                       className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
@@ -160,7 +160,7 @@ export function Header() {
           <LanguageSelectorCompact />
 
           <div className="relative">
-            <button 
+            <button type="button" 
               onClick={() => {
                 setShowNotifications(!showNotifications);
                 setShowVenueDropdown(false);
@@ -181,7 +181,7 @@ export function Header() {
                 <div className="p-4 border-b border-gray-700 flex items-center justify-between">
                   <h3 className="font-bold text-white">Bildirimler</h3>
                   {unreadCount > 0 && (
-                    <button 
+                    <button type="button" 
                       onClick={markAllAsRead} 
                       className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
                     >
@@ -217,7 +217,7 @@ export function Header() {
           </div>
 
           <div className="relative">
-            <button 
+            <button type="button" 
               onClick={() => {
                 setShowUserMenu(!showUserMenu);
                 setShowVenueDropdown(false);
@@ -255,7 +255,7 @@ export function Header() {
                     Ayarlar
                   </Link>
                   <div className="my-2 border-t border-gray-700" />
-                  <button 
+                  <button type="button" 
                     onClick={handleLogout} 
                     className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-colors"
                   >

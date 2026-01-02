@@ -213,14 +213,14 @@ export default function ReceptionPage() {
           <p className="text-gray-400">{todayFormatted}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadData}
             className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-white transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Yenile
           </button>
-          <button
+          <button type="button"
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-xl text-white transition-colors"
           >
@@ -253,7 +253,7 @@ export default function ReceptionPage() {
 
       {/* Tabs */}
       <div className="flex gap-2">
-        <button
+        <button type="button"
           onClick={() => setActiveTab('reservations')}
           className={`px-6 py-3 rounded-xl font-medium transition-colors ${
             activeTab === 'reservations'
@@ -263,7 +263,7 @@ export default function ReceptionPage() {
         >
           Rezervasyonlar ({reservations.length})
         </button>
-        <button
+        <button type="button"
           onClick={() => setActiveTab('waitlist')}
           className={`px-6 py-3 rounded-xl font-medium transition-colors ${
             activeTab === 'waitlist'
@@ -273,7 +273,7 @@ export default function ReceptionPage() {
         >
           Bekleme Listesi ({waitlist.length})
         </button>
-        <button
+        <button type="button"
           onClick={() => setActiveTab('walkin')}
           className={`px-6 py-3 rounded-xl font-medium transition-colors ${
             activeTab === 'walkin'
@@ -337,7 +337,7 @@ export default function ReceptionPage() {
         <div className="bg-gray-800 rounded-xl p-8 text-center">
           <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400 mb-4">Yeni misafir eklemek için butona tıklayın</p>
-          <button
+          <button type="button"
             onClick={() => setShowAddModal(true)}
             className="px-6 py-3 bg-orange-500 hover:bg-orange-600 rounded-xl text-white font-medium transition-colors"
           >
@@ -428,7 +428,7 @@ function ReservationCard({
           
           {/* Onaylı rezervasyon - Masa seç ve oturt */}
           {reservation.status === 'confirmed' && (
-            <button
+            <button type="button"
               onClick={loadTables}
               disabled={loadingTables}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
@@ -440,13 +440,13 @@ function ReservationCard({
           {/* Bekleyen rezervasyon - Onayla */}
           {reservation.status === 'pending' && (
             <div className="flex gap-2">
-              <button
+              <button type="button"
                 onClick={() => onStatusChange(reservation.id, 'confirmed')}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors"
               >
                 Onayla
               </button>
-              <button
+              <button type="button"
                 onClick={loadTables}
                 disabled={loadingTables}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
@@ -458,7 +458,7 @@ function ReservationCard({
 
           {/* Oturmuş - Tamamla */}
           {reservation.status === 'seated' && (
-            <button
+            <button type="button"
               onClick={() => onStatusChange(reservation.id, 'completed')}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg text-sm transition-colors"
             >
@@ -481,7 +481,7 @@ function ReservationCard({
           ) : (
             <div className="flex flex-wrap gap-2">
               {availableTables.map(table => (
-                <button
+                <button type="button"
                   key={table.id}
                   onClick={() => handleSeat(table.number)}
                   disabled={table.capacity < reservation.party_size}
@@ -496,7 +496,7 @@ function ReservationCard({
               ))}
             </div>
           )}
-          <button
+          <button type="button"
             onClick={() => setShowTableSelect(false)}
             className="mt-3 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
           >
@@ -548,10 +548,10 @@ function WaitlistCard({ entry, position }: { entry: WaitlistEntry; position: num
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors">
+          <button type="button" className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors">
             Masa Ver
           </button>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors">
+          <button type="button" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors">
             Bildir
           </button>
         </div>
@@ -686,7 +686,7 @@ function AddGuestModal({
         {/* Header - Fixed */}
         <div className="p-6 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
           <h2 className="text-xl font-bold text-white">Walk-in Misafir</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -695,7 +695,7 @@ function AddGuestModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {/* Mode Toggle */}
           <div className="flex bg-gray-700 rounded-xl p-1">
-            <button
+            <button type="button"
               onClick={() => setMode('seat')}
               className={`flex-1 py-2.5 rounded-lg font-medium transition-colors ${
                 mode === 'seat' ? 'bg-green-600 text-white' : 'text-gray-400'
@@ -703,7 +703,7 @@ function AddGuestModal({
             >
               Direkt Oturt
             </button>
-            <button
+            <button type="button"
               onClick={() => setMode('waitlist')}
               className={`flex-1 py-2.5 rounded-lg font-medium transition-colors ${
                 mode === 'waitlist' ? 'bg-amber-600 text-white' : 'text-gray-400'
@@ -738,14 +738,14 @@ function AddGuestModal({
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Kişi Sayısı</label>
             <div className="flex items-center gap-4">
-              <button
+              <button type="button"
                 onClick={() => setFormData({ ...formData, party_size: Math.max(1, formData.party_size - 1) })}
                 className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold text-white text-xl"
               >
                 -
               </button>
               <span className="text-2xl font-bold text-white w-12 text-center">{formData.party_size}</span>
-              <button
+              <button type="button"
                 onClick={() => setFormData({ ...formData, party_size: formData.party_size + 1 })}
                 className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold text-white text-xl"
               >
@@ -765,7 +765,7 @@ function AddGuestModal({
               ) : (
                 <div className="grid grid-cols-4 gap-2">
                   {availableTables.map(table => (
-                    <button
+                    <button type="button"
                       key={table.id}
                       onClick={() => setFormData({ ...formData, table_number: table.number })}
                       className={`p-3 rounded-xl text-center transition-colors ${
@@ -788,13 +788,13 @@ function AddGuestModal({
 
         {/* Footer - Fixed */}
         <div className="p-6 border-t border-gray-700 flex gap-3 flex-shrink-0">
-          <button
+          <button type="button"
             onClick={onClose}
             className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
           >
             İptal
           </button>
-          <button
+          <button type="button"
             onClick={handleSubmit}
             disabled={saving || !canSubmit}
             className={`flex-1 py-3 ${

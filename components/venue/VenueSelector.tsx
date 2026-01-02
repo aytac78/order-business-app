@@ -46,7 +46,7 @@ export function VenueSelector() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-orange-300 transition-colors min-w-[200px]"
       >
@@ -68,7 +68,7 @@ export function VenueSelector() {
         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
           {/* Tüm Mekanlar seçeneği - sadece owner/manager görebilir */}
           {canSeeAllVenues && (
-          <button
+          <button type="button"
             onClick={() => handleSelectVenue(null)}
             className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 transition-colors ${
               isAllVenues ? 'bg-orange-50' : ''
@@ -91,7 +91,7 @@ export function VenueSelector() {
           {/* Mekan listesi */}
           <div className="max-h-64 overflow-y-auto">
             {venues.map((venue) => (
-              <button
+              <button type="button"
                 key={venue.id}
                 onClick={() => handleSelectVenue(venue)}
                 className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 transition-colors ${

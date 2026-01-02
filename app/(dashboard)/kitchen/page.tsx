@@ -169,7 +169,7 @@ export default function KitchenPage() {
           </div>
 
           {/* Refresh */}
-          <button
+          <button type="button"
             onClick={loadOrders}
             className="p-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors"
           >
@@ -177,7 +177,7 @@ export default function KitchenPage() {
           </button>
 
           {/* Sound Toggle */}
-          <button
+          <button type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
             className={`p-3 rounded-xl transition-colors ${
               soundEnabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'
@@ -359,7 +359,7 @@ function OrderCard({
       
       {/* Action */}
       <div className="p-4 pt-0">
-        <button
+        <button type="button"
           onClick={onAction}
           className={`w-full py-3 ${
             isReady 

@@ -92,7 +92,7 @@ export function PanelHeader({
           
           {/* Sound Toggle */}
           {showSound && onSoundToggle && (
-            <button
+            <button type="button"
               onClick={onSoundToggle}
               className={`p-3 rounded-xl transition-colors ${
                 soundEnabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'
@@ -103,7 +103,7 @@ export function PanelHeader({
           )}
 
           {/* Home Button */}
-          <button
+          <button type="button"
             onClick={() => router.push('/admin')}
             className="p-3 rounded-xl bg-blue-600 hover:bg-blue-700 transition-colors"
             title="Ana Sayfa"
@@ -112,7 +112,7 @@ export function PanelHeader({
           </button>
 
           {/* Exit Button */}
-          <button
+          <button type="button"
             onClick={handleExit}
             className="p-3 rounded-xl bg-red-600 hover:bg-red-700 transition-colors"
             title="Çıkış (PIN Gerekli)"
@@ -131,7 +131,7 @@ export function PanelHeader({
                 <Lock className="w-6 h-6 text-red-500" />
                 <h2 className="text-xl font-bold text-white">Çıkış PIN</h2>
               </div>
-              <button
+              <button type="button"
                 onClick={() => setShowExitModal(false)}
                 className="p-2 hover:bg-gray-700 rounded-lg"
               >
@@ -170,7 +170,7 @@ export function PanelHeader({
             {/* Number Pad */}
             <div className="grid grid-cols-3 gap-2">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'].map((key) => (
-                <button
+                <button type="button"
                   key={key}
                   onClick={() => handlePinKeyPress(key)}
                   className={`py-4 rounded-xl font-bold text-xl transition-colors ${
@@ -186,7 +186,7 @@ export function PanelHeader({
               ))}
             </div>
 
-            <button
+            <button type="button"
               onClick={() => setShowExitModal(false)}
               className="w-full mt-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium"
             >

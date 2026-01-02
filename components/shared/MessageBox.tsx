@@ -105,7 +105,7 @@ function MessageItem({ message, onHandle, onDismiss, compact = false }: MessageI
         </div>
         <div className="text-xs text-zinc-500">{getTimeAgo(message.createdAt)}</div>
         {isUnread && (
-          <button
+          <button type="button"
             onClick={() => onHandle(message.id)}
             className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg transition-colors"
           >
@@ -157,14 +157,14 @@ function MessageItem({ message, onHandle, onDismiss, compact = false }: MessageI
       
       {isUnread && (
         <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-700">
-          <button
+          <button type="button"
             onClick={() => onHandle(message.id)}
             className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-medium"
           >
             <Check className="w-4 h-4" />
             İşle
           </button>
-          <button
+          <button type="button"
             onClick={() => onDismiss(message.id)}
             className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition-colors"
           >
@@ -225,7 +225,7 @@ export function MessageBox({
 
   if (variant === 'minimal') {
     return (
-      <button className="relative p-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors">
+      <button type="button" className="relative p-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors">
         <MessageSquare className="w-5 h-5 text-zinc-400" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
@@ -256,7 +256,7 @@ export function MessageBox({
               </span>
             )}
           </div>
-          <button
+          <button type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
             className={`p-2 rounded-lg transition-colors ${
               soundEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-500'
@@ -288,7 +288,7 @@ export function MessageBox({
       
       {messages.length > maxMessages && (
         <div className="p-3 border-t border-zinc-700/50">
-          <button className="w-full flex items-center justify-center gap-2 py-2 text-sm text-zinc-400 hover:text-white transition-colors">
+          <button type="button" className="w-full flex items-center justify-center gap-2 py-2 text-sm text-zinc-400 hover:text-white transition-colors">
             Tüm mesajları gör
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -310,7 +310,7 @@ export function MessageIndicator({ onClick }: { onClick?: () => void }) {
   if (unreadCount === 0) return null;
 
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-full shadow-lg transition-all ${
         hasUrgent 

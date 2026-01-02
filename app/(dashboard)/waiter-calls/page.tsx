@@ -73,7 +73,7 @@ export default function WaiterCallsPage() {
             const audio = new Audio('/sounds/notification.mp3');
             audio.play();
           } catch (e) {
-            console.log('Sound not available');
+            // console.log('Sound not available');
           }
         }
       })
@@ -151,7 +151,7 @@ export default function WaiterCallsPage() {
           <p className="text-gray-400">{stats.pending} bekleyen çağrı</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors ${
               soundEnabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'
@@ -160,7 +160,7 @@ export default function WaiterCallsPage() {
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             Ses {soundEnabled ? 'Açık' : 'Kapalı'}
           </button>
-          <button
+          <button type="button"
             onClick={loadCalls}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
@@ -204,7 +204,7 @@ export default function WaiterCallsPage() {
       {/* Filter */}
       <div className="flex gap-2">
         {['pending', 'answered', 'all'].map(f => (
-          <button
+          <button type="button"
             key={f}
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl transition-colors ${
@@ -276,14 +276,14 @@ export default function WaiterCallsPage() {
                   <div className="flex items-center gap-2">
                     {isPending && (
                       <>
-                        <button
+                        <button type="button"
                           onClick={() => handleAnswer(call)}
                           className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl"
                         >
                           <CheckCircle className="w-4 h-4" />
                           {t('answer')}
                         </button>
-                        <button
+                        <button type="button"
                           onClick={() => handleDismiss(call)}
                           className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl"
                         >
@@ -292,7 +292,7 @@ export default function WaiterCallsPage() {
                         </button>
                       </>
                     )}
-                    <button
+                    <button type="button"
                       onClick={() => handleDelete(call.id)}
                       className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                     >

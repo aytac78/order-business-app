@@ -230,7 +230,7 @@ function ConversationItem({ conversation, isSelected, onClick }: ConversationIte
   const statusBadge = getStatusBadge(conversation.status);
 
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={`w-full p-3 rounded-xl text-left transition-all ${
         isSelected 
@@ -307,7 +307,7 @@ function ChatView({ conversation, onSendMessage, onBack, onResolve }: ChatViewPr
     <div className="flex flex-col h-full">
       {/* Chat Header */}
       <div className="flex items-center gap-3 p-4 border-b border-zinc-700/50">
-        <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded-lg lg:hidden">
+        <button type="button" onClick={onBack} className="p-2 hover:bg-zinc-800 rounded-lg lg:hidden">
           <ArrowLeft className="w-5 h-5" />
         </button>
         
@@ -325,7 +325,7 @@ function ChatView({ conversation, onSendMessage, onBack, onResolve }: ChatViewPr
         </div>
         
         {conversation.status !== 'resolved' && (
-          <button
+          <button type="button"
             onClick={onResolve}
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm rounded-lg transition-colors"
           >
@@ -374,7 +374,7 @@ function ChatView({ conversation, onSendMessage, onBack, onResolve }: ChatViewPr
       {showQuickReplies && (
         <div className="px-4 py-2 border-t border-zinc-700/50 flex flex-wrap gap-2">
           {quickReplies.map((reply, i) => (
-            <button
+            <button type="button"
               key={i}
               onClick={() => handleQuickReply(reply)}
               className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 rounded-full transition-colors"
@@ -389,7 +389,7 @@ function ChatView({ conversation, onSendMessage, onBack, onResolve }: ChatViewPr
       {conversation.status !== 'resolved' && (
         <div className="p-4 border-t border-zinc-700/50">
           <div className="flex items-center gap-2">
-            <button
+            <button type="button"
               onClick={() => setShowQuickReplies(!showQuickReplies)}
               className={`p-2 rounded-lg transition-colors ${
                 showQuickReplies ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
@@ -407,7 +407,7 @@ function ChatView({ conversation, onSendMessage, onBack, onResolve }: ChatViewPr
               className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
             />
             
-            <button
+            <button type="button"
               onClick={handleSend}
               disabled={!message.trim()}
               className="p-2 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white rounded-xl transition-colors"
@@ -516,7 +516,7 @@ export function MessagingPanel({ isOpen, onClose }: MessagingPanelProps) {
                   </span>
                 )}
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg">
+              <button type="button" onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg">
                 <X className="w-5 h-5 text-zinc-400" />
               </button>
             </div>
@@ -528,7 +528,7 @@ export function MessagingPanel({ isOpen, onClose }: MessagingPanelProps) {
                 { key: 'active', label: 'Aktif' },
                 { key: 'waiting', label: 'Bekleyen' },
               ].map(f => (
-                <button
+                <button type="button"
                   key={f.key}
                   onClick={() => setFilter(f.key as typeof filter)}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
@@ -605,7 +605,7 @@ export function MessageButton({ onClick }: MessageButtonProps) {
   const hasUrgent = conversations.some(c => c.priority === 'urgent' && c.status !== 'resolved');
 
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={`relative p-3 rounded-xl transition-all ${
         hasUrgent 

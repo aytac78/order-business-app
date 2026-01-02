@@ -104,7 +104,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           <h2 className="font-semibold">QR Menü Tara</h2>
           <p className="text-sm text-gray-300">İşletmenin menü QR kodunu okutun</p>
         </div>
-        <button
+        <button type="button"
           onClick={onClose}
           className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
         >
@@ -152,7 +152,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
             <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center rounded-2xl p-6">
               <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
               <p className="text-white text-center mb-4">{error}</p>
-              <button
+              <button type="button"
                 onClick={handleRetry}
                 className="px-6 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600"
               >

@@ -25,14 +25,14 @@ export default function PanelHeader({ title, icon }: PanelHeaderProps) {
         <h1 className="text-xl font-bold text-gray-900">{title}</h1>
       </div>
       <div className="flex items-center gap-2">
-        <button
+        <button type="button"
           onClick={handleHome}
           className="p-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
           title="Ana Sayfa"
         >
           <Home className="w-5 h-5" />
         </button>
-        <button
+        <button type="button"
           onClick={handleLogout}
           className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-500 transition-colors"
           title="Çıkış"

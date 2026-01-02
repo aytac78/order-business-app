@@ -180,7 +180,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
-        <button
+        <button type="button"
           onClick={loadData}
           className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
         >

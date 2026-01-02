@@ -50,7 +50,7 @@ export function LanguageSelector() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors border border-gray-700"
       >
@@ -63,7 +63,7 @@ export function LanguageSelector() {
         <div className="absolute top-full right-0 mt-2 w-44 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-[110]">
           <div className="py-1">
             {languages.map((lang) => (
-              <button
+              <button type="button"
                 key={lang.code}
                 onClick={() => changeLanguage(lang.code)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
@@ -122,7 +122,7 @@ export function LanguageSelectorCompact() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
         title="Dil Seç"
@@ -134,7 +134,7 @@ export function LanguageSelectorCompact() {
         <div className="absolute top-full right-0 mt-2 w-40 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-[110]">
           <div className="py-1">
             {languages.map((lang) => (
-              <button
+              <button type="button"
                 key={lang.code}
                 onClick={() => changeLanguage(lang.code)}
                 className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${

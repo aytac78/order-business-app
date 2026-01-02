@@ -176,7 +176,7 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
-        <button
+        <button type="button"
           onClick={handleSave}
           disabled={saving}
           className="flex items-center gap-2 px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white rounded-xl transition-colors"
@@ -191,7 +191,7 @@ export default function SettingsPage() {
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
@@ -295,7 +295,7 @@ export default function SettingsPage() {
                     <span className="font-medium text-white">{dayNames[day as keyof typeof dayNames]}</span>
                   </div>
                   
-                  <button
+                  <button type="button"
                     onClick={() => updateWorkingHours(day, 'is_open', !hours.is_open)}
                     className={`p-2 rounded-lg ${hours.is_open ? 'bg-green-500' : 'bg-gray-600'}`}
                   >
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                   <p className="font-medium text-white">{t('qrMenuEnabled')}</p>
                   <p className="text-sm text-gray-400">{t('qrMenuDescription')}</p>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => setSettings(prev => ({ ...prev, qr_menu_enabled: !prev.qr_menu_enabled }))}
                   className={`p-2 rounded-lg ${settings.qr_menu_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
                 >
@@ -351,7 +351,7 @@ export default function SettingsPage() {
                   <p className="font-medium text-white">{t('onlineOrderingEnabled')}</p>
                   <p className="text-sm text-gray-400">{t('onlineOrderingDescription')}</p>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => setSettings(prev => ({ ...prev, online_ordering_enabled: !prev.online_ordering_enabled }))}
                   className={`p-2 rounded-lg ${settings.online_ordering_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
                 >
@@ -364,7 +364,7 @@ export default function SettingsPage() {
                   <p className="font-medium text-white">{t('reservationsEnabled')}</p>
                   <p className="text-sm text-gray-400">{t('reservationsDescription')}</p>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => setSettings(prev => ({ ...prev, reservation_enabled: !prev.reservation_enabled }))}
                   className={`p-2 rounded-lg ${settings.reservation_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
                 >
@@ -377,7 +377,7 @@ export default function SettingsPage() {
                   <p className="font-medium text-white">{t('autoAcceptOrders')}</p>
                   <p className="text-sm text-gray-400">{t('autoAcceptDescription')}</p>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => setSettings(prev => ({ ...prev, auto_accept_orders: !prev.auto_accept_orders }))}
                   className={`p-2 rounded-lg ${settings.auto_accept_orders ? 'bg-green-500' : 'bg-gray-600'}`}
                 >
@@ -452,7 +452,7 @@ export default function SettingsPage() {
                   <p className="font-medium text-white">{t('notificationSounds')}</p>
                   <p className="text-sm text-gray-400">{t('notificationSoundsDescription')}</p>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => setSettings(prev => ({ ...prev, notification_sounds: !prev.notification_sounds }))}
                   className={`p-2 rounded-lg ${settings.notification_sounds ? 'bg-green-500' : 'bg-gray-600'}`}
                 >

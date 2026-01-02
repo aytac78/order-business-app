@@ -228,7 +228,7 @@ export default function POSPage() {
                 {orders.length} hesap • ₺{totalRevenue.toFixed(0)}
               </p>
             </div>
-            <button
+            <button type="button"
               onClick={loadOrders}
               className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
             >
@@ -244,7 +244,7 @@ export default function POSPage() {
               </div>
             ) : (
               orders.map(order => (
-                <button
+                <button type="button"
                   key={order.id}
                   onClick={() => setSelectedOrder(order)}
                   className={`w-full p-3 rounded-xl mb-2 text-left transition-all ${
@@ -303,7 +303,7 @@ export default function POSPage() {
                   {selectedOrder.guest_count && ` • ${selectedOrder.guest_count} kişi`}
                 </p>
               </div>
-              <button
+              <button type="button"
                 onClick={() => window.print()}
                 className="p-2 hover:bg-gray-700 rounded-lg"
               >
@@ -378,7 +378,7 @@ export default function POSPage() {
         {/* Actions */}
         {selectedOrder && (
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 space-y-3">
-            <button
+            <button type="button"
               onClick={() => setShowPaymentModal(true)}
               className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
             >
@@ -386,7 +386,7 @@ export default function POSPage() {
               Ödeme Al
             </button>
 
-            <button
+            <button type="button"
               onClick={() => setShowDiscountModal(true)}
               className="w-full py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium text-white flex items-center justify-center gap-2 transition-colors"
             >
@@ -394,7 +394,7 @@ export default function POSPage() {
               İndirim Uygula
             </button>
 
-            <button
+            <button type="button"
               onClick={() => window.print()}
               className="w-full py-3 border border-gray-600 rounded-xl font-medium text-gray-300 flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors"
             >
@@ -409,7 +409,7 @@ export default function POSPage() {
           <p className="text-sm font-medium text-gray-400 mb-3">Ödeme Yöntemleri</p>
           <div className="grid grid-cols-3 gap-2">
             {paymentMethods.slice(0, 6).map(method => (
-              <button
+              <button type="button"
                 key={method.id}
                 onClick={() => selectedOrder && setShowPaymentModal(true)}
                 disabled={!selectedOrder}
@@ -486,7 +486,7 @@ function PaymentModal({
             <h2 className="text-xl font-bold text-white">Ödeme Al</h2>
             <p className="text-gray-400">Masa {order.table_number}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
@@ -505,7 +505,7 @@ function PaymentModal({
               { id: 'partial', label: 'Kısmi Ödeme' },
               { id: 'split', label: 'Böl' },
             ].map(m => (
-              <button
+              <button type="button"
                 key={m.id}
                 onClick={() => setMode(m.id as any)}
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
@@ -531,7 +531,7 @@ function PaymentModal({
               />
               <div className="grid grid-cols-4 gap-2 mt-3">
                 {[25, 50, 75, 100].map(pct => (
-                  <button
+                  <button type="button"
                     key={pct}
                     onClick={() => setPartialAmount((order.total * pct / 100).toFixed(2))}
                     className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-300"
@@ -553,14 +553,14 @@ function PaymentModal({
             <div>
               <p className="text-sm font-medium text-gray-400 mb-2 text-center">Kaç Kişiye?</p>
               <div className="flex items-center justify-center gap-4">
-                <button
+                <button type="button"
                   onClick={() => setSplitCount(Math.max(2, splitCount - 1))}
                   className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold text-xl text-white"
                 >
                   -
                 </button>
                 <span className="text-4xl font-bold text-white w-16 text-center">{splitCount}</span>
-                <button
+                <button type="button"
                   onClick={() => setSplitCount(Math.min(10, splitCount + 1))}
                   className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold text-xl text-white"
                 >
@@ -579,7 +579,7 @@ function PaymentModal({
             <p className="text-sm font-medium text-gray-400 mb-2">Ödeme Yöntemi</p>
             <div className="grid grid-cols-4 gap-2">
               {paymentMethods.map(method => (
-                <button
+                <button type="button"
                   key={method.id}
                   onClick={() => setSelectedMethod(method.id)}
                   className={`p-3 rounded-xl text-center transition-all ${
@@ -608,7 +608,7 @@ function PaymentModal({
               />
               <div className="grid grid-cols-6 gap-2 mt-3">
                 {[50, 100, 200, 500, 1000, 2000].map(amount => (
-                  <button
+                  <button type="button"
                     key={amount}
                     onClick={() => setCashReceived(amount.toString())}
                     className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-300"
@@ -627,7 +627,7 @@ function PaymentModal({
           )}
 
           {/* Pay Button */}
-          <button
+          <button type="button"
             onClick={() => onPay(selectedMethod, getPayAmount(), mode === 'partial')}
             disabled={!canPay()}
             className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
@@ -664,7 +664,7 @@ function DiscountModal({
       <div className="bg-gray-800 rounded-2xl w-full max-w-sm">
         <div className="p-6 border-b border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">İndirim Uygula</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
@@ -672,7 +672,7 @@ function DiscountModal({
         <div className="p-6 space-y-4">
           {/* Type Toggle */}
           <div className="flex bg-gray-700 rounded-lg p-1">
-            <button
+            <button type="button"
               onClick={() => setType('percent')}
               className={`flex-1 py-2 rounded-md font-medium transition-colors ${
                 type === 'percent' ? 'bg-orange-500 text-white' : 'text-gray-400'
@@ -680,7 +680,7 @@ function DiscountModal({
             >
               Yüzde (%)
             </button>
-            <button
+            <button type="button"
               onClick={() => setType('amount')}
               className={`flex-1 py-2 rounded-md font-medium transition-colors ${
                 type === 'amount' ? 'bg-orange-500 text-white' : 'text-gray-400'
@@ -708,7 +708,7 @@ function DiscountModal({
           {type === 'percent' && (
             <div className="grid grid-cols-6 gap-2">
               {[5, 10, 15, 20, 25, 50].map(p => (
-                <button
+                <button type="button"
                   key={p}
                   onClick={() => setValue(p.toString())}
                   className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-300"
@@ -721,13 +721,13 @@ function DiscountModal({
 
           {/* Actions */}
           <div className="flex gap-3">
-            <button
+            <button type="button"
               onClick={onClose}
               className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
             >
               İptal
             </button>
-            <button
+            <button type="button"
               onClick={() => onApply(type, parseFloat(value) || 0)}
               className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
             >

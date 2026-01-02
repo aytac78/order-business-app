@@ -130,14 +130,14 @@ export default function CRMPage() {
           <p className="text-gray-400">{customers.length} {t('customers')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadCustomers}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => { setEditingCustomer(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
           >
@@ -200,7 +200,7 @@ export default function CRMPage() {
           />
         </div>
         <div className="flex gap-2">
-          <button
+          <button type="button"
             onClick={() => setFilterVip(null)}
             className={`px-4 py-2 rounded-xl transition-colors ${
               filterVip === null ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -208,7 +208,7 @@ export default function CRMPage() {
           >
             {tCommon('all')}
           </button>
-          <button
+          <button type="button"
             onClick={() => setFilterVip(true)}
             className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-2 ${
               filterVip === true ? 'bg-amber-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -255,7 +255,7 @@ export default function CRMPage() {
                     )}
                   </div>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => handleToggleVip(customer)}
                   className={`p-2 rounded-lg transition-colors ${
                     customer.is_vip 
@@ -296,13 +296,13 @@ export default function CRMPage() {
                   </span>
                 </div>
                 <div className="flex gap-1">
-                  <button
+                  <button type="button"
                     onClick={() => { setEditingCustomer(customer); setShowModal(true); }}
                     className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => handleDelete(customer.id)}
                     className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                   >
@@ -357,7 +357,7 @@ function CustomerModal({
           <h2 className="text-xl font-bold text-white">
             {customer ? t('editCustomer') : t('addCustomer')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -413,14 +413,14 @@ function CustomerModal({
             </span>
           </label>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >

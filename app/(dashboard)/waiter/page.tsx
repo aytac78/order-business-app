@@ -349,7 +349,7 @@ export default function WaiterPage() {
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${currentVenue.id}` },
         (payload) => {
-          console.log('Order change:', payload);
+          // console.log('Order change:', payload);
           loadOrders();
           if (payload.eventType === 'INSERT' && soundEnabled) {
             playSound();
@@ -362,21 +362,21 @@ export default function WaiterPage() {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'tables', filter: `venue_id=eq.${currentVenue.id}` },
         () => {
-          console.log('Table change');
+          // console.log('Table change');
           loadTables();
         }
       )
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'reservations', filter: `venue_id=eq.${currentVenue.id}` },
         () => {
-          console.log('Reservation change');
+          // console.log('Reservation change');
           loadReservations();
         }
       )
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'waiter_calls', filter: `venue_id=eq.${currentVenue.id}` },
         (payload) => {
-          console.log('Waiter call:', payload);
+          // console.log('Waiter call:', payload);
           loadWaiterCalls();
           if (payload.eventType === 'INSERT' && soundEnabled) {
             playSound();
@@ -637,7 +637,7 @@ export default function WaiterPage() {
           </div>
 
           {/* Sound Toggle */}
-          <button
+          <button type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
             className={`p-3 rounded-xl transition-colors ${
               soundEnabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'
@@ -647,7 +647,7 @@ export default function WaiterPage() {
           </button>
 
           {/* Refresh */}
-          <button
+          <button type="button"
             onClick={loadAllData}
             className="p-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors"
           >
@@ -672,7 +672,7 @@ export default function WaiterPage() {
                     <p className="text-sm text-gray-400">{formatDateTime(call.created_at)}</p>
                   </div>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => acknowledgeWaiterCall(call.id)}
                   className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors"
                 >
@@ -690,7 +690,7 @@ export default function WaiterPage() {
           {/* Section Filters */}
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             {sections.map(section => (
-              <button
+              <button type="button"
                 key={section}
                 onClick={() => setSelectedSection(section)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -715,7 +715,7 @@ export default function WaiterPage() {
               const statusConfig = tableStatusConfig[effectiveStatus] || tableStatusConfig.available;
 
               return (
-                <button
+                <button type="button"
                   key={table.id}
                   onClick={() => setSelectedTable(table)}
                   className={`relative p-4 rounded-xl border-2 transition-all hover:scale-105 ${statusConfig.bg} ${
@@ -849,7 +849,7 @@ export default function WaiterPage() {
                         </span>
                         
                         {order.status === 'ready' && (
-                          <button
+                          <button type="button"
                             onClick={() => updateOrderStatus(order.id, 'served')}
                             className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-medium"
                           >
@@ -957,7 +957,7 @@ function TableActionModal({
               </p>
             </div>
           </div>
-          <button 
+          <button type="button" 
             onClick={onClose} 
             className="p-3 bg-red-600 hover:bg-red-500 rounded-xl transition-colors"
           >
@@ -1019,14 +1019,14 @@ function TableActionModal({
           <div>
             <h3 className="text-sm font-medium text-gray-400 mb-3">Hızlı İşlemler</h3>
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <button type="button"
                 onClick={onNewOrder}
                 className="flex items-center justify-center gap-2 p-4 bg-orange-600 hover:bg-orange-500 rounded-xl font-medium transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 {orders.length > 0 ? 'Ürün Ekle' : 'Sipariş Al'}
               </button>
-              <button
+              <button type="button"
                 onClick={onAddGuest}
                 className="flex items-center justify-center gap-2 p-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium transition-colors"
               >
@@ -1034,7 +1034,7 @@ function TableActionModal({
                 Kişi Ekle
               </button>
               {orders.length > 0 && (
-                <button className="flex items-center justify-center gap-2 p-4 bg-green-600 hover:bg-green-500 rounded-xl font-medium transition-colors col-span-2">
+                <button type="button" className="flex items-center justify-center gap-2 p-4 bg-green-600 hover:bg-green-500 rounded-xl font-medium transition-colors col-span-2">
                   <CreditCard className="w-5 h-5" />
                   Hesap Al ({formatCurrency(totalAmount)})
                 </button>
@@ -1066,7 +1066,7 @@ function TableActionModal({
             <h3 className="text-sm font-medium text-gray-400 mb-3">Durum Değiştir</h3>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(tableStatusConfig).map(([status, config]) => (
-                <button
+                <button type="button"
                   key={status}
                   onClick={() => onStatusChange(status)}
                   className={`p-3 rounded-xl font-medium transition-colors ${
@@ -1082,7 +1082,7 @@ function TableActionModal({
           </div>
 
           {/* Close Button */}
-          <button
+          <button type="button"
             onClick={onClose}
             className="w-full py-4 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold transition-colors"
           >
@@ -1209,7 +1209,7 @@ function NewOrderModal({
         throw new Error(orderError.message);
       }
 
-      console.log('Order created:', orderData);
+      // console.log('Order created:', orderData);
 
       // Update table status
       const { error: tableError } = await supabase
@@ -1250,7 +1250,7 @@ function NewOrderModal({
               <p className="text-sm text-gray-400">{table.section} • {table.capacity} kişilik</p>
             </div>
           </div>
-          <button 
+          <button type="button" 
             onClick={onClose} 
             className="p-3 bg-red-600 hover:bg-red-500 rounded-xl transition-colors"
           >
@@ -1276,14 +1276,14 @@ function NewOrderModal({
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">Kişi Sayısı</label>
                 <div className="flex items-center gap-3">
-                  <button
+                  <button type="button"
                     onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
                     className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl flex items-center justify-center transition-colors"
                   >
                     <Minus className="w-5 h-5" />
                   </button>
                   <span className="text-2xl font-bold w-12 text-center">{guestCount}</span>
-                  <button
+                  <button type="button"
                     onClick={() => setGuestCount(guestCount + 1)}
                     className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl flex items-center justify-center transition-colors"
                   >
@@ -1307,7 +1307,7 @@ function NewOrderModal({
 
             {/* Categories */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-              <button
+              <button type="button"
                 onClick={() => setSelectedCategory('all')}
                 className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
                   selectedCategory === 'all' ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -1316,7 +1316,7 @@ function NewOrderModal({
                 Tümü
               </button>
               {categories.map(cat => (
-                <button
+                <button type="button"
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
@@ -1331,7 +1331,7 @@ function NewOrderModal({
             {/* Products Grid */}
             <div className="grid grid-cols-2 gap-3">
               {filteredProducts.map(product => (
-                <button
+                <button type="button"
                   key={product.id}
                   onClick={() => addToCart(product)}
                   className="p-4 bg-gray-700 hover:bg-gray-600 rounded-xl text-left transition-colors"
@@ -1369,14 +1369,14 @@ function NewOrderModal({
                         <span className="text-orange-400 font-medium">{formatCurrency(item.price * item.quantity)}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
+                        <button type="button"
                           onClick={() => updateQuantity(item.product_id, -1)}
                           className="w-8 h-8 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center justify-center transition-colors"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
                         <span className="w-8 text-center font-medium">{item.quantity}</span>
-                        <button
+                        <button type="button"
                           onClick={() => updateQuantity(item.product_id, 1)}
                           className="w-8 h-8 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center justify-center transition-colors"
                         >
@@ -1423,7 +1423,7 @@ function NewOrderModal({
                 </div>
               </div>
 
-              <button
+              <button type="button"
                 onClick={handleSubmit}
                 disabled={cart.length === 0 || submitting}
                 className="w-full py-4 bg-orange-600 hover:bg-orange-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"

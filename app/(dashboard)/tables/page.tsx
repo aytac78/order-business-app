@@ -224,7 +224,7 @@ export default function TablesPage() {
           <h1 className="text-2xl font-bold text-white">Masalar</h1>
           <p className="text-gray-400">{tables.length} Masa</p>
         </div>
-        <button
+        <button type="button"
           onClick={loadData}
           className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-white transition-colors"
         >
@@ -249,7 +249,7 @@ export default function TablesPage() {
 
       {/* Section Filters */}
       <div className="flex gap-2 flex-wrap flex-shrink-0">
-        <button
+        <button type="button"
           onClick={() => setSelectedSection('all')}
           className={`px-4 py-2 rounded-xl font-medium transition-colors ${
             selectedSection === 'all'
@@ -260,7 +260,7 @@ export default function TablesPage() {
           Tüm Bölümler ({tables.length})
         </button>
         {sections.map(section => (
-          <button
+          <button type="button"
             key={section}
             onClick={() => setSelectedSection(section)}
             className={`px-4 py-2 rounded-xl font-medium transition-colors ${
@@ -413,7 +413,7 @@ function TableModal({
               <p className="text-blue-400 text-sm mt-1">👤 {customerName}</p>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -423,7 +423,7 @@ function TableModal({
           <div>
             <h3 className="text-sm font-medium text-gray-400 mb-3">Hızlı İşlemler</h3>
             <div className="grid grid-cols-2 gap-2">
-              <button
+              <button type="button"
                 onClick={onGoToWaiter}
                 className="flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors"
               >
@@ -431,7 +431,7 @@ function TableModal({
                 {order ? 'Siparişe Git' : 'Sipariş Al'}
               </button>
               {order && (
-                <button
+                <button type="button"
                   onClick={onGoToPOS}
                   className="flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
                 >
@@ -488,7 +488,7 @@ function TableModal({
             <h3 className="text-sm font-medium text-gray-400 mb-3">Durum Değiştir</h3>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(statusConfig).map(([key, cfg]) => (
-                <button
+                <button type="button"
                   key={key}
                   onClick={() => onStatusChange(key as TableData['status'])}
                   className={`py-3 rounded-xl font-medium transition-colors ${
@@ -504,7 +504,7 @@ function TableModal({
           </div>
 
           {/* Close Button */}
-          <button
+          <button type="button"
             onClick={onClose}
             className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
           >

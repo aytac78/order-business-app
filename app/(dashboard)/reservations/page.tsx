@@ -164,14 +164,14 @@ export default function ReservationsPage() {
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadReservations}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => { setEditingReservation(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
           >
@@ -183,7 +183,7 @@ export default function ReservationsPage() {
 
       {/* Date Selector */}
       <div className="flex items-center justify-between bg-gray-800 rounded-xl p-4">
-        <button
+        <button type="button"
           onClick={() => changeDate(-1)}
           className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
         >
@@ -198,7 +198,7 @@ export default function ReservationsPage() {
             className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
           />
           {!isToday && (
-            <button
+            <button type="button"
               onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
               className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-lg text-sm"
             >
@@ -207,7 +207,7 @@ export default function ReservationsPage() {
           )}
         </div>
 
-        <button
+        <button type="button"
           onClick={() => changeDate(1)}
           className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
         >
@@ -242,7 +242,7 @@ export default function ReservationsPage() {
       {/* Filter */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         {['all', 'pending', 'confirmed', 'seated', 'completed', 'cancelled', 'no_show'].map(status => (
-          <button
+          <button type="button"
             key={status}
             onClick={() => setFilterStatus(status)}
             className={`px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
@@ -311,7 +311,7 @@ export default function ReservationsPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-1">
                       {reservation.status === 'pending' && (
-                        <button
+                        <button type="button"
                           onClick={() => handleStatusChange(reservation.id, 'confirmed')}
                           className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                           title={t('confirmReservation')}
@@ -320,7 +320,7 @@ export default function ReservationsPage() {
                         </button>
                       )}
                       {reservation.status === 'confirmed' && (
-                        <button
+                        <button type="button"
                           onClick={() => handleStatusChange(reservation.id, 'seated')}
                           className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
                           title={t('seatGuests')}
@@ -328,13 +328,13 @@ export default function ReservationsPage() {
                           <UserCheck className="w-4 h-4" />
                         </button>
                       )}
-                      <button
+                      <button type="button"
                         onClick={() => { setEditingReservation(reservation); setShowModal(true); }}
                         className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button
+                      <button type="button"
                         onClick={() => handleDelete(reservation.id)}
                         className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                       >
@@ -415,7 +415,7 @@ function ReservationModal({
           <h2 className="text-xl font-bold text-white">
             {reservation ? t('editReservation') : t('newReservation')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -511,14 +511,14 @@ function ReservationModal({
             />
           </div>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >

@@ -169,14 +169,14 @@ export default function ReportsPage() {
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadReports}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => handleExport('csv')}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors"
           >
@@ -190,7 +190,7 @@ export default function ReportsPage() {
       <div className="flex items-center gap-4">
         <div className="flex bg-gray-800 rounded-xl p-1">
           {(['daily', 'weekly', 'monthly'] as const).map(type => (
-            <button
+            <button type="button"
               key={type}
               onClick={() => setReportType(type)}
               className={`px-4 py-2 rounded-lg transition-colors ${

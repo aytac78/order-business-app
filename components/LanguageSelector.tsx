@@ -30,7 +30,7 @@ export function LanguageSelector() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
       >
@@ -52,7 +52,7 @@ export function LanguageSelector() {
           
           <div className="py-1 max-h-80 overflow-y-auto">
             {locales.map((loc) => (
-              <button
+              <button type="button"
                 key={loc.code}
                 onClick={() => handleSelect(loc.code)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors ${
@@ -104,7 +104,7 @@ export function LanguageSelectorCompact() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
         title={config.nativeName}
@@ -115,7 +115,7 @@ export function LanguageSelectorCompact() {
       {isOpen && (
         <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 min-w-[200px]">
           {locales.map((loc) => (
-            <button
+            <button type="button"
               key={loc.code}
               onClick={() => {
                 setLocale(loc.code);

@@ -148,7 +148,7 @@ export function NotificationCenter() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
       >
@@ -165,7 +165,7 @@ export function NotificationCenter() {
           <div className="p-4 border-b flex items-center justify-between bg-gray-50">
             <h3 className="font-bold text-gray-900">Bildirimler</h3>
             <div className="flex items-center gap-2">
-              <button
+              <button type="button"
                 onClick={() => setSoundEnabled(!soundEnabled)}
                 className={`p-1.5 rounded-lg ${soundEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}
               >
@@ -173,10 +173,10 @@ export function NotificationCenter() {
               </button>
               {notifications.length > 0 && (
                 <>
-                  <button onClick={markAllAsRead} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500">
+                  <button type="button" onClick={markAllAsRead} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500">
                     <CheckCheck className="w-4 h-4" />
                   </button>
-                  <button onClick={clearAll} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500">
+                  <button type="button" onClick={clearAll} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500">
                     <X className="w-4 h-4" />
                   </button>
                 </>

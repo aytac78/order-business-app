@@ -76,7 +76,7 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Menu Button */}
-      <button
+      <button type="button"
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-lg md:hidden"
       >
@@ -111,7 +111,7 @@ export function Sidebar() {
               </span>
             </Link>
           )}
-          <button
+          <button type="button"
             onClick={toggleSidebarCollapse}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors hidden md:block"
           >

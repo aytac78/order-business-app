@@ -135,7 +135,7 @@ export default function StockAlertsPage() {
           <p className="text-gray-400">{stats.unread} {tCommon('items')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadAlerts}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
@@ -143,7 +143,7 @@ export default function StockAlertsPage() {
             {tCommon('refresh')}
           </button>
           {stats.unread > 0 && (
-            <button
+            <button type="button"
               onClick={handleMarkAllRead}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors"
             >
@@ -198,7 +198,7 @@ export default function StockAlertsPage() {
       <div className="flex flex-wrap gap-4 items-center">
         <div className="flex gap-2">
           {['all', 'low', 'out'].map(type => (
-            <button
+            <button type="button"
               key={type}
               onClick={() => setFilterType(type)}
               className={`px-4 py-2 rounded-xl transition-colors ${
@@ -272,7 +272,7 @@ export default function StockAlertsPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-1">
                       {!alert.is_read && (
-                        <button
+                        <button type="button"
                           onClick={() => handleMarkRead(alert.id)}
                           className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                           title={t('markRead')}
@@ -280,7 +280,7 @@ export default function StockAlertsPage() {
                           <Eye className="w-4 h-4" />
                         </button>
                       )}
-                      <button
+                      <button type="button"
                         onClick={() => handleDismiss(alert.id)}
                         className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                         title="Kapat"

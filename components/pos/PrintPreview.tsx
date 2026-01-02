@@ -32,7 +32,7 @@ export function PrintPreview({ data, onClose, title = 'Fiş Önizleme' }: PrintP
             <Eye className="w-5 h-5 text-orange-500" />
             <h2 className="text-lg font-bold">{title}</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -51,13 +51,13 @@ export function PrintPreview({ data, onClose, title = 'Fiş Önizleme' }: PrintP
 
         {/* Actions */}
         <div className="p-4 border-t flex gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="flex-1 py-3 border border-gray-200 rounded-xl font-medium hover:bg-gray-50"
           >
             Kapat
           </button>
-          <button
+          <button type="button"
             onClick={handlePrint}
             disabled={isPrinting}
             className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:bg-gray-300"

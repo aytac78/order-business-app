@@ -159,7 +159,7 @@ export default function AnalyticsPage() {
         <div className="flex items-center gap-3">
           <div className="flex bg-gray-800 rounded-xl p-1">
             {(['today', 'week', 'month'] as const).map(range => (
-              <button
+              <button type="button"
                 key={range}
                 onClick={() => setDateRange(range)}
                 className={`px-4 py-2 rounded-lg transition-colors ${
@@ -170,7 +170,7 @@ export default function AnalyticsPage() {
               </button>
             ))}
           </div>
-          <button
+          <button type="button"
             onClick={loadAnalytics}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >

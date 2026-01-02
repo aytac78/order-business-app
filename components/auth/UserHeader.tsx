@@ -40,7 +40,7 @@ export function UserHeader({ variant = 'default' }: UserHeaderProps) {
             <div className="text-sm font-medium text-white">{currentStaff.name}</div>
           </div>
         </div>
-        <button
+        <button type="button"
           onClick={handleLogout}
           className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
           title="Çıkış Yap"
@@ -53,7 +53,7 @@ export function UserHeader({ variant = 'default' }: UserHeaderProps) {
 
   return (
     <div className="relative">
-      <button
+      <button type="button"
         onClick={() => setShowMenu(!showMenu)}
         className="flex items-center gap-3 px-3 py-2 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl transition-colors"
       >
@@ -106,7 +106,7 @@ export function UserHeader({ variant = 'default' }: UserHeaderProps) {
                   </Link>
                 </>
               )}
-              <button
+              <button type="button"
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:bg-red-500/10 transition-colors"
               >

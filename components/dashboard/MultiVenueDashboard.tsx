@@ -88,7 +88,7 @@ export function MultiVenueDashboard() {
           <span className="text-sm text-gray-500">
             <T>Son güncelleme</T>: {lastUpdated?.toLocaleTimeString(locale) || '--:--'}
           </span>
-          <button
+          <button type="button"
             onClick={handleRefresh}
             disabled={isRefreshing}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
@@ -277,7 +277,7 @@ function VenueCard({ venue }: { venue: VenueSummary }) {
           </div>
         </div>
         <div className="relative">
-          <button
+          <button type="button"
             onClick={() => setShowMenu(!showMenu)}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
@@ -285,14 +285,14 @@ function VenueCard({ venue }: { venue: VenueSummary }) {
           </button>
           {showMenu && (
             <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-10">
-              <button 
+              <button type="button" 
                 onClick={handleGoToVenue}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
                 <Eye className="w-4 h-4" />
                 <T>Detaya Git</T>
               </button>
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <button type="button" className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                 <Settings className="w-4 h-4" />
                 <T>Ayarlar</T>
               </button>
@@ -356,7 +356,7 @@ function VenueCard({ venue }: { venue: VenueSummary }) {
       </div>
 
       {/* Action Button */}
-      <button 
+      <button type="button" 
         onClick={handleGoToVenue}
         className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-medium transition-colors group"
       >

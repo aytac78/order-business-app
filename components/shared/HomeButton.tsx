@@ -29,7 +29,7 @@ export function HomeButton({ variant = 'default', showLogout = true }: HomeButto
           <Home className="w-5 h-5" />
         </Link>
         {showLogout && (
-          <button
+          <button type="button"
             onClick={handleLogout}
             className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-all"
           >
@@ -50,7 +50,7 @@ export function HomeButton({ variant = 'default', showLogout = true }: HomeButto
         <span>Ana Sayfa</span>
       </Link>
       {showLogout && (
-        <button
+        <button type="button"
           onClick={handleLogout}
           className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all flex items-center gap-2"
         >

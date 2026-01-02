@@ -199,14 +199,14 @@ export default function EventsPage() {
           <p className="text-gray-500">{currentVenue.name} • Halkla İlişkiler</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadEvents}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             {t('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
@@ -362,18 +362,18 @@ export default function EventsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <button
+                    <button type="button"
                       onClick={() => setSelectedEvent(event)}
                       className="p-2 hover:bg-gray-100 rounded-lg"
                       title="Detay"
                     >
                       <Eye className="w-4 h-4 text-gray-600" />
                     </button>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg" title="Paylaş">
+                    <button type="button" className="p-2 hover:bg-gray-100 rounded-lg" title="Paylaş">
                       <Share2 className="w-4 h-4 text-gray-600" />
                     </button>
                     {event.status === 'draft' && (
-                      <button
+                      <button type="button"
                         onClick={() => updateEventStatus(event.id, 'published')}
                         className="p-2 hover:bg-green-100 rounded-lg"
                         title="Yayınla"
@@ -381,7 +381,7 @@ export default function EventsPage() {
                         <CheckCircle className="w-4 h-4 text-green-600" />
                       </button>
                     )}
-                    <button
+                    <button type="button"
                       onClick={() => deleteEvent(event.id)}
                       className="p-2 hover:bg-red-100 rounded-lg"
                       title="Sil"
@@ -400,7 +400,7 @@ export default function EventsPage() {
         <div className="text-center py-12">
           <PartyPopper className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">Henüz etkinlik eklenmemiş</p>
-          <button
+          <button type="button"
             onClick={() => setShowAddModal(true)}
             className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg"
           >
@@ -492,7 +492,7 @@ function AddEventModal({
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-5 border-b flex items-center justify-between sticky top-0 bg-white">
           <h2 className="text-xl font-bold">{t('addEvent')}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -608,13 +608,13 @@ function AddEventModal({
         </div>
 
         <div className="p-5 border-t flex gap-3">
-          <button
+          <button type="button"
             onClick={onClose}
             className="flex-1 py-2 border rounded-lg font-medium hover:bg-gray-50"
           >
             İptal
           </button>
-          <button
+          <button type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
             className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50"
@@ -650,7 +650,7 @@ function EventDetailModal({
           ) : (
             <typeInfo.icon className="w-20 h-20 text-white/50" />
           )}
-          <button
+          <button type="button"
             onClick={onClose}
             className="absolute top-4 right-4 p-2 bg-black/30 hover:bg-black/50 rounded-full text-white"
           >
@@ -696,7 +696,7 @@ function EventDetailModal({
 
           <div className="flex gap-3">
             {event.status === 'draft' && (
-              <button
+              <button type="button"
                 onClick={() => onStatusChange('published')}
                 className="flex-1 py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600"
               >
@@ -704,14 +704,14 @@ function EventDetailModal({
               </button>
             )}
             {event.status === 'published' && (
-              <button
+              <button type="button"
                 onClick={() => onStatusChange('cancelled')}
                 className="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600"
               >
                 İptal Et
               </button>
             )}
-            <button
+            <button type="button"
               onClick={onClose}
               className="flex-1 py-3 border-2 rounded-xl font-medium hover:bg-gray-50"
             >

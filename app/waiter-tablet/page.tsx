@@ -154,7 +154,7 @@ export default function WaiterTabletPage() {
             { id: 'paket' as TabType, label: 'Paket', icon: ShoppingCart },
             { id: 'kurye' as TabType, label: 'Kurye', icon: Clock },
           ].map(tab => (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
@@ -175,19 +175,19 @@ export default function WaiterTabletPage() {
               <span className="font-bold">{readyOrders.length} Hazır</span>
             </div>
           )}
-          <button
+          <button type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
             className={`p-3 rounded-xl ${soundEnabled ? 'bg-green-500' : 'bg-gray-700'}`}
           >
             {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </button>
-          <button
+          <button type="button"
             onClick={loadData}
             className="p-3 bg-white/10 hover:bg-white/20 rounded-xl"
           >
             <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => { if(confirm("Çıkış yapmak istediğinize emin misiniz?")) { localStorage.removeItem("order-auth-storage"); window.location.href = "/"; } }} className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400" title="Çıkış">
+          <button type="button" onClick={() => { if(confirm("Çıkış yapmak istediğinize emin misiniz?")) { localStorage.removeItem("order-auth-storage"); window.location.href = "/"; } }} className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-400" title="Çıkış">
             <LogOut className="w-5 h-5" />
           </button>
         </div>
@@ -208,7 +208,7 @@ export default function WaiterTabletPage() {
               const isSelected = selectedTable?.id === table.id;
 
               return (
-                <button
+                <button type="button"
                   key={table.id}
                   onClick={() => setSelectedTable(table)}
                   className={`relative p-4 rounded-xl text-left transition-all ${
@@ -330,11 +330,11 @@ export default function WaiterTabletPage() {
 
               {/* Alt Butonlar */}
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <button className="py-4 bg-orange-500 hover:bg-orange-600 rounded-xl font-bold flex items-center justify-center gap-2">
+                <button type="button" className="py-4 bg-orange-500 hover:bg-orange-600 rounded-xl font-bold flex items-center justify-center gap-2">
                   <Plus className="w-5 h-5" />
                   Sipariş Ekle
                 </button>
-                <button className="py-4 bg-green-500 hover:bg-green-600 rounded-xl font-bold flex items-center justify-center gap-2">
+                <button type="button" className="py-4 bg-green-500 hover:bg-green-600 rounded-xl font-bold flex items-center justify-center gap-2">
                   <CreditCard className="w-5 h-5" />
                   Hesap Al
                 </button>

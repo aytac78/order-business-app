@@ -114,7 +114,7 @@ export function PinLogin({ venueId, onLogin, onCancel, title = 'Personel Girişi
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900">{title}</h2>
             {onCancel && (
-              <button onClick={onCancel} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button type="button" onClick={onCancel} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             )}
@@ -128,7 +128,7 @@ export function PinLogin({ venueId, onLogin, onCancel, title = 'Personel Girişi
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {staffList.map((staff) => (
-                <button
+                <button type="button"
                   key={staff.id}
                   onClick={() => setSelectedStaff(staff)}
                   className="w-full p-4 bg-gray-50 hover:bg-orange-50 rounded-xl text-left transition-colors flex items-center gap-3"
@@ -184,7 +184,7 @@ export function PinLogin({ venueId, onLogin, onCancel, title = 'Personel Girişi
         {/* Numpad */}
         <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <button
+            <button type="button"
               key={num}
               onClick={() => handlePinInput(num.toString())}
               className="h-14 bg-gray-100 hover:bg-gray-200 rounded-xl text-xl font-semibold transition-colors"
@@ -192,19 +192,19 @@ export function PinLogin({ venueId, onLogin, onCancel, title = 'Personel Girişi
               {num}
             </button>
           ))}
-          <button
+          <button type="button"
             onClick={handleBack}
             className="h-14 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium transition-colors"
           >
             Geri
           </button>
-          <button
+          <button type="button"
             onClick={() => handlePinInput('0')}
             className="h-14 bg-gray-100 hover:bg-gray-200 rounded-xl text-xl font-semibold transition-colors"
           >
             0
           </button>
-          <button
+          <button type="button"
             onClick={handleDelete}
             className="h-14 bg-gray-100 hover:bg-red-100 rounded-xl flex items-center justify-center transition-colors"
           >

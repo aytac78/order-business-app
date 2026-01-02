@@ -189,14 +189,14 @@ export default function ShiftsPage() {
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={loadData}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             onClick={() => { setEditingShift(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
           >
@@ -208,7 +208,7 @@ export default function ShiftsPage() {
 
       {/* Date Navigation */}
       <div className="flex items-center justify-between bg-gray-800 rounded-xl p-4">
-        <button
+        <button type="button"
           onClick={() => changeDate(viewMode === 'week' ? -7 : -1)}
           className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
         >
@@ -217,7 +217,7 @@ export default function ShiftsPage() {
         
         <div className="flex items-center gap-4">
           <div className="flex bg-gray-700 rounded-lg p-1">
-            <button
+            <button type="button"
               onClick={() => setViewMode('day')}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                 viewMode === 'day' ? 'bg-orange-500 text-white' : 'text-gray-400'
@@ -225,7 +225,7 @@ export default function ShiftsPage() {
             >
               {t('dayView')}
             </button>
-            <button
+            <button type="button"
               onClick={() => setViewMode('week')}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                 viewMode === 'week' ? 'bg-orange-500 text-white' : 'text-gray-400'
@@ -243,7 +243,7 @@ export default function ShiftsPage() {
           />
           
           {!isToday && (
-            <button
+            <button type="button"
               onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
               className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-lg text-sm"
             >
@@ -252,7 +252,7 @@ export default function ShiftsPage() {
           )}
         </div>
 
-        <button
+        <button type="button"
           onClick={() => changeDate(viewMode === 'week' ? 7 : 1)}
           className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
         >
@@ -342,7 +342,7 @@ export default function ShiftsPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-1">
                       {shift.status === 'scheduled' && (
-                        <button
+                        <button type="button"
                           onClick={() => handleStartShift(shift)}
                           className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
                           title={t('startShift')}
@@ -351,7 +351,7 @@ export default function ShiftsPage() {
                         </button>
                       )}
                       {shift.status === 'in_progress' && (
-                        <button
+                        <button type="button"
                           onClick={() => handleEndShift(shift)}
                           className="p-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg"
                           title={t('endShift')}
@@ -359,13 +359,13 @@ export default function ShiftsPage() {
                           <CheckCircle className="w-4 h-4" />
                         </button>
                       )}
-                      <button
+                      <button type="button"
                         onClick={() => { setEditingShift(shift); setShowModal(true); }}
                         className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button
+                      <button type="button"
                         onClick={() => handleDelete(shift.id)}
                         className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg"
                       >
@@ -455,7 +455,7 @@ function ShiftModal({
           <h2 className="text-xl font-bold text-white">
             {shift ? t('editShift') : t('addShift')}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -525,14 +525,14 @@ function ShiftModal({
             />
           </div>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >

@@ -47,8 +47,9 @@ export default function QRMenuPage() {
   }, [loadTables]);
 
   const getMenuUrl = (tableId?: string) => {
-    const baseUrl = `https://order.tit.app/${currentVenue?.slug || currentVenue?.id}`;
-    return tableId ? `${baseUrl}?table=${tableId}` : baseUrl;
+    const baseUrl = `https://order.tit.app/venue/${currentVenue?.id}/menu`;
+    const table = tables.find(t => t.id === tableId);
+    return tableId && table ? `${baseUrl}?table=${table.number}` : baseUrl;
   };
 
   const handleCopyLink = (link: string) => {

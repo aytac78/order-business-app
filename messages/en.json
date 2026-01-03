@@ -88,8 +88,7 @@
       "special_menu": "Special Menu",
       "wine_tasting": "Wine Tasting",
       "other": "Other",
-      "comedy": "Stand-up Comedy",
-      "special_menu": "Special Menu"
+      "comedy": "Stand-up Comedy"
     },
     "eventError": "Error adding event",
     "eventType": "Event Type",
@@ -412,9 +411,7 @@
     "lowStock": "Low Stock",
     "outOfStock": "Out of Stock",
     "restock": "Restock",
-    "noItems": "No stock items found",
-    "currentStock": "Current Stock",
-    "minStock": "Min. Stock"
+    "noItems": "No stock items found"
   },
   "stockAlerts": {
     "title": "Stock Alerts",
@@ -461,8 +458,8 @@
     "actualStart": "Actual Start",
     "actualEnd": "Actual End",
     "totalHours": "Total Hours",
-    "dayView": "Day",
-    "weekView": "Week",
+    "dayView": "Day View",
+    "weekView": "Week View",
     "noShifts": "No shifts found"
   },
   "performance": {

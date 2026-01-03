@@ -88,8 +88,7 @@
       "special_menu": "Menu Speciale",
       "wine_tasting": "Degustazione Vini",
       "other": "Altro",
-      "comedy": "Cabaret",
-      "special_menu": "Menu Speciale"
+      "comedy": "Cabaret"
     },
     "eventError": "Errore durante aggiunta evento",
     "eventType": "Tipo Evento",
@@ -404,7 +403,7 @@
     "category": "Categoria",
     "unit": "Unità",
     "currentStock": "Stock Attuale",
-    "minStock": "Stock Min.",
+    "minStock": "Stock Minimo",
     "maxStock": "Stock Max.",
     "costPerUnit": "Costo Unitario",
     "supplier": "Fornitore",
@@ -412,9 +411,7 @@
     "lowStock": "Stock Basso",
     "outOfStock": "Esaurito",
     "restock": "Rifornisci",
-    "noItems": "Nessun articolo trovato",
-    "currentStock": "Stock Attuale",
-    "minStock": "Stock Minimo"
+    "noItems": "Nessun articolo trovato"
   },
   "stockAlerts": {
     "title": "Avvisi Magazzino",
@@ -461,8 +458,8 @@
     "actualStart": "Inizio Effettivo",
     "actualEnd": "Fine Effettiva",
     "totalHours": "Ore Totali",
-    "dayView": "Giorno",
-    "weekView": "Settimana",
+    "dayView": "Vista Giornaliera",
+    "weekView": "Vista Settimanale",
     "noShifts": "Nessun turno trovato"
   },
   "performance": {

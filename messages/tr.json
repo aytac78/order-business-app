@@ -485,7 +485,10 @@
     "noShifts": "Vardiya bulunamadı",
     "todayShifts": "Bugünkü Vardiyalar",
     "weeklyView": "Haftalık Görünüm",
-    "monthlyView": "Aylık Görünüm"
+    "monthlyView": "Aylık Görünüm",
+    "totalHours": "Toplam Saat",
+    "dayView": "Günlük Görünüm",
+    "weekView": "Haftalık Görünüm"
   },
   "performance": {
     "title": "Performans",

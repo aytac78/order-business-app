@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useVenueStore } from '@/stores';
 import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 import {
   Save, AlertCircle, Loader2, Settings as SettingsIcon,
   Building, Clock, CreditCard, Bell, Palette, Globe,
-  QrCode, Users, Shield, Database, Trash2, ToggleLeft, ToggleRight
+  QrCode, Users, Shield, Database, Trash2, ToggleLeft, ToggleRight,
+  AlertTriangle, X
 } from 'lucide-react';
 
 interface VenueSettings {
@@ -26,7 +28,8 @@ interface VenueSettings {
 }
 
 export default function SettingsPage() {
-  const { currentVenue, setCurrentVenue } = useVenueStore();
+  const router = useRouter();
+  const { currentVenue, setCurrentVenue, venues, setVenues } = useVenueStore();
   const t = useTranslations('settings');
   const tCommon = useTranslations('common');
 
@@ -63,6 +66,11 @@ export default function SettingsPage() {
     notification_sounds: true,
     theme_color: '#f97316',
   });
+
+  // Delete modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const dayNames = {
     monday: t('monday'),
@@ -128,6 +136,44 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
+  const handleDeleteVenue = async () => {
+    if (!currentVenue?.id || deleteConfirmText !== currentVenue.name) return;
+    
+    setDeleting(true);
+
+    // Delete related data first
+    await supabase.from('orders').delete().eq('venue_id', currentVenue.id);
+    await supabase.from('order_items').delete().eq('order_id', currentVenue.id);
+    await supabase.from('tables').delete().eq('venue_id', currentVenue.id);
+    await supabase.from('products').delete().eq('venue_id', currentVenue.id);
+    await supabase.from('categories').delete().eq('venue_id', currentVenue.id);
+    await supabase.from('reservations').delete().eq('venue_id', currentVenue.id);
+    await supabase.from('staff').delete().eq('venue_id', currentVenue.id);
+
+    // Delete venue
+    const { error } = await supabase
+      .from('venues')
+      .delete()
+      .eq('id', currentVenue.id);
+
+    if (!error) {
+      // Update store
+      const remainingVenues = venues.filter(v => v.id !== currentVenue.id);
+      setVenues(remainingVenues);
+      
+      if (remainingVenues.length > 0) {
+        setCurrentVenue(remainingVenues[0]);
+      } else {
+        setCurrentVenue(null);
+      }
+      
+      router.push('/dashboard');
+    }
+
+    setDeleting(false);
+    setShowDeleteModal(false);
+  };
+
   const updateWorkingHours = (day: string, field: string, value: any) => {
     setSettings(prev => ({
       ...prev,
@@ -147,6 +193,7 @@ export default function SettingsPage() {
     { id: 'ordering', label: t('orderSettings'), icon: QrCode },
     { id: 'payment', label: t('paymentSettings'), icon: CreditCard },
     { id: 'notifications', label: t('notifications'), icon: Bell },
+    { id: 'danger', label: t('dangerZone'), icon: AlertTriangle, danger: true },
   ];
 
   if (!currentVenue) {
@@ -176,14 +223,16 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
-        <button type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white rounded-xl transition-colors"
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {tCommon('save')}
-        </button>
+        {activeTab !== 'danger' && (
+          <button type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white rounded-xl transition-colors"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {tCommon('save')}
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -196,8 +245,12 @@ export default function SettingsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? tab.danger 
+                    ? 'bg-red-500 text-white'
+                    : 'bg-orange-500 text-white'
+                  : tab.danger
+                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -462,7 +515,94 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+
+        {/* Danger Zone */}
+        {activeTab === 'danger' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 text-red-500 mb-4">
+              <AlertTriangle className="w-6 h-6" />
+              <h2 className="text-lg font-semibold">{t('dangerZone')}</h2>
+            </div>
+            
+            <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <h3 className="text-lg font-medium text-white mb-2">{t('deleteVenue')}</h3>
+              <p className="text-gray-400 mb-4">{t('deleteVenueWarning')}</p>
+              
+              <ul className="text-sm text-gray-400 mb-6 space-y-1">
+                <li>• {t('deleteWarning1')}</li>
+                <li>• {t('deleteWarning2')}</li>
+                <li>• {t('deleteWarning3')}</li>
+                <li>• {t('deleteWarning4')}</li>
+              </ul>
+              
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium flex items-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-5 h-5" />
+                {t('deleteVenueButton')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-red-500">
+                <AlertTriangle className="w-6 h-6" />
+                <h2 className="text-xl font-bold">{t('confirmDelete')}</h2>
+              </div>
+              <button type="button" onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-gray-300">{t('deleteConfirmMessage')}</p>
+              
+              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-sm text-gray-400 mb-2">{t('typeToConfirm')}</p>
+                <p className="text-white font-mono font-bold mb-3">{currentVenue.name}</p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={t('typeVenueName')}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
+                >
+                  {tCommon('cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteVenue}
+                  disabled={deleteConfirmText !== currentVenue.name || deleting}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  {deleting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-5 h-5" />
+                  )}
+                  {t('permanentlyDelete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

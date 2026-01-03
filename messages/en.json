@@ -11,6 +11,8 @@
     "refresh": "Refresh",
     "confirmDelete": "Are you sure you want to delete?",
     "items": "items",
+    "pieces": "pieces",
+    "viewAll": "View All",
     "more": "More",
     "newSection": "New Section",
     "enterSectionName": "Enter section name",
@@ -154,7 +156,17 @@
     "table": "Table",
     "minutes": "minutes",
     "completed": "Completed",
-    "preparing": "Preparing"
+    "preparing": "Preparing",
+    "today": "Today",
+    "processing": "Processing",
+    "topSelling": "Top Selling",
+    "avgWaitTime": "Avg Wait Time",
+    "occupancy": "Occupancy",
+    "revenueChart": "Revenue Chart",
+    "ordersByType": "Orders by Type",
+    "quickStats": "Quick Stats",
+    "lowStockItems": "Low Stock Items",
+    "staffOnDuty": "Staff on Duty"
   },
   "tables": {
     "title": "Table Management",
@@ -193,6 +205,16 @@
     "pending": "Pending",
     "confirmed": "Confirmed",
     "preparing": "Preparing",
+    "today": "Today",
+    "processing": "Processing",
+    "topSelling": "Top Selling",
+    "avgWaitTime": "Avg Wait Time",
+    "occupancy": "Occupancy",
+    "revenueChart": "Revenue Chart",
+    "ordersByType": "Orders by Type",
+    "quickStats": "Quick Stats",
+    "lowStockItems": "Low Stock Items",
+    "staffOnDuty": "Staff on Duty",
     "ready": "Ready",
     "served": "Served",
     "completed": "Completed",
@@ -390,7 +412,9 @@
     "lowStock": "Low Stock",
     "outOfStock": "Out of Stock",
     "restock": "Restock",
-    "noItems": "No stock items found"
+    "noItems": "No stock items found",
+    "currentStock": "Current Stock",
+    "minStock": "Min. Stock"
   },
   "stockAlerts": {
     "title": "Stock Alerts",
@@ -515,7 +539,7 @@
     "notificationSounds": "Notification Sounds",
     "notificationSoundsDescription": "Play sound for new orders and calls"
   },
-  "venue": {
+  "venues": {
     "title": "Venue",
     "selectVenue": "Select Venue",
     "allVenues": "All Venues",
@@ -529,6 +553,17 @@
     "newReservation": "New Reservation",
     "lowStock": "Low Stock",
     "markAllRead": "Mark All as Read"
+  },
+  "here": {
+    "title": "HERE - I Am Here",
+    "activeCustomers": "Active Customers",
+    "checkedIn": "Checked In",
+    "tableAssigned": "Table Assigned",
+    "waiting": "Waiting",
+    "customerDetails": "Customer Details",
+    "assignToTable": "Assign to Table",
+    "sendMessage": "Send Message",
+    "viewHistory": "View History"
   },
   "errors": {
     "general": "An error occurred",

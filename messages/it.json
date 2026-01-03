@@ -11,6 +11,8 @@
     "refresh": "Aggiorna",
     "confirmDelete": "Sei sicuro di voler eliminare?",
     "items": "elementi",
+    "pieces": "pezzi",
+    "viewAll": "Vedi Tutto",
     "more": "Altro",
     "newSection": "Nuova Sezione",
     "enterSectionName": "Inserisci nome sezione",
@@ -154,7 +156,17 @@
     "table": "Tavolo",
     "minutes": "minuti",
     "completed": "Completati",
-    "preparing": "In Preparazione"
+    "preparing": "In Preparazione",
+    "today": "Oggi",
+    "processing": "In Elaborazione",
+    "topSelling": "Più Venduti",
+    "avgWaitTime": "Tempo Medio Attesa",
+    "occupancy": "Occupazione",
+    "revenueChart": "Grafico Ricavi",
+    "ordersByType": "Ordini per Tipo",
+    "quickStats": "Statistiche Rapide",
+    "lowStockItems": "Articoli in Esaurimento",
+    "staffOnDuty": "Personale in Servizio"
   },
   "tables": {
     "title": "Gestione Tavoli",
@@ -193,6 +205,16 @@
     "pending": "In Attesa",
     "confirmed": "Confermato",
     "preparing": "In Preparazione",
+    "today": "Oggi",
+    "processing": "In Elaborazione",
+    "topSelling": "Più Venduti",
+    "avgWaitTime": "Tempo Medio Attesa",
+    "occupancy": "Occupazione",
+    "revenueChart": "Grafico Ricavi",
+    "ordersByType": "Ordini per Tipo",
+    "quickStats": "Statistiche Rapide",
+    "lowStockItems": "Articoli in Esaurimento",
+    "staffOnDuty": "Personale in Servizio",
     "ready": "Pronto",
     "served": "Servito",
     "completed": "Completato",
@@ -390,7 +412,9 @@
     "lowStock": "Stock Basso",
     "outOfStock": "Esaurito",
     "restock": "Rifornisci",
-    "noItems": "Nessun articolo trovato"
+    "noItems": "Nessun articolo trovato",
+    "currentStock": "Stock Attuale",
+    "minStock": "Stock Minimo"
   },
   "stockAlerts": {
     "title": "Avvisi Magazzino",
@@ -515,7 +539,7 @@
     "notificationSounds": "Suoni Notifiche",
     "notificationSoundsDescription": "Riproduci suono per nuovi ordini e chiamate"
   },
-  "venue": {
+  "venues": {
     "title": "Locale",
     "selectVenue": "Seleziona Locale",
     "allVenues": "Tutti i Locali",
@@ -529,6 +553,17 @@
     "newReservation": "Nuova Prenotazione",
     "lowStock": "Stock Basso",
     "markAllRead": "Segna Tutto come Letto"
+  },
+  "here": {
+    "title": "HERE - Sono Qui",
+    "activeCustomers": "Clienti Attivi",
+    "checkedIn": "Check-in Effettuato",
+    "tableAssigned": "Tavolo Assegnato",
+    "waiting": "In Attesa",
+    "customerDetails": "Dettagli Cliente",
+    "assignToTable": "Assegna al Tavolo",
+    "sendMessage": "Invia Messaggio",
+    "viewHistory": "Visualizza Cronologia"
   },
   "errors": {
     "general": "Si è verificato un errore",

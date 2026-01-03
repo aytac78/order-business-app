@@ -6,7 +6,7 @@ import { useVenueStore } from '@/stores';
 import { supabase } from '@/lib/supabase';
 import {
   Users, Utensils, AlertCircle, Loader2, RefreshCw,
-  Plus, X, Clock, CheckCircle, Sparkles
+  Plus, X, Clock, CheckCircle, Sparkles, Edit2, Trash2
 } from 'lucide-react';
 
 interface TableData {
@@ -16,6 +16,7 @@ interface TableData {
   section: string;
   status: 'available' | 'occupied' | 'reserved' | 'cleaning';
   current_guests?: number;
+  shape?: 'square' | 'round' | 'rectangle';
 }
 
 interface OrderData {
@@ -48,6 +49,12 @@ const statusConfig = {
   cleaning: { label: 'Temizleniyor', bg: 'bg-blue-500', border: 'border-blue-500', color: 'text-blue-500' },
 };
 
+const shapeConfig = {
+  square: 'Kare',
+  round: 'Yuvarlak',
+  rectangle: 'Dikdörtgen',
+};
+
 export default function TablesPage() {
   const { currentVenue } = useVenueStore();
   const router = useRouter();
@@ -58,6 +65,8 @@ export default function TablesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState<string>('all');
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTable, setEditingTable] = useState<TableData | null>(null);
 
   const loadData = useCallback(async () => {
     if (!currentVenue?.id) {
@@ -78,10 +87,10 @@ export default function TablesPage() {
 
       if (tablesError) console.error('Tables error:', tablesError);
 
-      // Load active orders - tüm alanları çek
+      // Load active orders
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('id, table_number, table_id, status, total, items, created_at, guest_count, notes, customer_name, customer_phone')
+        .select('id, table_number, table_id, status, total, items, created_at, notes, customer_name, customer_phone')
         .eq('venue_id', currentVenue.id)
         .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'served'])
         .eq('payment_status', 'pending');
@@ -145,23 +154,84 @@ export default function TablesPage() {
     setSelectedTable(null);
   };
 
-  // Müşteri ismini çıkar - önce customer_name, sonra notes'tan parse
+  // Masa Ekleme
+  const handleAddTable = async (tableData: Partial<TableData>) => {
+    if (!currentVenue?.id) return;
+
+    const { error } = await supabase
+      .from('tables')
+      .insert({
+        venue_id: currentVenue.id,
+        number: tableData.number,
+        capacity: tableData.capacity || 4,
+        section: tableData.section || 'Ana Salon',
+        shape: tableData.shape || 'square',
+        status: 'available',
+        is_active: true,
+      });
+
+    if (error) {
+      console.error('Add table error:', error);
+      alert('Masa eklenirken hata oluştu: ' + error.message);
+    } else {
+      loadData();
+      setShowAddModal(false);
+    }
+  };
+
+  // Masa Düzenleme
+  const handleEditTable = async (tableData: Partial<TableData>) => {
+    if (!editingTable?.id) return;
+
+    const { error } = await supabase
+      .from('tables')
+      .update({
+        number: tableData.number,
+        capacity: tableData.capacity,
+        section: tableData.section,
+        shape: tableData.shape,
+      })
+      .eq('id', editingTable.id);
+
+    if (error) {
+      console.error('Edit table error:', error);
+      alert('Masa güncellenirken hata oluştu: ' + error.message);
+    } else {
+      loadData();
+      setEditingTable(null);
+    }
+  };
+
+  // Masa Silme (soft delete)
+  const handleDeleteTable = async (tableId: string) => {
+    if (!confirm('Bu masayı silmek istediğinizden emin misiniz?')) return;
+
+    const { error } = await supabase
+      .from('tables')
+      .update({ is_active: false })
+      .eq('id', tableId);
+
+    if (error) {
+      console.error('Delete table error:', error);
+      alert('Masa silinirken hata oluştu: ' + error.message);
+    } else {
+      loadData();
+      setSelectedTable(null);
+    }
+  };
+
+  // Müşteri ismini çıkar
   const getCustomerName = (order: OrderData): string | null => {
-    // Önce customer_name alanını kontrol et
     if (order.customer_name) {
       return order.customer_name;
     }
-    // Notes'tan parse et (eski format desteği)
     if (order.notes) {
-      // "Walk-in: İsim - telefon" formatı
       if (order.notes.startsWith('Walk-in: ')) {
         return order.notes.replace('Walk-in: ', '').split(' - ')[0];
       }
-      // "Müşteri: İsim" formatı
       if (order.notes.startsWith('Müşteri: ')) {
         return order.notes.replace('Müşteri: ', '').split(' - ')[0];
       }
-      // Sadece isim
       if (order.notes.length < 50 && !order.notes.includes('\n')) {
         return order.notes;
       }
@@ -169,17 +239,11 @@ export default function TablesPage() {
     return null;
   };
 
-  // Kişi sayısını al - önce order.guest_count, sonra items'dan hesapla
-  const getGuestCount = (order: OrderData, table: TableData): number => {
-    // Order'da guest_count varsa kullan
-    if (order.guest_count && order.guest_count > 0) {
-      return order.guest_count;
-    }
-    // Table'da current_guests varsa kullan
+  // Kişi sayısını al
+  const getGuestCount = (_order: OrderData, table: TableData): number => {
     if (table.current_guests && table.current_guests > 0) {
       return table.current_guests;
     }
-    // Varsayılan: 1 (en az 1 kişi var demektir sipariş varsa)
     return 1;
   };
 
@@ -224,13 +288,22 @@ export default function TablesPage() {
           <h1 className="text-2xl font-bold text-white">Masalar</h1>
           <p className="text-gray-400">{tables.length} Masa</p>
         </div>
-        <button type="button"
-          onClick={loadData}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-white transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Yenile
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button"
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-xl text-white transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Masa Ekle
+          </button>
+          <button type="button"
+            onClick={loadData}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-white transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Yenile
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -274,76 +347,87 @@ export default function TablesPage() {
         ))}
       </div>
 
-      {/* Tables Grid - Scrollable */}
+      {/* Tables Grid */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-4">
-        {filteredTables.map(table => {
-          const order = getTableOrder(table.number);
-          const tableReservations = getTableReservations(table.number);
-          const realStatus = order ? 'occupied' : tableReservations.length > 0 ? 'reserved' : table.status;
-          const config = statusConfig[realStatus];
-          const customerName = order ? getCustomerName(order) : null;
-          const guestCount = order ? getGuestCount(order, table) : (table.current_guests || 0);
-
-          return (
-            <div
-              key={table.id}
-              onClick={() => setSelectedTable(table)}
-              className={`relative rounded-xl p-4 cursor-pointer hover:scale-105 transition-all border-2 ${config.border} ${
-                realStatus === 'available' ? 'bg-green-900/30' :
-                realStatus === 'occupied' ? 'bg-red-900/30' :
-                realStatus === 'reserved' ? 'bg-amber-900/30' :
-                'bg-blue-900/30'
-              }`}
+        {filteredTables.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <Users className="w-16 h-16 mb-4 opacity-50" />
+            <p className="text-lg">Henüz masa eklenmemiş</p>
+            <button type="button"
+              onClick={() => setShowAddModal(true)}
+              className="mt-4 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium"
             >
-              {tableReservations.length > 0 && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  {tableReservations.length}
-                </div>
-              )}
-              {order && (
-                <div className="absolute -top-2 -left-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                  <Utensils className="w-3 h-3 text-white" />
-                </div>
-              )}
+              İlk Masayı Ekle
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-4">
+            {filteredTables.map(table => {
+              const order = getTableOrder(table.number);
+              const tableReservations = getTableReservations(table.number);
+              const realStatus = order ? 'occupied' : tableReservations.length > 0 ? 'reserved' : table.status;
+              const config = statusConfig[realStatus];
+              const customerName = order ? getCustomerName(order) : null;
+              const guestCount = order ? getGuestCount(order, table) : (table.current_guests || 0);
 
-              <h3 className="text-2xl font-bold text-white">{table.number}</h3>
-              <p className="text-gray-400 text-sm">{table.section}</p>
-              
-              {/* Kişi sayısı - her zaman göster */}
-              <div className="flex items-center gap-1 text-gray-400 text-sm mt-1">
-                <Users className="w-3 h-3" />
-                <span className={guestCount > 0 ? 'text-green-400' : ''}>
-                  {guestCount}/{table.capacity} kişi
-                </span>
-              </div>
-
-              {order && (
-                <div className="mt-2 text-sm">
-                  {/* Müşteri ismi */}
-                  {customerName && (
-                    <p className="text-blue-400 text-xs mb-1 truncate" title={customerName}>
-                      👤 {customerName}
-                    </p>
+              return (
+                <div
+                  key={table.id}
+                  onClick={() => setSelectedTable(table)}
+                  className={`relative rounded-xl p-4 cursor-pointer hover:scale-105 transition-all border-2 ${config.border} ${
+                    realStatus === 'available' ? 'bg-green-900/30' :
+                    realStatus === 'occupied' ? 'bg-red-900/30' :
+                    realStatus === 'reserved' ? 'bg-amber-900/30' :
+                    'bg-blue-900/30'
+                  }`}
+                >
+                  {tableReservations.length > 0 && (
+                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {tableReservations.length}
+                    </div>
                   )}
-                  <p className="text-orange-400 font-medium">₺{order.total?.toFixed(0)}</p>
-                  <p className="text-gray-500">{order.items?.length || 0} ürün</p>
-                </div>
-              )}
+                  {order && (
+                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                      <Utensils className="w-3 h-3 text-white" />
+                    </div>
+                  )}
 
-              {!order && tableReservations[0] && (
-                <div className="mt-2 text-xs text-amber-400">
-                  <p>{tableReservations[0].time} - {tableReservations[0].customer_name}</p>
-                </div>
-              )}
+                  <h3 className="text-2xl font-bold text-white">{table.number}</h3>
+                  <p className="text-gray-400 text-sm">{table.section}</p>
+                  
+                  <div className="flex items-center gap-1 text-gray-400 text-sm mt-1">
+                    <Users className="w-3 h-3" />
+                    <span className={guestCount > 0 ? 'text-green-400' : ''}>
+                      {guestCount}/{table.capacity} kişi
+                    </span>
+                  </div>
 
-              <div className={`mt-2 inline-block px-2 py-1 ${config.bg} text-white text-xs rounded-full`}>
-                {config.label}
-              </div>
-            </div>
-          );
-        })}
-        </div>
+                  {order && (
+                    <div className="mt-2 text-sm">
+                      {customerName && (
+                        <p className="text-blue-400 text-xs mb-1 truncate" title={customerName}>
+                          👤 {customerName}
+                        </p>
+                      )}
+                      <p className="text-orange-400 font-medium">₺{order.total?.toFixed(0)}</p>
+                      <p className="text-gray-500">{order.items?.length || 0} ürün</p>
+                    </div>
+                  )}
+
+                  {!order && tableReservations[0] && (
+                    <div className="mt-2 text-xs text-amber-400">
+                      <p>{tableReservations[0].time} - {tableReservations[0].customer_name}</p>
+                    </div>
+                  )}
+
+                  <div className={`mt-2 inline-block px-2 py-1 ${config.bg} text-white text-xs rounded-full`}>
+                    {config.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Table Detail Modal */}
@@ -367,17 +451,35 @@ export default function TablesPage() {
             }
             router.push('/pos');
           }}
+          onEdit={() => {
+            setEditingTable(selectedTable);
+            setSelectedTable(null);
+          }}
+          onDelete={() => handleDeleteTable(selectedTable.id)}
           getCustomerName={getCustomerName}
           getGuestCount={getGuestCount}
+        />
+      )}
+
+      {/* Add/Edit Table Modal */}
+      {(showAddModal || editingTable) && (
+        <AddEditTableModal
+          table={editingTable}
+          sections={sections}
+          onSave={editingTable ? handleEditTable : handleAddTable}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingTable(null);
+          }}
         />
       )}
     </div>
   );
 }
 
-// Table Modal
+// Table Detail Modal
 function TableModal({
-  table, order, reservations, onClose, onStatusChange, onGoToWaiter, onGoToPOS, getCustomerName, getGuestCount
+  table, order, reservations, onClose, onStatusChange, onGoToWaiter, onGoToPOS, onEdit, onDelete, getCustomerName, getGuestCount
 }: {
   table: TableData;
   order?: OrderData;
@@ -386,6 +488,8 @@ function TableModal({
   onStatusChange: (status: TableData['status']) => void;
   onGoToWaiter: () => void;
   onGoToPOS: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
   getCustomerName: (order: OrderData) => string | null;
   getGuestCount: (order: OrderData, table: TableData) => number;
 }) {
@@ -413,9 +517,14 @@ function TableModal({
               <p className="text-blue-400 text-sm mt-1">👤 {customerName}</p>
             )}
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onEdit} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg">
+              <Edit2 className="w-5 h-5" />
+            </button>
+            <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-4">
@@ -450,7 +559,6 @@ function TableModal({
                 <span className="text-orange-400 font-bold">₺{order.total?.toFixed(2)}</span>
               </div>
               
-              {/* Sipariş detayları */}
               <div className="flex items-center gap-4 text-sm text-gray-400 mb-3">
                 <span><Users className="w-3 h-3 inline mr-1" />{guestCount} kişi</span>
                 <span><Clock className="w-3 h-3 inline mr-1" />{new Date(order.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
@@ -503,6 +611,17 @@ function TableModal({
             </div>
           </div>
 
+          {/* Delete Button */}
+          {!order && (
+            <button type="button"
+              onClick={onDelete}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Masayı Sil
+            </button>
+          )}
+
           {/* Close Button */}
           <button type="button"
             onClick={onClose}
@@ -511,6 +630,193 @@ function TableModal({
             Kapat
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Add/Edit Table Modal
+function AddEditTableModal({
+  table,
+  sections,
+  onSave,
+  onClose
+}: {
+  table: TableData | null;
+  sections: string[];
+  onSave: (data: Partial<TableData>) => void;
+  onClose: () => void;
+}) {
+  const [number, setNumber] = useState(table?.number || '');
+  const [capacity, setCapacity] = useState(table?.capacity || 4);
+  const [section, setSection] = useState(table?.section || sections[0] || 'Ana Salon');
+  const [shape, setShape] = useState<'square' | 'round' | 'rectangle'>(table?.shape || 'square');
+  const [newSection, setNewSection] = useState('');
+  const [showNewSection, setShowNewSection] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!number.trim()) {
+      alert('Masa numarası gerekli');
+      return;
+    }
+    
+    setSaving(true);
+    await onSave({
+      number: number.trim(),
+      capacity,
+      section: showNewSection && newSection.trim() ? newSection.trim() : section,
+      shape,
+    });
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-2xl w-full max-w-md">
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
+            {table ? 'Masa Düzenle' : 'Yeni Masa Ekle'}
+          </h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Masa Numarası */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Masa Numarası *
+            </label>
+            <input
+              type="text"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              placeholder="Örn: 1, A1, VIP-1"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
+              required
+            />
+          </div>
+
+          {/* Kapasite */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Kapasite (Kişi)
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCapacity(Math.max(1, capacity - 1))}
+                className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-bold text-xl"
+              >
+                -
+              </button>
+              <span className="text-2xl font-bold text-white w-16 text-center">{capacity}</span>
+              <button
+                type="button"
+                onClick={() => setCapacity(Math.min(20, capacity + 1))}
+                className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-bold text-xl"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Bölüm */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Bölüm
+            </label>
+            {!showNewSection ? (
+              <div className="space-y-2">
+                <select
+                  value={section}
+                  onChange={(e) => setSection(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-orange-500"
+                >
+                  {sections.length === 0 && <option value="Ana Salon">Ana Salon</option>}
+                  {sections.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowNewSection(true)}
+                  className="text-sm text-orange-400 hover:text-orange-300"
+                >
+                  + Yeni Bölüm Ekle
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={newSection}
+                  onChange={(e) => setNewSection(e.target.value)}
+                  placeholder="Yeni bölüm adı"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewSection(false)}
+                  className="text-sm text-gray-400 hover:text-gray-300"
+                >
+                  Mevcut Bölümlerden Seç
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Şekil */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Masa Şekli
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(shapeConfig).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setShape(key as typeof shape)}
+                  className={`py-3 rounded-xl font-medium transition-colors ${
+                    shape === key
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Kaydediliyor...
+                </>
+              ) : (
+                table ? 'Güncelle' : 'Ekle'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useVenueStore, useNotificationStore, useUIStore, useAuthStore } from '@/stores';
 import { Bell, ChevronDown, Menu, Search, Building2, Check, LogOut, User, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { LanguageSelectorCompact } from '@/components/i18n/LanguageSelector';
+import { LanguageSelectorCompact } from '@/components/LanguageSelector';
 
 export function Header() {
   const router = useRouter();

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useVenueStore } from '@/stores';
-import { useTranslation } from '@/lib/i18n';
-import { T } from '@/components/T';
+import { useLocale } from 'next-intl';
+import { formatCurrency } from '@/lib/utils';
 import { VenueSummary } from '@/types';
 import {
   TrendingUp,
@@ -25,7 +25,7 @@ import {
 
 export function MultiVenueDashboard() {
   const { venueSummaries, setVenueSummaries, venues } = useVenueStore();
-  const { formatCurrency, locale } = useTranslation();
+  const locale = useLocale();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);

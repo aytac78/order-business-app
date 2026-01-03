@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useVenueStore } from '@/stores';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslations, useLocale } from 'next-intl';
+import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
   TrendingUp,
@@ -54,7 +55,9 @@ interface TopProduct {
 export function SingleVenueDashboard() {
   const router = useRouter();
   const { currentVenue } = useVenueStore();
-  const { t, formatCurrency, locale } = useTranslation();
+  const t = useTranslations('dashboard');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -256,7 +259,7 @@ export function SingleVenueDashboard() {
         <StatCard
           icon={<DollarSign className="w-6 h-6 text-green-400" />}
           iconBg="bg-green-900/50"
-          label={t('dashboard.todayRevenue')}
+          label={t('todayRevenue')}
           value={formatCurrency(stats.todayRevenue)}
           change={`${parseFloat(revenueChange) >= 0 ? '↗' : '↘'} ${revenueChange}%`}
           changeColor={parseFloat(revenueChange) >= 0 ? 'text-green-400' : 'text-red-400'}
@@ -264,7 +267,7 @@ export function SingleVenueDashboard() {
         <StatCard
           icon={<ShoppingBag className="w-6 h-6 text-blue-400" />}
           iconBg="bg-blue-900/50"
-          label={t('dashboard.orderCount')}
+          label={t('orderCount')}
           value={stats.todayOrders.toString()}
           change={`${parseFloat(ordersChange) >= 0 ? '↗' : '↘'} ${ordersChange}%`}
           changeColor={parseFloat(ordersChange) >= 0 ? 'text-green-400' : 'text-red-400'}
@@ -272,14 +275,14 @@ export function SingleVenueDashboard() {
         <StatCard
           icon={<Clock className="w-6 h-6 text-orange-400" />}
           iconBg="bg-orange-900/50"
-          label={t('dashboard.activeOrders')}
+          label={t('activeOrders')}
           value={stats.activeOrders.toString()}
-          subValue={t('dashboard.processing')}
+          subValue={t('processing')}
         />
         <StatCard
           icon={<CreditCard className="w-6 h-6 text-purple-400" />}
           iconBg="bg-purple-900/50"
-          label={t('dashboard.avgOrderValue')}
+          label={t('avgOrderValue')}
           value={formatCurrency(stats.avgOrderValue)}
         />
       </div>
@@ -288,22 +291,22 @@ export function SingleVenueDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MiniStatCard
           icon={<Users className="w-5 h-5 text-blue-400" />}
-          label={t('dashboard.totalCustomers')}
+          label={t('totalCustomers')}
           value={stats.totalCustomers.toString()}
         />
         <MiniStatCard
           icon={<Utensils className="w-5 h-5 text-green-400" />}
-          label={t('dashboard.occupancy')}
+          label={t('occupancy')}
           value={`%${stats.occupancyRate}`}
         />
         <MiniStatCard
           icon={<Clock className="w-5 h-5 text-yellow-400" />}
-          label={t('dashboard.avgWaitTime')}
+          label={t('avgWaitTime')}
           value={`${stats.avgWaitTime} dk`}
         />
         <MiniStatCard
           icon={<CalendarCheck className="w-5 h-5 text-purple-400" />}
-          label={t('dashboard.pendingReservations')}
+          label={t('pendingReservations')}
           value={stats.pendingReservations.toString()}
         />
       </div>
@@ -313,12 +316,12 @@ export function SingleVenueDashboard() {
         {/* Recent Orders */}
         <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">{t('dashboard.recentOrders')}</h2>
+            <h2 className="text-lg font-semibold text-white">{t('recentOrders')}</h2>
             <button type="button" 
               onClick={() => router.push('/orders')}
               className="text-orange-400 hover:text-orange-300 text-sm font-medium"
             >
-              {t('common.viewAll')}
+              {tCommon('viewAll')}
             </button>
           </div>
           
@@ -360,8 +363,8 @@ export function SingleVenueDashboard() {
         {/* Top Products */}
         <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">{t('dashboard.topSelling')}</h2>
-            <span className="text-sm text-gray-400">{t('dashboard.today')}</span>
+            <h2 className="text-lg font-semibold text-white">{t('topSelling')}</h2>
+            <span className="text-sm text-gray-400">{t('today')}</span>
           </div>
           
           {topProducts.length === 0 ? (
@@ -380,7 +383,7 @@ export function SingleVenueDashboard() {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-white">{product.name}</p>
-                    <p className="text-sm text-gray-400">{product.quantity} {t('common.pieces')}</p>
+                    <p className="text-sm text-gray-400">{product.quantity} {tCommon('pieces')}</p>
                   </div>
                   <p className="font-semibold text-green-400">{formatCurrency(product.revenue)}</p>
                 </div>

@@ -11,6 +11,8 @@
     "refresh": "Yenile",
     "confirmDelete": "Silmek istediğinizden emin misiniz?",
     "items": "öğe",
+    "pieces": "adet",
+    "viewAll": "Tümünü Gör",
     "more": "Daha fazla",
     "newSection": "Yeni Bölüm",
     "enterSectionName": "Bölüm adı girin",
@@ -83,6 +85,9 @@
     "dashboard": "Dashboard",
     "tables": "Masalar",
     "orders": "Siparişler",
+    "waiterRole": "Garson",
+    "kitchenRole": "Mutfak",
+    "receptionRole": "Resepsiyon",
     "kitchen": "Mutfak",
     "waiter": "Garson Paneli",
     "menu": "Menü",
@@ -122,7 +127,18 @@
     "quickStats": "Hızlı İstatistikler",
     "lowStockItems": "Düşük Stoklu Ürünler",
     "staffOnDuty": "Görevdeki Personel",
-    "viewAll": "Tümünü Gör"
+    "viewAll": "Tümünü Gör",
+    "completed": "Tamamlandı",
+    "preparing": "Hazırlanıyor",
+    "noOrders": "Sipariş bulunamadı",
+    "noProducts": "Ürün bulunamadı",
+    "table": "Masa",
+    "minutes": "dakika",
+    "today": "Bugün",
+    "processing": "İşleniyor",
+    "topSelling": "En Çok Satanlar",
+    "avgWaitTime": "Ort. Bekleme",
+    "occupancy": "Doluluk"
   },
   "orders": {
     "title": "Siparişler",
@@ -413,7 +429,9 @@
     "totalItems": "Toplam Ürün",
     "lowStockItems": "Düşük Stok",
     "outOfStockItems": "Tükenen",
-    "totalValue": "Toplam Değer"
+    "totalValue": "Toplam Değer",
+    "currentStock": "Mevcut Stok",
+    "minStock": "Min. Stok"
   },
   "stockAlerts": {
     "title": "Stok Uyarıları",
@@ -444,7 +462,10 @@
     "receptionist": "Resepsiyon",
     "totalStaff": "Toplam Personel",
     "onDuty": "Görevde",
-    "orders": "Siparişler"
+    "orders": "Siparişler",
+    "waiterRole": "Garson",
+    "kitchenRole": "Mutfak",
+    "receptionRole": "Resepsiyon"
   },
   "shifts": {
     "title": "Vardiya Yönetimi",
@@ -492,6 +513,9 @@
     "title": "Analitik",
     "revenue": "Gelir",
     "orders": "Siparişler",
+    "waiterRole": "Garson",
+    "kitchenRole": "Mutfak",
+    "receptionRole": "Resepsiyon",
     "customers": "Müşteriler",
     "products": "Ürünler",
     "trends": "Trendler",
@@ -560,9 +584,25 @@
     "minOrderAmount": "Minimum Sipariş Tutarı",
     "theme": "Tema",
     "language": "Dil",
-    "saveSettings": "Ayarları Kaydet"
+    "saveSettings": "Ayarları Kaydet",
+    "monday": "Pazartesi",
+    "tuesday": "Salı",
+    "wednesday": "Çarşamba",
+    "thursday": "Perşembe",
+    "friday": "Cuma",
+    "saturday": "Cumartesi",
+    "sunday": "Pazar",
+    "closed": "Kapalı",
+    "orderSettings": "Sipariş Ayarları",
+    "paymentSettings": "Ödeme Ayarları",
+    "notificationSoundsDescription": "Yeni sipariş ve bildirimler için ses çal",
+    "autoAcceptDescription": "Siparişleri otomatik olarak onayla",
+    "reservationsEnabled": "Rezervasyon Aktif",
+    "reservationsDescription": "Müşterilerin online rezervasyon yapmasına izin ver",
+    "qrMenuDescription": "QR kod ile menü görüntülemeyi aktif et",
+    "onlineOrderingDescription": "Online sipariş almayı aktif et"
   },
-  "venue": {
+  "venues": {
     "title": "Mekan",
     "selectVenue": "Mekan Seç",
     "allVenues": "Tüm Mekanlar",

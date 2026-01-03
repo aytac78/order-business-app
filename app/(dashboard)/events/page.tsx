@@ -296,7 +296,6 @@ export default function EventsPage() {
       {/* Events Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredEvents.map(event => {
-          const t = useTranslations('events');
   const typeInfo = eventTypes.find(et => et.id === event.type) || eventTypes[eventTypes.length - 1];
           const TypeIcon = typeInfo.icon;
           const config = statusConfig[event.status];

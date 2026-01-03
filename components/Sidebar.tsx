@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUIStore, useVenueStore } from '@/stores';
-import { useTranslation } from '@/lib/i18n/provider';
+import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard, UtensilsCrossed, ChefHat, Users, CalendarCheck,
   Receipt, BarChart3, Package, Clock, UserCircle, TrendingUp,
@@ -14,62 +14,62 @@ import { PartyPopper } from 'lucide-react';
 
 const getMenuItems = (t: (key: string) => string) => [
   {
-    section: t('nav.mainMenu'),
+    section: t('mainMenu'),
     items: [
-      { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
-      { name: t('nav.venues'), href: '/venues', icon: Building2, multiVenueOnly: true },
-      { name: t('nav.onboarding'), href: '/onboarding', icon: Sparkles },
+      { name: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
+      { name: t('venues'), href: '/venues', icon: Building2, multiVenueOnly: true },
+      { name: t('onboarding'), href: '/onboarding', icon: Sparkles },
     ]
   },
   {
-    section: t('nav.operation'),
+    section: t('operations'),
     items: [
-      { name: t('nav.tables'), href: '/tables', icon: Grid3X3 },
-      { name: t('nav.orders'), href: '/orders', icon: ClipboardList },
-      { name: t('nav.waiter'), href: '/waiter', icon: UtensilsCrossed },
-      { name: t('nav.kitchen'), href: '/kitchen', icon: ChefHat },
-      { name: t('nav.reception'), href: '/reception', icon: Users },
+      { name: t('tables'), href: '/tables', icon: Grid3X3 },
+      { name: t('orders'), href: '/orders', icon: ClipboardList },
+      { name: t('waiter'), href: '/waiter', icon: UtensilsCrossed },
+      { name: t('kitchen'), href: '/kitchen', icon: ChefHat },
+      { name: t('reception'), href: '/reception', icon: Users },
     ]
   },
   {
-    section: t('nav.communication'),
+    section: t('communication'),
     items: [
-      { name: t('nav.hereCustomers'), href: '/here-customers', icon: MapPin },
+      { name: t('hereCustomers'), href: '/here-customers', icon: MapPin },
     ]
   },
   {
-    section: t('nav.management'),
+    section: t('management'),
     items: [
-      { name: t('nav.menu'), href: '/menu', icon: UtensilsCrossed },
-      { name: t('nav.events'), href: '/events', icon: PartyPopper },
-      { name: t('nav.reservations'), href: '/reservations', icon: CalendarCheck },
-      { name: t('nav.pos'), href: '/pos', icon: CreditCard },
-      { name: t('nav.qrMenu'), href: '/qr-menu', icon: QrCode },
-      { name: t('nav.coupons'), href: '/coupons', icon: Ticket },
+      { name: t('menu'), href: '/menu', icon: UtensilsCrossed },
+      { name: t('events'), href: '/events', icon: PartyPopper },
+      { name: t('reservations'), href: '/reservations', icon: CalendarCheck },
+      { name: t('pos'), href: '/pos', icon: CreditCard },
+      { name: t('qrMenu'), href: '/qr-menu', icon: QrCode },
+      { name: t('coupons'), href: '/coupons', icon: Ticket },
     ]
   },
   {
-    section: t('nav.stockAndStaff'),
+    section: t('stockAndStaff'),
     items: [
-      { name: t('nav.stock'), href: '/stock', icon: Package },
-      { name: t('nav.stockAlerts'), href: '/stock-alerts', icon: AlertTriangle },
-      { name: t('nav.staff'), href: '/staff', icon: Users },
-      { name: t('nav.shifts'), href: '/shifts', icon: Clock },
-      { name: t('nav.performance'), href: '/performance', icon: TrendingUp },
+      { name: t('stock'), href: '/stock', icon: Package },
+      { name: t('stockAlerts'), href: '/stock-alerts', icon: AlertTriangle },
+      { name: t('staff'), href: '/staff', icon: Users },
+      { name: t('shifts'), href: '/shifts', icon: Clock },
+      { name: t('performance'), href: '/performance', icon: TrendingUp },
     ]
   },
   {
-    section: t('nav.analyticsAndCrm'),
+    section: t('analysisAndCrm'),
     items: [
-      { name: t('nav.reports'), href: '/reports', icon: Receipt },
-      { name: t('nav.analytics'), href: '/analytics', icon: BarChart3 },
-      { name: t('nav.crm'), href: '/crm', icon: UserCircle },
+      { name: t('reports'), href: '/reports', icon: Receipt },
+      { name: t('analytics'), href: '/analytics', icon: BarChart3 },
+      { name: t('crm'), href: '/crm', icon: UserCircle },
     ]
   },
   {
-    section: t('nav.system'),
+    section: t('system'),
     items: [
-      { name: t('nav.settings'), href: '/settings', icon: Settings },
+      { name: t('settings'), href: '/settings', icon: Settings },
     ]
   }
 ];
@@ -78,7 +78,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, sidebarCollapsed, toggleSidebarCollapse, setSidebarOpen } = useUIStore();
   const { venues } = useVenueStore();
-  const { t } = useTranslation();
+  const t = useTranslations('nav');
+  const tCommon = useTranslations('common');
   
   const isMultiVenue = venues.length > 1;
   const menuItems = getMenuItems(t);
@@ -162,7 +163,7 @@ export function Sidebar() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-white">TiT Pay</p>
-              <p className="text-xs text-gray-400">{t('common.active')}</p>
+              <p className="text-xs text-gray-400">{tCommon('active')}</p>
             </div>
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           </div>
@@ -189,7 +190,6 @@ export function MobileSidebarToggle() {
 // Mobile Header for dashboard
 export function MobileHeader() {
   const { setSidebarOpen } = useUIStore();
-  const { t } = useTranslation();
 
   return (
     <div className="lg:hidden flex items-center justify-between p-4 bg-gray-900 border-b border-gray-800">

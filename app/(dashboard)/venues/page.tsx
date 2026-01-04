@@ -14,16 +14,15 @@ interface Venue {
   id: string;
   name: string;
   slug: string;
-  type: string;
+  category: string;
   address: string;
-  city: string;
+  neighborhood: string;
   district: string;
   phone: string;
   email: string;
   logo_url?: string;
   is_active: boolean;
   created_at: string;
-  // Stats (will be loaded separately)
   today_orders?: number;
   today_revenue?: number;
   active_staff?: number;
@@ -55,7 +54,6 @@ export default function VenuesPage() {
       .order('name');
 
     if (data) {
-      // Load stats for each venue
       const venuesWithStats = await Promise.all(data.map(async (venue) => {
         const today = new Date().toISOString().split('T')[0];
         
@@ -123,7 +121,6 @@ export default function VenuesPage() {
     loadVenues();
   };
 
-  // Stats
   const totalVenues = venueList.length;
   const activeVenues = venueList.filter(v => v.is_active).length;
   const totalRevenue = venueList.reduce((sum, v) => sum + (v.today_revenue || 0), 0);
@@ -146,14 +143,16 @@ export default function VenuesPage() {
           <p className="text-gray-400">{totalVenues} mekan</p>
         </div>
         <div className="flex items-center gap-3">
-          <button type="button"
+          <button
+            type="button"
             onClick={loadVenues}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button type="button"
+          <button
+            type="button"
             onClick={() => { setEditingVenue(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
           >
@@ -231,7 +230,7 @@ export default function VenuesPage() {
                 <div className="absolute bottom-3 left-3">
                   <h3 className="text-xl font-bold text-white">{venue.name}</h3>
                   <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white">
-                    {venueTypeLabels[venue.type] || venue.type}
+                    {venueTypeLabels[venue.category] || venue.category}
                   </span>
                 </div>
                 <div className="absolute top-3 right-3">
@@ -248,7 +247,7 @@ export default function VenuesPage() {
                 <div className="space-y-2 text-sm text-gray-400 mb-4">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
-                    <span className="truncate">{venue.district}, {venue.city}</span>
+                    <span className="truncate">{venue.district}{venue.neighborhood ? `, ${venue.neighborhood}` : ''}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4" />
@@ -274,7 +273,8 @@ export default function VenuesPage() {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-3 border-t border-gray-700">
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => handleSelectVenue(venue)}
                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
                       currentVenue?.id === venue.id
@@ -284,13 +284,15 @@ export default function VenuesPage() {
                   >
                     {currentVenue?.id === venue.id ? 'Seçili' : 'Seç'}
                   </button>
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => { setEditingVenue(venue); setShowModal(true); }}
                     className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => handleToggleActive(venue)}
                     className={`p-2 rounded-lg ${
                       venue.is_active
@@ -300,7 +302,8 @@ export default function VenuesPage() {
                   >
                     {venue.is_active ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                   </button>
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => handleDelete(venue.id)}
                     className="p-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg"
                     title="Sil"
@@ -341,9 +344,9 @@ function VenueModal({
   onSave: (data: Partial<Venue>) => void;
 }) {
   const [name, setName] = useState(venue?.name || '');
-  const [type, setType] = useState(venue?.type || 'restaurant');
+  const [category, setCategory] = useState(venue?.category || 'restaurant');
   const [address, setAddress] = useState(venue?.address || '');
-  const [city, setCity] = useState(venue?.city || '');
+  const [neighborhood, setNeighborhood] = useState(venue?.neighborhood || '');
   const [district, setDistrict] = useState(venue?.district || '');
   const [phone, setPhone] = useState(venue?.phone || '');
   const [email, setEmail] = useState(venue?.email || '');
@@ -352,10 +355,10 @@ function VenueModal({
     e.preventDefault();
     onSave({
       name,
-      slug: name.toLowerCase().replace(/\s+/g, '-'),
-      type,
+      slug: name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      category,
       address,
-      city,
+      neighborhood,
       district,
       phone,
       email
@@ -387,8 +390,8 @@ function VenueModal({
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Mekan Tipi</label>
             <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
             >
               {Object.entries(venueTypeLabels).map(([key, label]) => (
@@ -398,23 +401,24 @@ function VenueModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Şehir</label>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                required
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">İlçe</label>
               <input
                 type="text"
                 value={district}
                 onChange={(e) => setDistrict(e.target.value)}
+                placeholder="Kadıköy"
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Mahalle</label>
+              <input
+                type="text"
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
+                placeholder="Moda"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
               />
             </div>
           </div>
@@ -425,7 +429,6 @@ function VenueModal({
               onChange={(e) => setAddress(e.target.value)}
               rows={2}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-              required
             />
           </div>
           <div>
@@ -445,18 +448,17 @@ function VenueModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-              required
             />
           </div>
           <div className="flex gap-3 pt-4">
-            <button type="button"
+            <button
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button type="button"
+            <button
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >

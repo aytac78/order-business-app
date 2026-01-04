@@ -13,10 +13,10 @@ import {
 
 interface VenueData {
   name: string;
-  type: string;
+  category: string;
   address: string;
-  city: string;
   district: string;
+  neighborhood: string;
   phone: string;
   email: string;
 }
@@ -34,16 +34,16 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { setCurrentVenue, setVenues } = useVenueStore();
   const t = useTranslations('nav');
-  const tCommon = useTranslations('common');
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [venueData, setVenueData] = useState<VenueData>({
     name: '',
-    type: 'restaurant',
+    category: 'restaurant',
     address: '',
-    city: '',
     district: '',
+    neighborhood: '',
     phone: '',
     email: ''
   });
@@ -65,23 +65,26 @@ export default function OnboardingPage() {
 
   const handleComplete = async () => {
     setLoading(true);
+    setError(null);
 
     try {
-      const { data: venue, error } = await supabase
+      const slug = venueData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      
+      const { data: venue, error: insertError } = await supabase
         .from('venues')
         .insert({
           name: venueData.name,
-          slug: venueData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
-          type: venueData.type,
+          slug: slug,
+          category: venueData.category,
           address: venueData.address,
-          city: venueData.city,
           district: venueData.district,
+          neighborhood: venueData.neighborhood,
           phone: venueData.phone,
           email: venueData.email,
-          currency: 'TRY',
-          timezone: 'Europe/Istanbul',
           is_active: true,
           settings: {
+            currency: 'TRY',
+            timezone: 'Europe/Istanbul',
             working_hours: {
               monday: { is_open: true, open: '09:00', close: '22:00' },
               tuesday: { is_open: true, open: '09:00', close: '22:00' },
@@ -103,21 +106,29 @@ export default function OnboardingPage() {
         .select()
         .single();
 
-      if (venue && !error) {
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        setError(insertError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (venue) {
         setCurrentVenue(venue as any);
         setVenues([venue as any]);
         setStep(4);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating venue:', err);
+      setError(err.message || 'Bir hata oluştu');
     }
 
     setLoading(false);
   };
 
   const canProceed = () => {
-    if (step === 1) return venueData.type !== '';
-    if (step === 2) return venueData.name !== '' && venueData.city !== '' && venueData.district !== '';
+    if (step === 1) return venueData.category !== '';
+    if (step === 2) return venueData.name !== '' && venueData.district !== '';
     if (step === 3) return venueData.phone !== '' && venueData.email !== '';
     return true;
   };
@@ -130,7 +141,7 @@ export default function OnboardingPage() {
           <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">{t('onboarding')}</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Hızlı Kayıt</h1>
           <p className="text-gray-400">Mekanınızı birkaç adımda kurun</p>
         </div>
 
@@ -161,6 +172,13 @@ export default function OnboardingPage() {
           ))}
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-500/20 border border-red-500 rounded-xl text-red-400">
+            {error}
+          </div>
+        )}
+
         {/* Step Content */}
         <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6">
           {/* Step 1: Venue Type */}
@@ -173,11 +191,12 @@ export default function OnboardingPage() {
                 {venueTypes.map(type => {
                   const Icon = type.icon;
                   return (
-                    <button type="button"
+                    <button
+                      type="button"
                       key={type.id}
-                      onClick={() => setVenueData({ ...venueData, type: type.id })}
+                      onClick={() => setVenueData({ ...venueData, category: type.id })}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        venueData.type === type.id
+                        venueData.category === type.id
                           ? 'border-orange-500 bg-orange-500/10'
                           : 'border-gray-700 hover:border-gray-600'
                       }`}
@@ -212,22 +231,22 @@ export default function OnboardingPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Şehir *</label>
-                    <input
-                      type="text"
-                      value={venueData.city}
-                      onChange={(e) => setVenueData({ ...venueData, city: e.target.value })}
-                      placeholder="Örn: İstanbul"
-                      className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                    />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">İlçe *</label>
                     <input
                       type="text"
                       value={venueData.district}
                       onChange={(e) => setVenueData({ ...venueData, district: e.target.value })}
                       placeholder="Örn: Kadıköy"
+                      className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Mahalle</label>
+                    <input
+                      type="text"
+                      value={venueData.neighborhood}
+                      onChange={(e) => setVenueData({ ...venueData, neighborhood: e.target.value })}
+                      placeholder="Örn: Moda"
                       className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white"
                     />
                   </div>
@@ -311,7 +330,8 @@ export default function OnboardingPage() {
                   </li>
                 </ul>
               </div>
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => router.push('/dashboard')}
                 className="px-8 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold"
               >
@@ -323,7 +343,8 @@ export default function OnboardingPage() {
           {/* Navigation */}
           {step < 4 && (
             <div className="flex justify-between mt-8 pt-6 border-t border-gray-700">
-              <button type="button"
+              <button
+                type="button"
                 onClick={handleBack}
                 disabled={step === 1}
                 className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -333,7 +354,8 @@ export default function OnboardingPage() {
               </button>
               
               {step === 3 ? (
-                <button type="button"
+                <button
+                  type="button"
                   onClick={handleComplete}
                   disabled={!canProceed() || loading}
                   className="flex items-center gap-2 px-6 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white rounded-xl font-medium"
@@ -342,7 +364,8 @@ export default function OnboardingPage() {
                   Tamamla
                 </button>
               ) : (
-                <button type="button"
+                <button
+                  type="button"
                   onClick={handleNext}
                   disabled={!canProceed()}
                   className="flex items-center gap-2 px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white rounded-xl font-medium"

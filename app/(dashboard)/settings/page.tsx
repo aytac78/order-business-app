@@ -6,26 +6,36 @@ import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import {
-  Save, AlertCircle, Loader2, Settings as SettingsIcon,
-  Building, Clock, CreditCard, Bell, Palette, Globe,
-  QrCode, Users, Shield, Database, Trash2, ToggleLeft, ToggleRight,
-  AlertTriangle, X
+  Save, AlertCircle, Loader2, Building, Clock, CreditCard, Bell,
+  QrCode, Trash2, ToggleLeft, ToggleRight, AlertTriangle, X, CheckCircle
 } from 'lucide-react';
 
 interface VenueSettings {
-  working_hours: {
+  currency?: string;
+  timezone?: string;
+  working_hours?: {
     [key: string]: { is_open: boolean; open: string; close: string };
   };
-  reservation_enabled: boolean;
-  qr_menu_enabled: boolean;
-  online_ordering_enabled: boolean;
+  reservation_enabled?: boolean;
+  qr_menu_enabled?: boolean;
+  online_ordering_enabled?: boolean;
   min_order_amount?: number;
   service_charge_percent?: number;
-  tax_rate: number;
-  auto_accept_orders: boolean;
-  notification_sounds: boolean;
-  theme_color: string;
+  tax_rate?: number;
+  auto_accept_orders?: boolean;
+  notification_sounds?: boolean;
+  theme_color?: string;
 }
+
+const defaultWorkingHours = {
+  monday: { is_open: true, open: '09:00', close: '22:00' },
+  tuesday: { is_open: true, open: '09:00', close: '22:00' },
+  wednesday: { is_open: true, open: '09:00', close: '22:00' },
+  thursday: { is_open: true, open: '09:00', close: '22:00' },
+  friday: { is_open: true, open: '09:00', close: '23:00' },
+  saturday: { is_open: true, open: '09:00', close: '23:00' },
+  sunday: { is_open: true, open: '10:00', close: '22:00' },
+};
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -35,6 +45,7 @@ export default function SettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [activeTab, setActiveTab] = useState('general');
 
   // Form states
@@ -47,15 +58,7 @@ export default function SettingsPage() {
 
   // Settings
   const [settings, setSettings] = useState<VenueSettings>({
-    working_hours: {
-      monday: { is_open: true, open: '09:00', close: '22:00' },
-      tuesday: { is_open: true, open: '09:00', close: '22:00' },
-      wednesday: { is_open: true, open: '09:00', close: '22:00' },
-      thursday: { is_open: true, open: '09:00', close: '22:00' },
-      friday: { is_open: true, open: '09:00', close: '23:00' },
-      saturday: { is_open: true, open: '09:00', close: '23:00' },
-      sunday: { is_open: true, open: '10:00', close: '22:00' },
-    },
+    working_hours: defaultWorkingHours,
     reservation_enabled: true,
     qr_menu_enabled: true,
     online_ordering_enabled: true,
@@ -72,7 +75,7 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  const dayNames = {
+  const dayNames: Record<string, string> = {
     monday: t('monday'),
     tuesday: t('tuesday'),
     wednesday: t('wednesday'),
@@ -83,7 +86,10 @@ export default function SettingsPage() {
   };
 
   const loadVenue = useCallback(async () => {
-    if (!currentVenue?.id) return;
+    if (!currentVenue?.id) {
+      setLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from('venues')
@@ -96,11 +102,24 @@ export default function SettingsPage() {
       setPhone(data.phone || '');
       setEmail(data.email || '');
       setAddress(data.address || '');
-      setCurrency(data.currency || 'TRY');
-      setTimezone(data.timezone || 'Europe/Istanbul');
-      if (data.settings) {
-        setSettings(prev => ({ ...prev, ...data.settings }));
-      }
+      
+      // Settings içinden currency ve timezone al
+      const venueSettings = data.settings || {};
+      setCurrency(venueSettings.currency || 'TRY');
+      setTimezone(venueSettings.timezone || 'Europe/Istanbul');
+      
+      setSettings({
+        working_hours: venueSettings.working_hours || defaultWorkingHours,
+        reservation_enabled: venueSettings.reservation_enabled ?? true,
+        qr_menu_enabled: venueSettings.qr_menu_enabled ?? true,
+        online_ordering_enabled: venueSettings.online_ordering_enabled ?? true,
+        min_order_amount: venueSettings.min_order_amount || 0,
+        service_charge_percent: venueSettings.service_charge_percent || 0,
+        tax_rate: venueSettings.tax_rate || 8,
+        auto_accept_orders: venueSettings.auto_accept_orders ?? false,
+        notification_sounds: venueSettings.notification_sounds ?? true,
+        theme_color: venueSettings.theme_color || '#f97316',
+      });
     }
     setLoading(false);
   }, [currentVenue?.id]);
@@ -112,6 +131,14 @@ export default function SettingsPage() {
   const handleSave = async () => {
     if (!currentVenue?.id) return;
     setSaving(true);
+    setSaveMessage(null);
+
+    // Settings içine currency ve timezone ekle
+    const updatedSettings = {
+      ...settings,
+      currency,
+      timezone,
+    };
 
     const { data, error } = await supabase
       .from('venues')
@@ -120,17 +147,20 @@ export default function SettingsPage() {
         phone,
         email,
         address,
-        currency,
-        timezone,
-        settings,
+        settings: updatedSettings,
         updated_at: new Date().toISOString()
       })
       .eq('id', currentVenue.id)
       .select()
       .single();
 
-    if (data && !error) {
+    if (error) {
+      console.error('Save error:', error);
+      setSaveMessage({ type: 'error', text: 'Kaydetme hatası: ' + error.message });
+    } else if (data) {
       setCurrentVenue({ ...currentVenue, ...data });
+      setSaveMessage({ type: 'success', text: 'Ayarlar başarıyla kaydedildi!' });
+      setTimeout(() => setSaveMessage(null), 3000);
     }
     
     setSaving(false);
@@ -141,9 +171,8 @@ export default function SettingsPage() {
     
     setDeleting(true);
 
-    // Delete related data first
+    // Delete related data first (ignore errors for tables that might not exist)
     await supabase.from('orders').delete().eq('venue_id', currentVenue.id);
-    await supabase.from('order_items').delete().eq('order_id', currentVenue.id);
     await supabase.from('tables').delete().eq('venue_id', currentVenue.id);
     await supabase.from('products').delete().eq('venue_id', currentVenue.id);
     await supabase.from('categories').delete().eq('venue_id', currentVenue.id);
@@ -157,7 +186,6 @@ export default function SettingsPage() {
       .eq('id', currentVenue.id);
 
     if (!error) {
-      // Update store
       const remainingVenues = venues.filter(v => v.id !== currentVenue.id);
       setVenues(remainingVenues);
       
@@ -178,9 +206,9 @@ export default function SettingsPage() {
     setSettings(prev => ({
       ...prev,
       working_hours: {
-        ...prev.working_hours,
+        ...(prev.working_hours || defaultWorkingHours),
         [day]: {
-          ...prev.working_hours[day],
+          ...(prev.working_hours?.[day] || defaultWorkingHours.monday),
           [field]: value
         }
       }
@@ -215,6 +243,8 @@ export default function SettingsPage() {
     );
   }
 
+  const workingHours = settings.working_hours || defaultWorkingHours;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -224,7 +254,8 @@ export default function SettingsPage() {
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
         {activeTab !== 'danger' && (
-          <button type="button"
+          <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-2 px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white rounded-xl transition-colors"
@@ -235,22 +266,29 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Save Message */}
+      {saveMessage && (
+        <div className={`p-4 rounded-xl flex items-center gap-3 ${
+          saveMessage.type === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+        }`}>
+          {saveMessage.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+          {saveMessage.text}
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
-            <button type="button"
+            <button
+              type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? tab.danger 
-                    ? 'bg-red-500 text-white'
-                    : 'bg-orange-500 text-white'
-                  : tab.danger
-                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? tab.danger ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
+                  : tab.danger ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -266,42 +304,26 @@ export default function SettingsPage() {
         {activeTab === 'general' && (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-white mb-4">{t('general')}</h2>
-            
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('venueName')}</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('phone')}</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                />
+                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('email')}</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('currency')}</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                >
+                <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white">
                   <option value="TRY">TRY (₺)</option>
                   <option value="USD">USD ($)</option>
                   <option value="EUR">EUR (€)</option>
@@ -310,20 +332,13 @@ export default function SettingsPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('address')}</label>
-                <textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  rows={2}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                />
+                <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('timezone')}</label>
-                <select
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                >
+                <select value={timezone} onChange={(e) => setTimezone(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white">
                   <option value="Europe/Istanbul">Europe/Istanbul (UTC+3)</option>
                   <option value="Europe/Rome">Europe/Rome (UTC+1)</option>
                   <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
@@ -340,36 +355,23 @@ export default function SettingsPage() {
         {activeTab === 'hours' && (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-white mb-4">{t('workingHours')}</h2>
-            
             <div className="space-y-4">
-              {Object.entries(settings.working_hours).map(([day, hours]) => (
+              {Object.entries(workingHours).map(([day, hours]) => (
                 <div key={day} className="flex items-center gap-4 p-4 bg-gray-700/50 rounded-xl">
                   <div className="w-32">
-                    <span className="font-medium text-white">{dayNames[day as keyof typeof dayNames]}</span>
+                    <span className="font-medium text-white">{dayNames[day] || day}</span>
                   </div>
-                  
-                  <button type="button"
-                    onClick={() => updateWorkingHours(day, 'is_open', !hours.is_open)}
-                    className={`p-2 rounded-lg ${hours.is_open ? 'bg-green-500' : 'bg-gray-600'}`}
-                  >
+                  <button type="button" onClick={() => updateWorkingHours(day, 'is_open', !hours.is_open)}
+                    className={`p-2 rounded-lg ${hours.is_open ? 'bg-green-500' : 'bg-gray-600'}`}>
                     {hours.is_open ? <ToggleRight className="w-5 h-5 text-white" /> : <ToggleLeft className="w-5 h-5 text-white" />}
                   </button>
-
                   {hours.is_open ? (
                     <>
-                      <input
-                        type="time"
-                        value={hours.open}
-                        onChange={(e) => updateWorkingHours(day, 'open', e.target.value)}
-                        className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-                      />
+                      <input type="time" value={hours.open} onChange={(e) => updateWorkingHours(day, 'open', e.target.value)}
+                        className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white" />
                       <span className="text-gray-400">-</span>
-                      <input
-                        type="time"
-                        value={hours.close}
-                        onChange={(e) => updateWorkingHours(day, 'close', e.target.value)}
-                        className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-                      />
+                      <input type="time" value={hours.close} onChange={(e) => updateWorkingHours(day, 'close', e.target.value)}
+                        className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white" />
                     </>
                   ) : (
                     <span className="text-gray-500">{t('closed')}</span>
@@ -384,70 +386,31 @@ export default function SettingsPage() {
         {activeTab === 'ordering' && (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-white mb-4">{t('orderSettings')}</h2>
-            
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
-                <div>
-                  <p className="font-medium text-white">{t('qrMenuEnabled')}</p>
-                  <p className="text-sm text-gray-400">{t('qrMenuDescription')}</p>
+              {[
+                { key: 'qr_menu_enabled', label: t('qrMenuEnabled'), desc: t('qrMenuDescription') },
+                { key: 'online_ordering_enabled', label: t('onlineOrderingEnabled'), desc: t('onlineOrderingDescription') },
+                { key: 'reservation_enabled', label: t('reservationsEnabled'), desc: t('reservationsDescription') },
+                { key: 'auto_accept_orders', label: t('autoAcceptOrders'), desc: t('autoAcceptDescription') },
+              ].map(item => (
+                <div key={item.key} className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
+                  <div>
+                    <p className="font-medium text-white">{item.label}</p>
+                    <p className="text-sm text-gray-400">{item.desc}</p>
+                  </div>
+                  <button type="button"
+                    onClick={() => setSettings(prev => ({ ...prev, [item.key]: !prev[item.key as keyof VenueSettings] }))}
+                    className={`p-2 rounded-lg ${settings[item.key as keyof VenueSettings] ? 'bg-green-500' : 'bg-gray-600'}`}>
+                    {settings[item.key as keyof VenueSettings] ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
+                  </button>
                 </div>
-                <button type="button"
-                  onClick={() => setSettings(prev => ({ ...prev, qr_menu_enabled: !prev.qr_menu_enabled }))}
-                  className={`p-2 rounded-lg ${settings.qr_menu_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
-                >
-                  {settings.qr_menu_enabled ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
-                <div>
-                  <p className="font-medium text-white">{t('onlineOrderingEnabled')}</p>
-                  <p className="text-sm text-gray-400">{t('onlineOrderingDescription')}</p>
-                </div>
-                <button type="button"
-                  onClick={() => setSettings(prev => ({ ...prev, online_ordering_enabled: !prev.online_ordering_enabled }))}
-                  className={`p-2 rounded-lg ${settings.online_ordering_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
-                >
-                  {settings.online_ordering_enabled ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
-                <div>
-                  <p className="font-medium text-white">{t('reservationsEnabled')}</p>
-                  <p className="text-sm text-gray-400">{t('reservationsDescription')}</p>
-                </div>
-                <button type="button"
-                  onClick={() => setSettings(prev => ({ ...prev, reservation_enabled: !prev.reservation_enabled }))}
-                  className={`p-2 rounded-lg ${settings.reservation_enabled ? 'bg-green-500' : 'bg-gray-600'}`}
-                >
-                  {settings.reservation_enabled ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
-                <div>
-                  <p className="font-medium text-white">{t('autoAcceptOrders')}</p>
-                  <p className="text-sm text-gray-400">{t('autoAcceptDescription')}</p>
-                </div>
-                <button type="button"
-                  onClick={() => setSettings(prev => ({ ...prev, auto_accept_orders: !prev.auto_accept_orders }))}
-                  className={`p-2 rounded-lg ${settings.auto_accept_orders ? 'bg-green-500' : 'bg-gray-600'}`}
-                >
-                  {settings.auto_accept_orders ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
-                </button>
-              </div>
-
+              ))}
               <div className="p-4 bg-gray-700/50 rounded-xl">
                 <label className="block font-medium text-white mb-2">{t('minOrderAmount')}</label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={settings.min_order_amount || 0}
+                  <input type="number" value={settings.min_order_amount || 0}
                     onChange={(e) => setSettings(prev => ({ ...prev, min_order_amount: parseFloat(e.target.value) || 0 }))}
-                    min="0"
-                    className="w-32 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                  />
+                    min="0" className="w-32 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
                   <span className="text-gray-400">₺</span>
                 </div>
               </div>
@@ -459,34 +422,22 @@ export default function SettingsPage() {
         {activeTab === 'payment' && (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-white mb-4">{t('paymentSettings')}</h2>
-            
             <div className="grid md:grid-cols-2 gap-6">
               <div className="p-4 bg-gray-700/50 rounded-xl">
                 <label className="block font-medium text-white mb-2">{t('taxRate')}</label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={settings.tax_rate}
+                  <input type="number" value={settings.tax_rate || 0}
                     onChange={(e) => setSettings(prev => ({ ...prev, tax_rate: parseFloat(e.target.value) || 0 }))}
-                    min="0"
-                    max="100"
-                    className="w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                  />
+                    min="0" max="100" className="w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
                   <span className="text-gray-400">%</span>
                 </div>
               </div>
-
               <div className="p-4 bg-gray-700/50 rounded-xl">
                 <label className="block font-medium text-white mb-2">{t('serviceCharge')}</label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={settings.service_charge_percent || 0}
+                  <input type="number" value={settings.service_charge_percent || 0}
                     onChange={(e) => setSettings(prev => ({ ...prev, service_charge_percent: parseFloat(e.target.value) || 0 }))}
-                    min="0"
-                    max="100"
-                    className="w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                  />
+                    min="0" max="100" className="w-24 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
                   <span className="text-gray-400">%</span>
                 </div>
               </div>
@@ -498,20 +449,16 @@ export default function SettingsPage() {
         {activeTab === 'notifications' && (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-white mb-4">{t('notifications')}</h2>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
-                <div>
-                  <p className="font-medium text-white">{t('notificationSounds')}</p>
-                  <p className="text-sm text-gray-400">{t('notificationSoundsDescription')}</p>
-                </div>
-                <button type="button"
-                  onClick={() => setSettings(prev => ({ ...prev, notification_sounds: !prev.notification_sounds }))}
-                  className={`p-2 rounded-lg ${settings.notification_sounds ? 'bg-green-500' : 'bg-gray-600'}`}
-                >
-                  {settings.notification_sounds ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
-                </button>
+            <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
+              <div>
+                <p className="font-medium text-white">{t('notificationSounds')}</p>
+                <p className="text-sm text-gray-400">{t('notificationSoundsDescription')}</p>
               </div>
+              <button type="button"
+                onClick={() => setSettings(prev => ({ ...prev, notification_sounds: !prev.notification_sounds }))}
+                className={`p-2 rounded-lg ${settings.notification_sounds ? 'bg-green-500' : 'bg-gray-600'}`}>
+                {settings.notification_sounds ? <ToggleRight className="w-6 h-6 text-white" /> : <ToggleLeft className="w-6 h-6 text-white" />}
+              </button>
             </div>
           </div>
         )}
@@ -523,23 +470,17 @@ export default function SettingsPage() {
               <AlertTriangle className="w-6 h-6" />
               <h2 className="text-lg font-semibold">{t('dangerZone')}</h2>
             </div>
-            
             <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-xl">
               <h3 className="text-lg font-medium text-white mb-2">{t('deleteVenue')}</h3>
               <p className="text-gray-400 mb-4">{t('deleteVenueWarning')}</p>
-              
               <ul className="text-sm text-gray-400 mb-6 space-y-1">
                 <li>• {t('deleteWarning1')}</li>
                 <li>• {t('deleteWarning2')}</li>
                 <li>• {t('deleteWarning3')}</li>
                 <li>• {t('deleteWarning4')}</li>
               </ul>
-              
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(true)}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium flex items-center gap-2 transition-colors"
-              >
+              <button type="button" onClick={() => setShowDeleteModal(true)}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium flex items-center gap-2 transition-colors">
                 <Trash2 className="w-5 h-5" />
                 {t('deleteVenueButton')}
               </button>
@@ -561,41 +502,23 @@ export default function SettingsPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
             <div className="p-6 space-y-4">
               <p className="text-gray-300">{t('deleteConfirmMessage')}</p>
-              
               <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
                 <p className="text-sm text-gray-400 mb-2">{t('typeToConfirm')}</p>
                 <p className="text-white font-mono font-bold mb-3">{currentVenue.name}</p>
-                <input
-                  type="text"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder={t('typeVenueName')}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white"
-                />
+                <input type="text" value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={t('typeVenueName')} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white" />
               </div>
-              
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
-                >
+                <button type="button" onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors">
                   {tCommon('cancel')}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteVenue}
+                <button type="button" onClick={handleDeleteVenue}
                   disabled={deleteConfirmText !== currentVenue.name || deleting}
-                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
-                >
-                  {deleting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-5 h-5" />
-                  )}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors">
+                  {deleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
                   {t('permanentlyDelete')}
                 </button>
               </div>

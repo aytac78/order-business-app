@@ -191,7 +191,7 @@ export default function OnboardingPage() {
                 {venueTypes.map(type => {
                   const Icon = type.icon;
                   return (
-                    <button
+                    <button type="button"
                       type="button"
                       key={type.id}
                       onClick={() => setVenueData({ ...venueData, category: type.id })}
@@ -330,7 +330,7 @@ export default function OnboardingPage() {
                   </li>
                 </ul>
               </div>
-              <button
+              <button type="button"
                 type="button"
                 onClick={() => router.push('/dashboard')}
                 className="px-8 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold"
@@ -343,7 +343,7 @@ export default function OnboardingPage() {
           {/* Navigation */}
           {step < 4 && (
             <div className="flex justify-between mt-8 pt-6 border-t border-gray-700">
-              <button
+              <button type="button"
                 type="button"
                 onClick={handleBack}
                 disabled={step === 1}
@@ -354,7 +354,7 @@ export default function OnboardingPage() {
               </button>
               
               {step === 3 ? (
-                <button
+                <button type="button"
                   type="button"
                   onClick={handleComplete}
                   disabled={!canProceed() || loading}
@@ -364,7 +364,7 @@ export default function OnboardingPage() {
                   Tamamla
                 </button>
               ) : (
-                <button
+                <button type="button"
                   type="button"
                   onClick={handleNext}
                   disabled={!canProceed()}

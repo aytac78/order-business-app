@@ -177,7 +177,7 @@ export default function ProfilePage() {
           <p className="text-gray-400">{profile.email}</p>
         </div>
         {activeTab !== 'security' && (
-          <button
+          <button type="button"
             type="button"
             onClick={handleSaveProfile}
             disabled={saving}
@@ -204,7 +204,7 @@ export default function ProfilePage() {
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
-            <button
+            <button type="button"
               type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -234,7 +234,7 @@ export default function ProfilePage() {
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-3xl font-bold">
                   {fullName ? fullName.charAt(0).toUpperCase() : profile.email.charAt(0).toUpperCase()}
                 </div>
-                <button
+                <button type="button"
                   type="button"
                   className="absolute bottom-0 right-0 p-2 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
                 >
@@ -324,7 +324,7 @@ export default function ProfilePage() {
                   </p>
                   <p className="text-sm text-gray-400">{t('notificationsHint')}</p>
                 </div>
-                <button
+                <button type="button"
                   type="button"
                   onClick={() => setNotificationsEnabled(!notificationsEnabled)}
                   className={`relative w-12 h-6 rounded-full transition-colors ${
@@ -355,7 +355,7 @@ export default function ProfilePage() {
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white pr-10"
                   />
-                  <button
+                  <button type="button"
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -374,7 +374,7 @@ export default function ProfilePage() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white pr-10"
                   />
-                  <button
+                  <button type="button"
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -395,7 +395,7 @@ export default function ProfilePage() {
                 />
               </div>
 
-              <button
+              <button type="button"
                 type="button"
                 onClick={handleChangePassword}
                 disabled={saving || !newPassword || !confirmPassword}

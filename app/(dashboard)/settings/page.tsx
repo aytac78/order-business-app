@@ -254,7 +254,7 @@ export default function SettingsPage() {
           <p className="text-gray-400">{currentVenue.name}</p>
         </div>
         {activeTab !== 'danger' && (
-          <button
+          <button type="button"
             type="button"
             onClick={handleSave}
             disabled={saving}
@@ -281,7 +281,7 @@ export default function SettingsPage() {
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
-            <button
+            <button type="button"
               type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}

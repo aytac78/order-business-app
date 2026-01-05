@@ -143,7 +143,7 @@ export default function VenuesPage() {
           <p className="text-gray-400">{totalVenues} mekan</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             type="button"
             onClick={loadVenues}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors"
@@ -151,7 +151,7 @@ export default function VenuesPage() {
             <RefreshCw className="w-4 h-4" />
             {tCommon('refresh')}
           </button>
-          <button
+          <button type="button"
             type="button"
             onClick={() => { setEditingVenue(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
@@ -273,7 +273,7 @@ export default function VenuesPage() {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-3 border-t border-gray-700">
-                  <button
+                  <button type="button"
                     type="button"
                     onClick={() => handleSelectVenue(venue)}
                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
@@ -284,14 +284,14 @@ export default function VenuesPage() {
                   >
                     {currentVenue?.id === venue.id ? 'Seçili' : 'Seç'}
                   </button>
-                  <button
+                  <button type="button"
                     type="button"
                     onClick={() => { setEditingVenue(venue); setShowModal(true); }}
                     className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button
+                  <button type="button"
                     type="button"
                     onClick={() => handleToggleActive(venue)}
                     className={`p-2 rounded-lg ${
@@ -302,7 +302,7 @@ export default function VenuesPage() {
                   >
                     {venue.is_active ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                   </button>
-                  <button
+                  <button type="button"
                     type="button"
                     onClick={() => handleDelete(venue.id)}
                     className="p-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg"
@@ -451,14 +451,14 @@ function VenueModal({
             />
           </div>
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600"
             >
               {tCommon('cancel')}
             </button>
-            <button
+            <button type="button"
               type="submit"
               className="flex-1 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
             >

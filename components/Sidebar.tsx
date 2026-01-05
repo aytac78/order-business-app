@@ -110,7 +110,7 @@ export function Sidebar() {
             <span className="text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded">Business</span>
           </Link>
         )}
-        <button onClick={toggleSidebarCollapse} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+        <button type="button" onClick={toggleSidebarCollapse} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
           <ChevronLeft className={`w-4 h-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>

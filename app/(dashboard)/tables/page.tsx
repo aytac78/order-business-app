@@ -706,7 +706,7 @@ function AddEditTableModal({
               Kapasite (Kişi)
             </label>
             <div className="flex items-center gap-3">
-              <button
+              <button type="button"
                 type="button"
                 onClick={() => setCapacity(Math.max(1, capacity - 1))}
                 className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-bold text-xl"
@@ -714,7 +714,7 @@ function AddEditTableModal({
                 -
               </button>
               <span className="text-2xl font-bold text-white w-16 text-center">{capacity}</span>
-              <button
+              <button type="button"
                 type="button"
                 onClick={() => setCapacity(Math.min(20, capacity + 1))}
                 className="w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-xl text-white font-bold text-xl"
@@ -741,7 +741,7 @@ function AddEditTableModal({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-                <button
+                <button type="button"
                   type="button"
                   onClick={() => setShowNewSection(true)}
                   className="text-sm text-orange-400 hover:text-orange-300"
@@ -758,7 +758,7 @@ function AddEditTableModal({
                   placeholder="Yeni bölüm adı"
                   className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
                 />
-                <button
+                <button type="button"
                   type="button"
                   onClick={() => setShowNewSection(false)}
                   className="text-sm text-gray-400 hover:text-gray-300"
@@ -776,7 +776,7 @@ function AddEditTableModal({
             </label>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(shapeConfig).map(([key, label]) => (
-                <button
+                <button type="button"
                   key={key}
                   type="button"
                   onClick={() => setShape(key as typeof shape)}
@@ -794,14 +794,14 @@ function AddEditTableModal({
 
           {/* Buttons */}
           <div className="flex gap-3 pt-4">
-            <button
+            <button type="button"
               type="button"
               onClick={onClose}
               className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-colors"
             >
               İptal
             </button>
-            <button
+            <button type="button"
               type="submit"
               disabled={saving}
               className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"

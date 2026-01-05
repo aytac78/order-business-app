@@ -132,7 +132,7 @@ export default function POSPage() {
         if (selectedOrder.table_id) {
           await supabase
             .from('tables')
-            .update({ status: 'cleaning', current_guests: 0 })
+            .update({ status: 'cleaning', current_guests: 0, customer_name: null })
             .eq('id', selectedOrder.table_id);
         }
 
@@ -220,7 +220,7 @@ export default function POSPage() {
     <div className="flex gap-6 h-[calc(100vh-120px)]">
       {/* Left: Open Checks */}
       <div className="w-80 flex-shrink-0 flex flex-col">
-        <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex flex-col overflow-hidden">
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex flex-col overflow-hidden print-receipt">
           <div className="p-4 border-b border-gray-700 flex items-center justify-between">
             <div>
               <h2 className="font-semibold text-white">Açık Hesaplar</h2>
@@ -284,7 +284,7 @@ export default function POSPage() {
       {/* Center: Order Detail */}
       <div className="flex-1 flex flex-col">
         {selectedOrder ? (
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex flex-col overflow-hidden">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 flex-1 flex flex-col overflow-hidden print-receipt">
             {/* Header */}
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
               <div>

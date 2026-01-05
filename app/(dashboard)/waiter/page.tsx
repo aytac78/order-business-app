@@ -463,6 +463,8 @@ export default function WaiterPage() {
 
   // Gerçek masa durumunu hesapla
   const getEffectiveStatus = (table: TableData): string => {
+    // Temizleniyor ise direkt döndür
+    if (table.status === 'cleaning') return 'cleaning';
     // Müşteri adı veya kişi sayısı varsa DOLU kabul et
     if (table.customer_name || (table.current_guests && table.current_guests > 0)) {
       return 'occupied';

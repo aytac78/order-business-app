@@ -386,3 +386,236 @@ tbody tr {
 tbody tr:hover {
   background-color: rgb(31, 41, 55) !important;
 }
+
+/* ==========================================
+   PRINT STYLES - Sadece fatura görünsün
+   ========================================== */
+@media print {
+  /* Tüm sayfayı gizle */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Sidebar'ı tamamen gizle */
+  aside,
+  nav,
+  .sidebar,
+  [class*="sidebar"],
+  [class*="Sidebar"] {
+    display: none !important;
+  }
+  
+  /* Header'ı gizle */
+  header,
+  .header,
+  [class*="header"],
+  [class*="Header"] {
+    display: none !important;
+  }
+  
+  /* Print edilecek alan - receipt/fatura */
+  .print-receipt,
+  .print-area,
+  [class*="print-receipt"],
+  [class*="receipt"] {
+    visibility: visible !important;
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    background: white !important;
+    color: black !important;
+    padding: 10px;
+    font-size: 12px;
+  }
+  
+  .print-receipt *,
+  .print-area *,
+  [class*="print-receipt"] *,
+  [class*="receipt"] * {
+    visibility: visible !important;
+    color: black !important;
+    background: white !important;
+  }
+  
+  /* Butonları gizle */
+  button,
+  .btn,
+  [class*="button"],
+  [class*="Button"] {
+    display: none !important;
+  }
+  
+  /* Arka plan renklerini kaldır */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ==========================================
+   PRINT STYLES - Sadece fatura görünsün
+   ========================================== */
+@media print {
+  /* Tüm sayfayı gizle */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Sidebar, header, modal backdrop gizle */
+  aside, nav, header,
+  .sidebar, [class*="sidebar"], [class*="Sidebar"],
+  .header, [class*="header"], [class*="Header"] {
+    display: none !important;
+  }
+  
+  /* Print edilecek alan */
+  .print-receipt,
+  .print-receipt * {
+    visibility: visible !important;
+  }
+  
+  .print-receipt {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    background: white !important;
+    color: black !important;
+    padding: 5mm !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+  }
+  
+  .print-receipt * {
+    color: black !important;
+    background: white !important;
+  }
+  
+  /* Butonları print'te gizle */
+  .print-receipt button,
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Sayfa kenar boşlukları */
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+}
+
+/* PRINT STYLES */
+@media print {
+  body * { visibility: hidden; }
+  aside, nav, header { display: none !important; }
+  .print-receipt, .print-receipt * { visibility: visible !important; }
+  .print-receipt {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    background: white !important;
+    color: black !important;
+    padding: 5mm !important;
+    font-size: 11px !important;
+  }
+  .print-receipt * { color: black !important; background: white !important; }
+  .no-print { display: none !important; }
+  @page { size: 80mm auto; margin: 0; }
+}
+@media print { body * { visibility: hidden !important; } aside, nav { display: none !important; } .print-receipt, .print-receipt * { visibility: visible !important; } .print-receipt { position: fixed !important; left: 50% !important; top: 0 !important; transform: translateX(-50%) !important; width: 72mm !important; background: white !important; color: black !important; padding: 8mm !important; } .print-receipt * { color: black !important; background: white !important; } .no-print, button { display: none !important; } @page { size: 80mm auto; margin: 5mm; } }
+
+/* PRINT STYLES - BÜYÜK VE OKUNAKLI */
+@media print {
+  body * { visibility: hidden !important; }
+  aside, nav { display: none !important; }
+  .print-receipt, .print-receipt * { visibility: visible !important; }
+  .print-receipt {
+    position: fixed !important;
+    left: 50% !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: 90mm !important;
+    background: white !important;
+    color: black !important;
+    padding: 12mm !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+  }
+  .print-receipt * { color: black !important; background: white !important; }
+  .print-receipt h2 { font-size: 20px !important; font-weight: bold !important; margin-bottom: 8px !important; }
+  .print-receipt p { font-size: 13px !important; margin: 4px 0 !important; }
+  .print-receipt table { width: 100% !important; margin: 12px 0 !important; }
+  .print-receipt th, .print-receipt td { padding: 6px 4px !important; font-size: 13px !important; }
+  .print-receipt th { font-weight: bold !important; border-bottom: 2px solid black !important; }
+  .print-receipt td { border-bottom: 1px solid #ccc !important; }
+  .print-receipt .text-xl, .print-receipt .font-bold { font-size: 18px !important; font-weight: bold !important; }
+  .no-print, button { display: none !important; }
+  @page { size: 100mm auto; margin: 8mm; }
+}
+
+/* PRINT - MOBİL İÇİN BÜYÜK FİŞ */
+@media print {
+  body * { visibility: hidden !important; }
+  aside, nav { display: none !important; }
+  .print-receipt, .print-receipt * { visibility: visible !important; }
+  .print-receipt {
+    position: fixed !important;
+    left: 50% !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: 180mm !important;
+    background: white !important;
+    color: black !important;
+    padding: 20mm !important;
+    font-size: 22px !important;
+    line-height: 1.8 !important;
+  }
+  .print-receipt * { color: black !important; background: white !important; }
+  .print-receipt h2 { font-size: 32px !important; font-weight: bold !important; margin-bottom: 15px !important; }
+  .print-receipt p { font-size: 20px !important; margin: 8px 0 !important; }
+  .print-receipt table { width: 100% !important; margin: 20px 0 !important; }
+  .print-receipt th, .print-receipt td { padding: 12px 8px !important; font-size: 20px !important; }
+  .print-receipt th { font-weight: bold !important; border-bottom: 3px solid black !important; }
+  .print-receipt td { border-bottom: 1px solid #ccc !important; }
+  .print-receipt .text-xl, .print-receipt .font-bold { font-size: 28px !important; font-weight: bold !important; }
+  .no-print, button { display: none !important; }
+  @page { size: A4; margin: 10mm; }
+}
+
+/* PRINT - TAM GENIŞLIK FİŞ */
+@media print {
+  body * { visibility: hidden !important; }
+  aside, nav { display: none !important; }
+  .print-receipt, .print-receipt * { visibility: visible !important; }
+  .print-receipt {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: white !important;
+    color: black !important;
+    padding: 15mm 20mm !important;
+    font-size: 18px !important;
+    line-height: 1.6 !important;
+    box-sizing: border-box !important;
+  }
+  .print-receipt * { color: black !important; background: white !important; }
+  .print-receipt h2 { font-size: 28px !important; font-weight: bold !important; text-align: center !important; }
+  .print-receipt p { font-size: 16px !important; text-align: center !important; }
+  .print-receipt table { width: 100% !important; margin: 15px 0 !important; border-collapse: collapse !important; }
+  .print-receipt th, .print-receipt td { padding: 10px 5px !important; font-size: 16px !important; }
+  .print-receipt th { font-weight: bold !important; border-bottom: 2px solid black !important; }
+  .print-receipt td { border-bottom: 1px solid #ddd !important; }
+  .print-receipt .text-xl { font-size: 24px !important; }
+  .print-receipt .font-bold { font-weight: bold !important; }
+  .no-print, button { display: none !important; }
+  @page { size: A4 portrait; margin: 10mm; }
+}

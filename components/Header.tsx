@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useVenueStore, useNotificationStore, useUIStore, useAuthStore } from '@/stores';
+import { supabase } from '@/lib/supabase';
 import { Bell, ChevronDown, Menu, Search, Building2, Check, LogOut, User, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { LanguageSelectorCompact } from '@/components/LanguageSelector';
@@ -13,10 +14,27 @@ export function Header() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
   const { toggleSidebar, sidebarCollapsed } = useUIStore();
   const { currentStaff, logout } = useAuthStore();
+  const [profileName, setProfileName] = useState<string | null>(null);
   
   const [showVenueDropdown, setShowVenueDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Load profile name from Supabase
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (data?.full_name) setProfileName(data.full_name);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const handleVenueChange = (venue: any) => {
     setCurrentVenue(venue);
@@ -50,7 +68,7 @@ export function Header() {
     reception: 'Resepsiyon'
   };
 
-  const displayName = currentStaff?.name || 'Kullanıcı';
+  const displayName = profileName || currentStaff?.name || 'Kullanıcı';
   const displayRole = currentStaff ? (roleLabels[currentStaff.role] || currentStaff.role) : 'İşletme Sahibi';
   const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 

@@ -11,6 +11,7 @@ import {
   Utensils,
   ArrowRight,
   Loader2,
+  Sparkles,
   LogOut,
   User
 } from 'lucide-react';
@@ -213,6 +214,25 @@ export default function HomePage() {
               <div className="flex items-center gap-2 text-purple-500 text-sm font-medium">
                 <span>{t.login.staffLogin}</span>
                 <ArrowRight className={`w-4 h-4 group-hover:translate-x-1 transition-transform ${rtl ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />
+              </div>
+            </button>
+          </div>
+
+          {/* Hızlı Kayıt Button */}
+          <div className="mt-6">
+            <button
+              onClick={() => router.push('/onboarding')}
+              className="w-full group relative bg-gradient-to-r from-emerald-500/20 to-teal-500/20 backdrop-blur-sm rounded-2xl p-5 border border-emerald-500/30 hover:border-emerald-500/60 transition-all hover:shadow-lg hover:shadow-emerald-500/10 text-center"
+            >
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-white">Hızlı Kayıt</h3>
+                  <p className="text-emerald-400 text-sm">Yeni mekan oluştur</p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-emerald-400 group-hover:translate-x-1 transition-transform ml-auto" />
               </div>
             </button>
           </div>

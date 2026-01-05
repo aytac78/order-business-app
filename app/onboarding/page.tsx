@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import {
   Building2, MapPin, Phone, Clock, UtensilsCrossed, Coffee,
   Wine, Umbrella, Music, Hotel, Check, ChevronRight, ChevronLeft,
-  Sparkles, Loader2
+  Sparkles, Loader2, Home, X
 } from 'lucide-react';
 
 interface VenueData {
@@ -135,6 +135,14 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 -m-6 p-6">
+      {/* Back to Home */}
+      <button
+        onClick={() => router.push('/')} 
+        className="absolute top-4 left-4 p-3 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 hover:text-white transition-all flex items-center gap-2"
+      >
+        <Home className="w-5 h-5" />
+        <span className="text-sm">Ana Sayfa</span>
+      </button>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">

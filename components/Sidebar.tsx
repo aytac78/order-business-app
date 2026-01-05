@@ -65,7 +65,6 @@ const menuItems = [
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Mekanlarım', href: '/venues', icon: Building2, multiVenueOnly: true },
-      { name: 'Hızlı Kayıt', href: '/onboarding', icon: Sparkles },
     ]
   },
   {

@@ -386,3 +386,4 @@ export const useCartStore = create<CartState>()((set, get) => ({
 }));
 // Re-export authStore
 export * from './authStore';
+export { useAuthStore } from './authStore';

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores';
 import {
   User, Mail, Phone, Camera, Save, Loader2, Shield,
   Globe, Bell, Lock, Eye, EyeOff, CheckCircle, AlertCircle
@@ -19,6 +20,7 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
+  const { currentStaff, login } = useAuthStore();
   const t = useTranslations('profile');
   const tCommon = useTranslations('common');
 
@@ -65,17 +67,22 @@ export default function ProfilePage() {
         setPhone(profileData.phone || '');
         setLanguage(profileData.language || 'tr');
         setNotificationsEnabled(profileData.notifications_enabled ?? true);
-      } else {
-        // Create profile if not exists
-        setProfile({
+      } else if (user) {
+        // Create profile in database
+        const newProfile = {
           id: user.id,
-          email: user.email || '',
-          full_name: '',
-          phone: '',
-          avatar_url: '',
-          language: 'tr',
+          email: user.email || "",
+          full_name: user.user_metadata?.full_name || "",
+          phone: "",
+          avatar_url: "",
+          language: "tr",
           notifications_enabled: true
-        });
+        };
+        const { error: upsertError } = await supabase.from("profiles").upsert(newProfile);
+        if (upsertError) console.error("Profile create error:", upsertError);
+        setProfile(newProfile);
+        setFullName(newProfile.full_name);
+        return;
       }
     }
     setLoading(false);
@@ -102,9 +109,13 @@ export default function ProfilePage() {
       });
 
     if (error) {
-      setMessage({ type: 'error', text: t('saveError') });
+      setMessage({ type: 'error', text: t('saveError') + ' - ' + (error.message || 'RLS policy hatası') });
     } else {
       setMessage({ type: 'success', text: t('saveSuccess') });
+      // Update auth store with new name
+      if (currentStaff) {
+        login({ ...currentStaff, name: fullName }, []);
+      }
       // Update language cookie if changed
       if (language !== profile.language) {
         document.cookie = `NEXT_LOCALE=${language};path=/;max-age=31536000`;
@@ -134,7 +145,24 @@ export default function ProfilePage() {
 
     if (error) {
       setMessage({ type: 'error', text: error.message });
-    } else {
+    } else if (user) {
+        // Create profile in database
+        const newProfile = {
+          id: user.id,
+          email: user.email || "",
+          full_name: user.user_metadata?.full_name || "",
+          phone: "",
+          avatar_url: "",
+          language: "tr",
+          notifications_enabled: true
+        };
+        const { error: upsertError } = await supabase.from("profiles").upsert(newProfile);
+        if (upsertError) console.error("Profile create error:", upsertError);
+        setProfile(newProfile);
+        setFullName(newProfile.full_name);
+        return;
+      }
+      if (false) {
       setMessage({ type: 'success', text: t('passwordChanged') });
       setCurrentPassword('');
       setNewPassword('');

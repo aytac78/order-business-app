@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import {
-  Save, AlertCircle, Loader2, Building, Clock, CreditCard, Bell,
+  Save, AlertCircle, LayoutGrid, Loader2, Building, Clock, CreditCard, Bell,
   QrCode, Trash2, ToggleLeft, ToggleRight, AlertTriangle, X, CheckCircle
 } from 'lucide-react';
 
@@ -71,6 +71,32 @@ export default function SettingsPage() {
   });
 
   // Delete modal
+
+  // Panel Yönetimi
+  const [panels, setPanels] = useState({
+    tables: true,
+    orders: true,
+    waiter: true,
+    kitchen: true,
+    pos: true,
+    reception: true,
+    menu: true,
+    reservations: true,
+    stock: true,
+    staff: true,
+    qr: true,
+    coupons: true,
+  });
+
+  const VENUE_PRESETS: Record<string, { name: string; panels: string[] }> = {
+    coffee_shop: { name: "Coffee Shop", panels: ["orders", "pos", "menu", "stock"] },
+    restaurant: { name: "Restaurant", panels: ["tables", "orders", "waiter", "kitchen", "pos", "menu", "reservations", "stock", "staff"] },
+    bar: { name: "Bar / Pub", panels: ["tables", "orders", "pos", "menu", "stock"] },
+    beach_club: { name: "Beach Club", panels: ["tables", "orders", "waiter", "kitchen", "pos", "menu", "reservations", "stock", "staff", "qr"] },
+    fast_food: { name: "Fast Food", panels: ["orders", "kitchen", "pos", "menu", "stock"] },
+    custom: { name: "Özel", panels: [] },
+  };
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -91,11 +117,18 @@ export default function SettingsPage() {
       return;
     }
 
-    const { data } = await supabase
+
+    const { data, error } = await supabase
       .from('venues')
       .select('*')
       .eq('id', currentVenue.id)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      console.error('Venue load error:', error);
+      setLoading(false);
+      return;
+    }
 
     if (data) {
       setName(data.name || '');
@@ -150,9 +183,8 @@ export default function SettingsPage() {
         settings: updatedSettings,
         updated_at: new Date().toISOString()
       })
-      .eq('id', currentVenue.id)
-      .select()
-      .single();
+      .eq('id', currentVenue.id);
+
 
     if (error) {
       console.error('Save error:', error);
@@ -184,6 +216,14 @@ export default function SettingsPage() {
       .from('venues')
       .delete()
       .eq('id', currentVenue.id);
+
+    if (error) {
+      console.error('Venue load error:', error);
+      setLoading(false);
+      return;
+    }
+
+    const data = result.data;
 
     if (!error) {
       const remainingVenues = venues.filter(v => v.id !== currentVenue.id);
@@ -221,6 +261,7 @@ export default function SettingsPage() {
     { id: 'ordering', label: t('orderSettings'), icon: QrCode },
     { id: 'payment', label: t('paymentSettings'), icon: CreditCard },
     { id: 'notifications', label: t('notifications'), icon: Bell },
+    { id: 'panels', label: 'Panel Yönetimi', icon: LayoutGrid },
     { id: 'danger', label: t('dangerZone'), icon: AlertTriangle, danger: true },
   ];
 
@@ -464,6 +505,64 @@ export default function SettingsPage() {
         )}
 
         {/* Danger Zone */}
+
+        {activeTab === 'panels' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+            <h3 className="text-lg font-bold text-white mb-4">Panel Yönetimi</h3>
+            <p className="text-gray-400 text-sm mb-6">İşletme tipinize göre gereksiz panelleri kapatarak arayüzü sadeleştirin.</p>
+            
+            <div className="mb-6">
+              <p className="text-sm font-medium text-gray-300 mb-3">Hızlı Ayar (İşletme Tipi)</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {Object.entries(VENUE_PRESETS).map(([key, preset]) => (
+                  <button key={key} onClick={() => {
+                    const newPanels = { tables: false, orders: true, waiter: false, kitchen: false, pos: true, reception: false, menu: false, reservations: false, stock: false, staff: false, qr: false, coupons: false };
+                    preset.panels.forEach(p => { (newPanels as any)[p] = true; });
+                    setPanels(newPanels);
+                    localStorage.setItem('order-panels', JSON.stringify(newPanels));
+                  }} className="p-3 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium text-white transition-colors">
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {[
+                { id: 'tables', name: 'Masalar', desc: 'Masa düzeni ve yönetimi', required: false },
+                { id: 'orders', name: 'Siparişler', desc: 'Sipariş listesi', required: true },
+                { id: 'waiter', name: 'Garson Paneli', desc: 'Garsonlar için sipariş alma', required: false },
+                { id: 'kitchen', name: 'Mutfak', desc: 'Mutfak ekranı', required: false },
+                { id: 'pos', name: 'Kasa/POS', desc: 'Ödeme ve fatura', required: true },
+                { id: 'reception', name: 'Resepsiyon', desc: 'Misafir karşılama', required: false },
+                { id: 'menu', name: 'Menü Yönetimi', desc: 'Ürün ve kategori', required: false },
+                { id: 'reservations', name: 'Rezervasyonlar', desc: 'Rezervasyon yönetimi', required: false },
+                { id: 'stock', name: 'Stok', desc: 'Stok takibi', required: false },
+                { id: 'staff', name: 'Personel', desc: 'Personel yönetimi', required: false },
+                { id: 'qr', name: 'QR Menü', desc: 'QR kod menü', required: false },
+                { id: 'coupons', name: 'Kuponlar', desc: 'İndirim kuponları', required: false },
+              ].map(panel => (
+                <div key={panel.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${(panels as any)[panel.id] ? 'bg-green-500/10 border-green-500/30' : 'bg-gray-700/50 border-gray-600'}`}>
+                  <div>
+                    <p className="font-medium text-white">{panel.name} {panel.required && <span className="text-xs text-orange-400">(Zorunlu)</span>}</p>
+                    <p className="text-xs text-gray-400">{panel.desc}</p>
+                  </div>
+                  <button 
+                    disabled={panel.required} 
+                    onClick={() => {
+                      const newPanels = { ...panels, [panel.id]: !(panels as any)[panel.id] };
+                      setPanels(newPanels);
+                      localStorage.setItem('order-panels', JSON.stringify(newPanels));
+                    }} 
+                    className={`w-12 h-7 rounded-full transition-colors flex items-center ${(panels as any)[panel.id] ? 'bg-green-500' : 'bg-gray-600'} ${panel.required ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform ${(panels as any)[panel.id] ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {activeTab === 'danger' && (
           <div className="space-y-6">
             <div className="flex items-center gap-3 text-red-500 mb-4">
